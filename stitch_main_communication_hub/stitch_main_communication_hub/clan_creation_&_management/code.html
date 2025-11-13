@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SesVer - Clan Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b8cee",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#111418",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings:
+            'FILL' 1,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex min-h-screen w-full flex-row">
+<!-- Side Navigation Bar -->
+<aside class="flex h-screen min-w-[280px] max-w-[280px] flex-col justify-between border-r border-slate-300/10 bg-[#1A222D] p-4">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="User avatar image" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAaEz0jxG50GHzN_DA--IESQ1z74C4CDyQvzElmkoo0ZQTAkCyYNef8OvwjyyOvXffGBDxabRTfqqQ0YpjATnZmQpONgLWQDFUHg-iXD5dLzS14Jmt9NdwYIpqfGa9ixXulWBwfDZAsnhzAeCqsR7OpD3K6tKH1IqthuLluWdw0nFSXvfsKq0Q6s8qNHGLufmG_xNBiPJnp7qvouyz8NGG6rIqPMgTpIXhB-ECTaZ0hy85YmmLjzz5P2QRO-NVk_tGVGatIJMfQiIY");'></div>
+<div class="flex flex-col">
+<h1 class="text-base font-medium leading-normal text-slate-100">AdminUser</h1>
+<p class="text-sm font-normal leading-normal text-slate-400">Online</p>
+</div>
+</div>
+<div class="my-2 border-t border-slate-300/10"></div>
+<h2 class="px-3 text-xs font-bold tracking-wider uppercase text-slate-400">Your Clans</h2>
+<div class="flex flex-col gap-1">
+<div class="flex cursor-pointer items-center gap-3 rounded-lg bg-primary/20 px-3 py-2">
+<span class="material-symbols-outlined fill text-primary">shield</span>
+<p class="text-sm font-medium leading-normal text-white">The Sentinel</p>
+</div>
+<div class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+<span class="material-symbols-outlined text-slate-300">skull</span>
+<p class="text-sm font-medium leading-normal text-slate-300">Apex Predators</p>
+</div>
+<div class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+<span class="material-symbols-outlined text-slate-300">memory</span>
+<p class="text-sm font-medium leading-normal text-slate-300">Cyber Legion</p>
+</div>
+<div class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+<span class="material-symbols-outlined text-slate-300">dark_mode</span>
+<p class="text-sm font-medium leading-normal text-slate-300">Nightfall</p>
+</div>
+</div>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90">
+<span class="material-symbols-outlined">add</span>
+<span class="truncate">Create New Clan</span>
+</button>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto p-8">
+<div class="mx-auto max-w-5xl">
+<!-- Page Heading -->
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+<p class="text-4xl font-black leading-tight tracking-[-0.033em] text-slate-50 min-w-72">The Sentinel Settings</p>
+</div>
+<!-- Tabs -->
+<div class="pb-3">
+<div class="flex border-b border-slate-300/20 gap-8">
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-primary pb-[13px] pt-4" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em] text-white">Members</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent pb-[13px] pt-4 text-slate-400 hover:text-white" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Roles &amp; Permissions</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent pb-[13px] pt-4 text-slate-400 hover:text-white" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Channels</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent pb-[13px] pt-4 text-slate-400 hover:text-white" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Invites</p>
+</a>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="py-6">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="flex items-center justify-center rounded-l-lg border-y border-l border-slate-300/20 bg-[#1A222D] pl-4 text-slate-400">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-lg border border-slate-300/20 bg-[#1A222D] text-slate-50 placeholder:text-slate-400 h-full border-l-0 pl-2 text-base font-normal leading-normal focus:border-primary focus:ring-primary/50" placeholder="Search members..." value=""/>
+</div>
+</label>
+</div>
+<!-- Table -->
+<div class="py-3 @container">
+<div class="flex overflow-hidden rounded-lg border border-slate-300/20">
+<table class="flex-1 bg-[#1A222D]">
+<thead>
+<tr class="bg-black/20">
+<th class="px-4 py-3 text-left w-[40%] text-sm font-medium leading-normal text-slate-300">User</th>
+<th class="px-4 py-3 text-left w-[25%] text-sm font-medium leading-normal text-slate-300">Role</th>
+<th class="px-4 py-3 text-left w-[20%] text-sm font-medium leading-normal text-slate-300">Status</th>
+<th class="px-4 py-3 text-left w-[15%] text-sm font-medium leading-normal text-slate-300">Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-t border-t-slate-300/20">
+<td class="h-[72px] px-4 py-2 w-[40%] text-sm font-normal leading-normal text-slate-50">ShadowStrike</td>
+<td class="h-[72px] px-4 py-2 w-[25%] text-sm font-normal leading-normal">
+<div class="flex items-center justify-center overflow-hidden rounded-lg h-8 bg-slate-700 text-white text-sm font-medium leading-normal w-full max-w-[120px]">
+<span class="truncate">Admin</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[20%] text-sm font-normal leading-normal text-slate-400">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500"></span>
+<span>Online</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[15%] text-sm font-bold leading-normal tracking-[0.015em] text-primary hover:underline cursor-pointer">Edit</td>
+</tr>
+<tr class="border-t border-t-slate-300/20">
+<td class="h-[72px] px-4 py-2 w-[40%] text-sm font-normal leading-normal text-slate-50">GhostReaper</td>
+<td class="h-[72px] px-4 py-2 w-[25%] text-sm font-normal leading-normal">
+<div class="flex items-center justify-center overflow-hidden rounded-lg h-8 bg-slate-700 text-white text-sm font-medium leading-normal w-full max-w-[120px]">
+<span class="truncate">Moderator</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[20%] text-sm font-normal leading-normal text-slate-400">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500"></span>
+<span>Online</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[15%] text-sm font-bold leading-normal tracking-[0.015em] text-primary hover:underline cursor-pointer">Edit</td>
+</tr>
+<tr class="border-t border-t-slate-300/20">
+<td class="h-[72px] px-4 py-2 w-[40%] text-sm font-normal leading-normal text-slate-50">Viper</td>
+<td class="h-[72px] px-4 py-2 w-[25%] text-sm font-normal leading-normal">
+<div class="flex items-center justify-center overflow-hidden rounded-lg h-8 bg-slate-700 text-white text-sm font-medium leading-normal w-full max-w-[120px]">
+<span class="truncate">Member</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[20%] text-sm font-normal leading-normal text-slate-400">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-slate-500"></span>
+<span>Offline</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[15%] text-sm font-bold leading-normal tracking-[0.015em] text-primary hover:underline cursor-pointer">Edit</td>
+</tr>
+<tr class="border-t border-t-slate-300/20">
+<td class="h-[72px] px-4 py-2 w-[40%] text-sm font-normal leading-normal text-slate-50">Phoenix</td>
+<td class="h-[72px] px-4 py-2 w-[25%] text-sm font-normal leading-normal">
+<div class="flex items-center justify-center overflow-hidden rounded-lg h-8 bg-slate-700 text-white text-sm font-medium leading-normal w-full max-w-[120px]">
+<span class="truncate">Member</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[20%] text-sm font-normal leading-normal text-slate-400">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500"></span>
+<span>Online</span>
+</div>
+</td>
+<td class="h-[72px] px-4 py-2 w-[15%] text-sm font-bold leading-normal tracking-[0.015em] text-primary hover:underline cursor-pointer">Edit</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
