@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
+import MainLayout from "./components/layout/MainLayout";
 
 function App() {
   const DashboardPage = () => <h2>SesVer Ana Sayfasına Hoş Geldiniz!</h2>;
@@ -29,42 +30,26 @@ function App() {
           isAuthenticated ? <Navigate to="/app" replace /> : <RegisterPage />
         }
       />
-
+      {/* Protected + Nested Routes */}
       <Route
         path="/app"
         element={
           <ProtectedRoute>
-            <HomePage />
-            <Route index element={<DashboardPage />} />
+            <MainLayout />
           </ProtectedRoute>
         }
-      ></Route>
-      {/* İç İçe Rota (Nested Route)
-          URL: /app/clans/:clanId/channels/:channelId 
-          Bu rota, MainLayout içindeki <Outlet />'e render edilecek.
-        */}
-
-      <Route
-        path="/app/clans/:clanId/channels/:channelId"
-        element={<ChannelPage />}
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      >
+        <Route index element={<DashboardPage />} />
+        {/* İç İçe Rota (Nested Route)
+            URL: /app/clans/:clanId/channels/:channelId
+            Bu rota, MainLayout içindeki <Outlet />'e render edilecek.
+          */}
+        <Route
+          path="clans/:clanId/channels/:channelId"
+          element={<ChannelPage />}
+        />
+      </Route>
     </Routes>
-  );
-}
-
-function HomePage() {
-  const navigate = useNavigate();
-  return (
-    <div>
-      Yükleniyor...
-      <div style={{ marginTop: 12 }}>
-        <button onClick={() => navigate("/login")} style={{ marginRight: 8 }}>
-          Go to Login
-        </button>
-        <button onClick={() => navigate("/register")}>Go to Register</button>
-      </div>
-    </div>
   );
 }
 

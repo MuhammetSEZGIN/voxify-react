@@ -2,18 +2,20 @@ import { useAuth } from "../../hooks/useAuth";
 import { Navigate, Outlet } from "react-router-dom";
 
 
-function ProtectedRoute({ Children }) {
-  const {isAuthenticated, loading} = useAuth();
-  // Kullanıcının şu anki konumu alınıyor
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
 
-  // Farklı bir yükleniyor durumu eklenebilir
   if (loading) {
     return <div>loading ...</div>;
   }
+
   if (!isAuthenticated) {
-    return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace />;
   }
-  return Children;
+
+  // If used as a wrapper: <ProtectedRoute><MainLayout/></ProtectedRoute>
+  // If used as a route element without children, support nested routing.
+  return children ? children : <Outlet />;
 }
 
 export default ProtectedRoute;

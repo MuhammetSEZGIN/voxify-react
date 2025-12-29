@@ -3,7 +3,7 @@ import AuthService from "../services/AuthService";
 const AuthContext = createContext(null);
 
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
@@ -12,11 +12,18 @@ function AuthProvider({ children }) {
       if (token) {
         setToken(token);
         try {
-            // TODO: Kullanıcı bilgilerini alabiliriz
-            // Bunu direkt olarak api çağrısı ile yapabiliriz
-            // Veya token decode edip içinden user bilgilerini çekebiliriz.
-
-
+          const parts = token.split(".");
+          if (parts.length === 3) {
+            const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+            const padded = base64.padEnd(
+              base64.length + (4 - (base64.length % 4)) % 4,
+              "="
+            );
+            const payload = JSON.parse(atob(padded));
+            setUser(payload.user || payload);
+          } else {
+            setUser(null);
+          }
         } catch (error) {
           console.error("Error setting auth header", error);
           setToken(null);
@@ -58,3 +65,5 @@ function AuthProvider({ children }) {
 }
 
 export {AuthProvider, AuthContext};
+
+

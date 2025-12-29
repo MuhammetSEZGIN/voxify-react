@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 // Bu component'ler Adım 4'te doldurulacak.
@@ -30,7 +30,6 @@ const ChannelList = () => {
 
 function MainLayout() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
