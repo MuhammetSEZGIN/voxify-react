@@ -30,7 +30,7 @@ function LoginPage() {
       setError("Geçersiz email veya parola");
     }, 2000);
   };
-
+  
   return (
     <div className="auth-page">
       <h2>Giriş Sayfası</h2>
