@@ -1,6 +1,6 @@
-import React, { createContext, useMemo, useState, useEffect } from "react";
+import React, { createContext, useMemo, useState, useEffect, useCallback } from "react";
 import AuthService from "../services/AuthService";
-import api from "../services/api";
+
 const AuthContext = createContext(null);
 
 function decodeJwt(token) {
@@ -22,7 +22,6 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    () => {
       if (token) {
         const decoded = decodeJwt(token);
         const derivedUser = decoded?.user || decoded || null;
@@ -33,8 +32,6 @@ function AuthProvider({ children }) {
         }
       }
       setLoading(false);
-    };
-
   }, [token, user]);
 
   const login = async (email, password) => {
@@ -54,12 +51,21 @@ function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback( useCallback(async () => {
+   try{
+    if(user?.sessionId){
+      await AuthService.logoutSession(user.sessionId);
+    }
+   }catch(error){
+    console.error("Logout session error", error);
+   }
+   finally {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
     setToken(null);
-
-    AuthService.logout();
-  };
+   }
+  }, [user?.sessionId]);
 
   // Global olarak erişilecek değerler
   const value = useMemo(
@@ -69,7 +75,6 @@ function AuthProvider({ children }) {
       isAuthenticated: !!token,
       loading,
       login,
-      logout,
     }),
     [user, token, loading]
   );
