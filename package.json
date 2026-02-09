@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "msw": "^2.12.8"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}
