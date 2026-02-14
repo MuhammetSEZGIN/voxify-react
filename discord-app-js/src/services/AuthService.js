@@ -25,7 +25,6 @@ async function login(userData) {
  * @param {string} userData.userName - Username
  * @param {string} userData.email - Email address
  * @param {string} userData.password - Password
- * @param {string} userData.fullName - Full name
  * @param {string} [userData.avatarUrl] - Optional avatar URL
  * @returns {Promise<{userId: string, token: string, refreshToken: string}>}
  */
