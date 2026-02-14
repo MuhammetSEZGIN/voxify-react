@@ -1,71 +1,157 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-
-// Bu component'ler Adım 4'te doldurulacak.
-// Şimdilik yer tutucu olarak oluşturalım.
-const ClanList = () => {
-  return (
-    <nav style={{ width: '80px', background: '#202225', color: 'white', padding: '10px' }}>
-      <p>Klan Listesi (Adım 4)</p>
-      {/* Örnek Klan İkonu */}
-      <div style={{ background: '#5865F2', height: '50px', width: '50px', borderRadius: '50%', textAlign: 'center', lineHeight: '50px', cursor: 'pointer' }}>
-        K1
-      </div>
-    </nav>
-  );
-};
-
-const ChannelList = () => {
-  return (
-    <aside style={{ width: '240px', background: '#2f3136', color: 'gray', padding: '10px' }}>
-      <p>Kanal Listesi (Adım 4)</p>
-      <p># genel</p>
-      <p># duyurular</p>
-      <p>🔊 Sohbet 1</p>
-    </aside>
-  );
-};
-
+import ClanService from '../../services/ClanService';
+import ChannelService from '../../services/ChannelService';
+import ServerList from '../clan/ServerList';
+import ChannelSidebar from '../clan/ChannelSidebar';
+import ChatArea from '../chat/ChatArea';
+import CreateClanModal from '../clan/CreateClanModal';
+import '../../styles/discord.css';
 
 function MainLayout() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { clanId: urlClanId, channelId: urlChannelId } = useParams();
+
+  const [clans, setClans] = useState([]);
+  const [selectedClan, setSelectedClan] = useState(null);
+  const [channels, setChannels] = useState([]);
+  const [voiceChannels, setVoiceChannels] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [loadingClans, setLoadingClans] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Klanları yükle
+  useEffect(() => {
+    const fetchClans = async () => {
+      try {
+        setLoadingClans(true);
+        const data = await ClanService.getMyClans();
+        setClans(data || []);
+      } catch (error) {
+        console.error('Failed to fetch clans', error);
+      } finally {
+        setLoadingClans(false);
+      }
+    };
+    fetchClans();
+  }, []);
+
+  // URL'deki clanId değiştiğinde selectedClan'ı güncelle
+  useEffect(() => {
+    if (urlClanId && clans.length > 0) {
+      const clan = clans.find((c) => c.clanId === urlClanId);
+      if (clan && clan.clanId !== selectedClan?.clanId) {
+        setSelectedClan(clan);
+      }
+    }
+  }, [urlClanId, clans, selectedClan?.clanId]);
+
+  // URL'deki channelId değiştiğinde selectedChannel'ı güncelle
+  useEffect(() => {
+    if (urlChannelId && channels.length > 0) {
+      const channel = channels.find((c) => c.channelId === urlChannelId);
+      if (channel) setSelectedChannel(channel);
+    } else {
+      setSelectedChannel(null);
+    }
+  }, [urlChannelId, channels]);
+
+  // Seçilen klanın kanallarını yükle
+  useEffect(() => {
+    if (!selectedClan) {
+      setChannels([]);
+      setVoiceChannels([]);
+      setSelectedChannel(null);
+      return;
+    }
+
+    const fetchChannels = async () => {
+      try {
+        const [textChannels, voiceChans] = await Promise.all([
+          ChannelService.getChannelsByClanId(selectedClan.clanId),
+          ChannelService.getVoiceChannelsByClanId(selectedClan.clanId),
+        ]);
+        setChannels(textChannels || []);
+        setVoiceChannels(voiceChans || []);
+      } catch (error) {
+        console.error('Failed to fetch channels', error);
+      }
+    };
+    fetchChannels();
+  }, [selectedClan]);
+
+  const handleSelectClan = (clan) => {
+    if (!clan) {
+      setSelectedClan(null);
+      setSelectedChannel(null);
+      navigate('/app');
+      return;
+    }
+    setSelectedClan(clan);
+    setSelectedChannel(null);
+    navigate('/app');
+  };
+
+  const handleSelectChannel = (channel) => {
+    setSelectedChannel(channel);
+    navigate(`/app/clans/${selectedClan.clanId}/channels/${channel.channelId}`);
+  };
+
+  const handleCreateClan = async ({ name, description }) => {
+    const newClan = await ClanService.createClan({
+      name,
+      description,
+      userId: user?.id || user?.sub || '',
+    });
+    setClans((prev) => [...prev, newClan]);
+    setSelectedClan(newClan);
+  };
 
   const handleLogout = () => {
     logout();
-    // authService.logout() zaten window.location ile yönlendirme yapıyor,
-    // ancak context'i kullanmak daha "React"vari bir yoldur.
-    // navigate('/login'); // authService'deki yönlendirme olmasaydı bunu kullanırdık.
   };
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', background: '#36393f', color: 'white' }}>
-      
-      {/* 1. Sol Panel: Klan (Sunucu) Listesi */}
-      <ClanList />
-      
-      {/* 2. Orta Panel: Kanal Listesi ve Kullanıcı Bilgisi */}
-      <div style={{ display: 'flex', flexDirection: 'column', width: '240px' }}>
-        <ChannelList />
-        
-        {/* Kullanıcı Paneli */}
-        <div style={{ marginTop: 'auto', background: '#292b2f', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Merhaba, {user?.username || 'Kullanıcı'}!</span>
-          <button onClick={handleLogout} style={{ background: 'red', color: 'white', border: 'none', padding: '5px' }}>
-            Çıkış
-          </button>
-        </div>
+  if (loadingClans) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-screen__spinner" />
+        <span>Yükleniyor...</span>
       </div>
+    );
+  }
 
-      {/* 3. Ana İçerik Alanı */}
-      <main style={{ flexGrow: 1, padding: '20px', overflowY: 'auto' }}>
-        {/* İÇ İÇE ROTALARIN GÖSTERİLECEĞİ YER (PRİZ)
-          /app -> DashboardPage
-          /app/clans/... -> ChannelPage
-        */}
-        <Outlet />
-      </main>
-      
+  return (
+    <div className="discord-app">
+      <ServerList
+        clans={clans}
+        selectedClanId={selectedClan?.clanId}
+        onSelectClan={handleSelectClan}
+        onCreateClan={() => setShowCreateModal(true)}
+      />
+
+      <ChannelSidebar
+        clan={selectedClan}
+        channels={channels}
+        voiceChannels={voiceChannels}
+        selectedChannelId={selectedChannel?.channelId}
+        onSelectChannel={handleSelectChannel}
+        user={user}
+        onLogout={handleLogout}
+      />
+
+      <ChatArea
+        clan={selectedClan}
+        channel={selectedChannel}
+      />
+
+      {showCreateModal && (
+        <CreateClanModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreateClan}
+        />
+      )}
     </div>
   );
 }

@@ -25,10 +25,6 @@ function LoginPage() {
       setLoading(false);
     }
     console.log("giriş yapılıyor...", { email, password });
-    setTimeout(() => {
-      setLoading(false);
-      setError("Geçersiz email veya parola");
-    }, 2000);
   };
   
   return (
