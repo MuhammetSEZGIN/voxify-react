@@ -6,7 +6,7 @@ import App from "./App";
 
 
 async function enableMocking() {
-  if (import.meta.env.MODE !== 'development') {
+  if (import.meta.env.VITE_MOCKING !== 'false') {
     return;
   }
   const { worker } = await import('./mocks/browser');
