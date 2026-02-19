@@ -3,6 +3,60 @@ import { http, HttpResponse } from 'msw';
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 // Mock data
+
+const mockMessages = {
+  'ch-1111-0001': [
+    {
+      messageId: 'msg-0001',
+      content: 'Herkese merhaba! 👋',
+      channelId: 'ch-1111-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      isEdited: false,
+    },
+    {
+      messageId: 'msg-0002',
+      content: 'Merhaba, hoş geldin!',
+      channelId: 'ch-1111-0001',
+      userId: 'user-002',
+      user: { id: 'user-002', username: 'user2' },
+      createdAt: new Date(Date.now() - 3000000).toISOString(),
+      isEdited: false,
+    },
+    {
+      messageId: 'msg-0003',
+      content: 'Bu sunucu harika görünüyor 🎉',
+      channelId: 'ch-1111-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 1800000).toISOString(),
+      isEdited: false,
+    },
+  ],
+  'ch-2222-0001': [
+    {
+      messageId: 'msg-0004',
+      content: 'Bu akşam oyun oynayacak var mı?',
+      channelId: 'ch-2222-0001',
+      userId: 'user-002',
+      user: { id: 'user-002', username: 'user2' },
+      createdAt: new Date(Date.now() - 600000).toISOString(),
+      isEdited: false,
+    },
+  ],
+  'ch-3333-0001': [
+    {
+      messageId: 'msg-0005',
+      content: 'React 19 çok iyi olmuş!',
+      channelId: 'ch-3333-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      isEdited: false,
+    },
+  ],
+};
 const mockClans = [
   {
     clanId: 'c1a1a1a1-1111-1111-1111-111111111111',
@@ -63,7 +117,10 @@ const mockVoiceChannels = {
 };
 
 export const handlers = [
-  // ===== Auth endpoints =====
+   
+    // ===== Message endpoints =====
+
+    // ===== Auth endpoints =====
   http.post(`${API_URL}/auth/login`, async ({ request }) => {
     const { email, password } = await request.json();
 
@@ -112,183 +169,5 @@ export const handlers = [
     });
   }),
 
-  // ===== Clan endpoints =====
-
-  // GET /api/Clan - Get all clans (for current user)
-  http.get(`${API_URL}/Clan`, () => {
-    return HttpResponse.json(mockClans);
-  }),
-
-  // GET /api/Clan/:clanId - Get clan by ID
-  http.get(`${API_URL}/Clan/:clanId`, ({ params }) => {
-    const clan = mockClans.find((c) => c.clanId === params.clanId);
-    if (!clan) {
-      return HttpResponse.json({ error: 'Clan not found' }, { status: 404 });
-    }
-    return HttpResponse.json(clan);
-  }),
-
-  // GET /api/Clan/user/:userId - Get clans by user ID
-  http.get(`${API_URL}/Clan/user/:userId`, () => {
-    return HttpResponse.json(mockClans);
-  }),
-
-  // POST /api/Clan - Create clan
-  http.post(`${API_URL}/Clan`, async ({ request }) => {
-    const data = await request.json();
-    const newClan = {
-      clanId: crypto.randomUUID(),
-      name: data.name,
-      imagePath: data.imagePath || null,
-      description: data.description || null,
-      isPublic: true,
-      channels: [],
-      voiceChannels: [],
-    };
-    mockClans.push(newClan);
-    return HttpResponse.json(newClan, { status: 201 });
-  }),
-
-  // PUT /api/Clan - Update clan
-  http.put(`${API_URL}/Clan`, async ({ request }) => {
-    const data = await request.json();
-    const clan = mockClans.find((c) => c.clanId === data.clanId);
-    if (!clan) {
-      return HttpResponse.json({ error: 'Clan not found' }, { status: 404 });
-    }
-    clan.name = data.name;
-    if (data.imagePath !== undefined) clan.imagePath = data.imagePath;
-    return HttpResponse.json(clan);
-  }),
-
-  // DELETE /api/Clan/:clanId
-  http.delete(`${API_URL}/Clan/:clanId`, ({ params }) => {
-    const index = mockClans.findIndex((c) => c.clanId === params.clanId);
-    if (index === -1) {
-      return HttpResponse.json({ error: 'Clan not found' }, { status: 404 });
-    }
-    mockClans.splice(index, 1);
-    return HttpResponse.json({ message: 'Deleted' });
-  }),
-
-  // ===== Channel endpoints =====
-
-  // GET /api/Channel/clan/:clanId
-  http.get(`${API_URL}/Channel/clan/:clanId`, ({ params }) => {
-    const channels = mockChannels[params.clanId] || [];
-    return HttpResponse.json(channels);
-  }),
-
-  // GET /api/Channel/:channelId
-  http.get(`${API_URL}/Channel/:channelId`, ({ params }) => {
-    for (const channels of Object.values(mockChannels)) {
-      const ch = channels.find((c) => c.channelId === params.channelId);
-      if (ch) return HttpResponse.json(ch);
-    }
-    return HttpResponse.json({ error: 'Channel not found' }, { status: 404 });
-  }),
-
-  // POST /api/Channel
-  http.post(`${API_URL}/Channel`, async ({ request }) => {
-    const data = await request.json();
-    const newChannel = {
-      channelId: crypto.randomUUID(),
-      name: data.name,
-      clanId: data.clanId,
-    };
-    if (!mockChannels[data.clanId]) mockChannels[data.clanId] = [];
-    mockChannels[data.clanId].push(newChannel);
-    return HttpResponse.json(newChannel, { status: 201 });
-  }),
-
-  // PUT /api/Channel
-  http.put(`${API_URL}/Channel`, async ({ request }) => {
-    const data = await request.json();
-    for (const channels of Object.values(mockChannels)) {
-      const ch = channels.find((c) => c.channelId === data.channelId);
-      if (ch) {
-        ch.name = data.name;
-        return HttpResponse.json(ch);
-      }
-    }
-    return HttpResponse.json({ error: 'Channel not found' }, { status: 404 });
-  }),
-
-  // DELETE /api/Channel/:channelId
-  http.delete(`${API_URL}/Channel/:channelId`, ({ params }) => {
-    for (const [clanId, channels] of Object.entries(mockChannels)) {
-      const index = channels.findIndex((c) => c.channelId === params.channelId);
-      if (index !== -1) {
-        mockChannels[clanId].splice(index, 1);
-        return HttpResponse.json({ message: 'Deleted' });
-      }
-    }
-    return HttpResponse.json({ error: 'Channel not found' }, { status: 404 });
-  }),
-
-  // ===== VoiceChannel endpoints =====
-
-  // GET /api/VoiceChannel/clan/:clanId
-  http.get(`${API_URL}/VoiceChannel/clan/:clanId`, ({ params }) => {
-    const voiceChannels = mockVoiceChannels[params.clanId] || [];
-    return HttpResponse.json(voiceChannels);
-  }),
-
-  // GET /api/VoiceChannel/:voiceChannelId
-  http.get(`${API_URL}/VoiceChannel/:voiceChannelId`, ({ params }) => {
-    for (const vcs of Object.values(mockVoiceChannels)) {
-      const vc = vcs.find((v) => v.voiceChannelId === params.voiceChannelId);
-      if (vc) return HttpResponse.json(vc);
-    }
-    return HttpResponse.json({ error: 'Voice channel not found' }, { status: 404 });
-  }),
-
-  // POST /api/VoiceChannel
-  http.post(`${API_URL}/VoiceChannel`, async ({ request }) => {
-    const data = await request.json();
-    const newVc = {
-      voiceChannelId: crypto.randomUUID(),
-      name: data.name,
-      clanId: data.clanId,
-      isActive: true,
-      maxParticipants: 10,
-    };
-    if (!mockVoiceChannels[data.clanId]) mockVoiceChannels[data.clanId] = [];
-    mockVoiceChannels[data.clanId].push(newVc);
-    return HttpResponse.json(newVc, { status: 201 });
-  }),
-
-  // ===== ClanMembership endpoints =====
-
-  // GET /api/ClanMembership/clan/:clanId
-  http.get(`${API_URL}/ClanMembership/clan/:clanId`, ({ params }) => {
-    return HttpResponse.json([
-      { id: crypto.randomUUID(), clanId: params.clanId, userId: 'user-001', role: 'owner', user: { id: 'user-001', username: 'testuser' } },
-      { id: crypto.randomUUID(), clanId: params.clanId, userId: 'user-002', role: 'member', user: { id: 'user-002', username: 'user2' } },
-    ]);
-  }),
-
-  // POST /api/ClanMembership/:clanId/invitations
-  http.post(`${API_URL}/ClanMembership/:clanId/invitations`, ({ params }) => {
-    return HttpResponse.json({
-      inviteId: crypto.randomUUID(),
-      clanId: params.clanId,
-      inviteCode: 'MOCK-INVITE-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-      isActive: true,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      maxUses: 100,
-      usedCount: 0,
-    });
-  }),
-
-  // POST /api/ClanMembership/join
-  http.post(`${API_URL}/ClanMembership/join`, async ({ request }) => {
-    const data = await request.json();
-    return HttpResponse.json({
-      id: crypto.randomUUID(),
-      clanId: 'c1a1a1a1-1111-1111-1111-111111111111',
-      userId: data.userId,
-      role: 'member',
-    });
-  }),
+ 
 ];
