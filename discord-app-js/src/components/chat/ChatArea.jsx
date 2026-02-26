@@ -1,14 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import MessageService from '../../services/MessageService';
+import SignalRService from '../../services/LiveMessageService';
 import MemberList from '../clan/MemberList';
 import ClanService from '../../services/ClanService';
 import { canDeleteMessage, canEditMessage } from '../../utils/permissions';
 
+/**
+ * Backend MessageDto → Frontend message objesi dönüşümü.
+ * Hub'dan gelen alan adları (Id, UserName, SenderId, Text, ChannelId, CreatedAt)
+ * frontend'deki isimlere eşlenir.
+ */
+function mapHubMessage(dto) {
+  return {
+    messageId: dto.id?.$oid || dto.id || dto.Id,
+    content: dto.text ?? dto.Text ?? '',
+    username: dto.userName ?? dto.UserName ?? 'Bilinmeyen',
+    userId: dto.senderId ?? dto.SenderId,
+    channelId: dto.channelId ?? dto.ChannelId,
+    createdAt: dto.createdAt ?? dto.CreatedAt,
+  };
+}
+
 function ChatArea({ clan, channel }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [messages, setMessages] = useState([]);
-  const [members, setMembers] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -17,17 +33,40 @@ function ChatArea({ clan, channel }) {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  // Kanal değiştiğinde mesajları yükle
+  // ──────────────────────────────────────────────
+  // 1) SignalR bağlantısını başlat / durdur
+  // ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+
+    SignalRService.startConnection(token).catch((err) =>
+      console.error('SignalR başlatılamadı', err)
+    );
+
+    return () => {
+      // Component unmount olduğunda bağlantıyı kapat
+      SignalRService.stopConnection();
+    };
+  }, [token]);
+
+  // ──────────────────────────────────────────────
+  // 2) Kanal değiştiğinde: join/leave + mesajları yükle
+  // ──────────────────────────────────────────────
   useEffect(() => {
     if (!channel) {
       setMessages([]);
       return;
     }
 
+    const channelId = channel.channelId;
+
+    // Kanala katıl
+    SignalRService.joinChannel(channelId);
+
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const data = await MessageService.getMessagesByChannelId(channel.channelId);
+        const data = await MessageService.getMessagesByChannelId(channelId);
         setMessages(Array.isArray(data) ? data : data?.items || []);
       } catch (error) {
         console.error('Failed to fetch messages', error);
@@ -38,27 +77,61 @@ function ChatArea({ clan, channel }) {
     };
 
     fetchMessages();
+
+    // Cleanup: kanaldan ayrıl
+    return () => {
+      SignalRService.leaveChannel(channelId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel?.channelId]);
 
-  // Klan değiştiğinde üyeleri yükle
+  // ──────────────────────────────────────────────
+  // 3) SignalR olay dinleyicileri
+  // ──────────────────────────────────────────────
   useEffect(() => {
-    if (!clan) {
-      setMembers([]);
-      return;
-    }
-
-    const fetchMembers = async () => {
-      try {
-        const data = await ClanService.getClanMembers(clan.clanId);
-        setMembers(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Failed to fetch members', error);
-        setMembers([]);
+    // Yeni mesaj geldiğinde
+    const handleReceiveMessage = (dto) => {
+      const mapped = mapHubMessage(dto);
+      // Yalnızca aktif kanala ait mesajları ekle
+      if (channel && mapped.channelId === channel.channelId) {
+        setMessages((prev) => {
+          // Aynı id ile zaten varsa ekleme (duplikasyonu önle)
+          if (prev.some((m) => m.messageId === mapped.messageId)) return prev;
+          return [...prev, mapped];
+        });
       }
     };
 
-    fetchMembers();
-  }, [clan?.clanId]);
+    // Mesaj güncellendiğinde
+    const handleMessageUpdated = (dto) => {
+      const mapped = mapHubMessage(dto);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.messageId === mapped.messageId
+            ? { ...m, content: mapped.content, isEdited: true }
+            : m
+        )
+      );
+    };
+
+    // Mesaj güncelleme başarısız olduğunda
+    const handleMessageUpdateFailed = (messageId) => {
+      console.error('Mesaj güncelleme başarısız:', messageId);
+      // Opsiyonel: kullanıcıya bildirim gösterilebilir
+    };
+
+    SignalRService.on('ReceiveMessage', handleReceiveMessage);
+    SignalRService.on('MessageUpdated', handleMessageUpdated);
+    SignalRService.on('MessageUpdateFailed', handleMessageUpdateFailed);
+
+    return () => {
+      SignalRService.off('ReceiveMessage', handleReceiveMessage);
+      SignalRService.off('MessageUpdated', handleMessageUpdated);
+      SignalRService.off('MessageUpdateFailed', handleMessageUpdateFailed);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel?.channelId]);
+
 
   // Yeni mesaj geldiğinde en alta scroll
   const scrollToBottom = useCallback(() => {
@@ -69,18 +142,21 @@ function ChatArea({ clan, channel }) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Mesaj gönder
+  // Mesaj gönder (SignalR Hub üzerinden)
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !channel || sending) return;
 
     setSending(true);
     try {
-      const sent = await MessageService.sendMessage({
-        content: newMessage.trim(),
-        channelId: channel.channelId,
-      });
-      setMessages((prev) => [...prev, sent]);
+      await SignalRService.sendMessage(
+        channel.channelId,
+        user.id,
+        user.username,
+        newMessage.trim()
+      );
+      // Mesaj Hub'dan ReceiveMessage olayı ile geri döneceği için
+      // state'e manuel eklemeye gerek yok.
       setNewMessage('');
     } catch (error) {
       console.error('Failed to send message', error);
@@ -105,17 +181,13 @@ function ChatArea({ clan, channel }) {
     setEditContent(message.content);
   };
 
-  // Mesaj düzenlemeyi kaydet
+  // Mesaj düzenlemeyi kaydet (SignalR Hub üzerinden)
   const handleSaveEdit = async (messageId) => {
     if (!editContent.trim()) return;
     try {
-      const updated = await MessageService.editMessage({
-        messageId,
-        content: editContent.trim(),
-      });
-      setMessages((prev) =>
-        prev.map((m) => (m.messageId === messageId ? { ...m, ...updated } : m))
-      );
+      await SignalRService.updateMessage(messageId, editContent.trim());
+      // Güncelleme Hub'dan MessageUpdated olayı ile geri döneceği için
+      // state'e manuel güncellemeye gerek yok.
       setEditingMessageId(null);
       setEditContent('');
     } catch (error) {
@@ -172,7 +244,6 @@ function ChatArea({ clan, channel }) {
             <p>Bir metin kanalı seçerek sohbete başlayın.</p>
           </div>
         </div>
-        <MemberList members={members} clanId={clan.clanId} />
       </div>
     );
   }
@@ -256,7 +327,6 @@ function ChatArea({ clan, channel }) {
       </div>
 
       {/* Sağ taraf: Üye listesi */}
-      <MemberList members={members} clanId={clan.clanId} />
     </div>
   );
 }

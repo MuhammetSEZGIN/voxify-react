@@ -911,3 +911,37 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.channel-sidebar__add-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.channel-sidebar__add-btn:hover {
+  color: var(--text-normal);
+}
+
+.channel-item__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.channel-item__action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  opacity: 0.7;
+}
+
+.channel-item__action-btn:hover {
+  opacity: 1;
+}
