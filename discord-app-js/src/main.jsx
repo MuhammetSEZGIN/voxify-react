@@ -6,11 +6,12 @@ import App from "./App";
 
 
 async function enableMocking() {
-  if (import.meta.env.VITE_MOCKING !== 'false') {
+  if (import.meta.env.VITE_MOCKING !== 'true') {
+    console.log('Mocking disabled. Skipping MSW setup.');    
     return;
   }
   const { worker } = await import('./mocks/browser');
-
+  console.log(import.meta.env.VITE_MOCKING, 'Mocking enabled. Starting MSW worker...');
   return worker.start({
     onUnhandledRequest: 'bypass', // Don't warn about unhandled requests
   });

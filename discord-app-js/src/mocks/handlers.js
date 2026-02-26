@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:5000/api';
+const IDENTITY_URL = import.meta.env.VITE_IDENTITY_URL || 'http://localhost:5158/api';
 
 // Mock data
 

@@ -8,6 +8,7 @@ import ChannelSidebar from '../clan/ChannelSidebar';
 import ChatArea from '../chat/ChatArea';
 import CreateClanModal from '../clan/CreateClanModal';
 import '../../styles/discord.css';
+import MemberList from '../clan/MemberList';
 
 function MainLayout() {
   const { user, logout } = useAuth();
@@ -19,6 +20,7 @@ function MainLayout() {
   const [channels, setChannels] = useState([]);
   const [voiceChannels, setVoiceChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
+  const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -28,6 +30,7 @@ function MainLayout() {
       try {
         setLoadingClans(true);
         const data = await ClanService.getMyClans();
+        console.log('Fetched clans:', data);
         setClans(data || []);
       } catch (error) {
         console.error('Failed to fetch clans', error);
@@ -69,12 +72,11 @@ function MainLayout() {
 
     const fetchChannels = async () => {
       try {
-        const [textChannels, voiceChans] = await Promise.all([
-          ChannelService.getChannelsByClanId(selectedClan.clanId),
-          ChannelService.getVoiceChannelsByClanId(selectedClan.clanId),
-        ]);
-        setChannels(textChannels || []);
-        setVoiceChannels(voiceChans || []);
+        const data = await ClanService.getClanById(selectedClan.clanId);
+        console.log('Fetched channels for clan', selectedClan.clanId, data);
+        setChannels(data.channels || []);
+        setVoiceChannels(data.voiceChannels || []);
+        setMemberships(data.clanMemberships || []);
       } catch (error) {
         console.error('Failed to fetch channels', error);
       }
@@ -108,6 +110,36 @@ function MainLayout() {
     setClans((prev) => [...prev, newClan]);
     setSelectedClan(newClan);
   };
+const handleCreateChannel = async (name) => {
+    try {
+      const newChannel = await ChannelService.createChannel({ name, clanId: selectedClan.clanId });
+      setChannels((prev) => [...prev, newChannel]);
+    } catch (error) {
+      console.error('Failed to create channel', error);
+    }
+  };
+
+  const handleUpdateChannel = async ({ channelId, name }) => {
+    try {
+      const updated = await ChannelService.updateChannel({ channelId, name });
+      setChannels((prev) => prev.map((ch) => ch.channelId === channelId ? { ...ch, name: updated.name ?? name } : ch));
+    } catch (error) {
+      console.error('Failed to update channel', error);
+    }
+  };
+
+  const handleDeleteChannel = async (channelId) => {
+    try {
+      await ChannelService.deleteChannel(channelId);
+      setChannels((prev) => prev.filter((ch) => ch.channelId !== channelId));
+      if (selectedChannel?.channelId === channelId) {
+        setSelectedChannel(null);
+        navigate(`/app/clans/${selectedClan.clanId}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete channel', error);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -139,19 +171,23 @@ function MainLayout() {
         onSelectChannel={handleSelectChannel}
         user={user}
         onLogout={handleLogout}
+        onCreateChannel={handleCreateChannel}
+        onUpdateChannel={handleUpdateChannel}
+        onDeleteChannel={handleDeleteChannel}
       />
 
       <ChatArea
         clan={selectedClan}
         channel={selectedChannel}
       />
-
       {showCreateModal && (
         <CreateClanModal
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateClan}
         />
       )}
+
+      <MemberList members={memeberShips} clanId={selectedClan?.clanId} />
     </div>
   );
 }

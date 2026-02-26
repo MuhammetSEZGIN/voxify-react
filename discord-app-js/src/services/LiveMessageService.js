@@ -1,77 +1,173 @@
 /**
- * SignalR bağlantı servisi - placeholder.
- * Backend hazır olunca @microsoft/signalr paketi eklenip burada implemente edilecek.
+ * SignalR bağlantı servisi - MessageHub entegrasyonu.
  *
- * Kullanım planı:
- *   - Kanal bazlı mesaj dinleme (ReceiveMessage)
- *   - Kullanıcı çevrimiçi durumu (UserOnline / UserOffline)
- *   - Yazıyor göstergesi (UserTyping)
+ * Backend Hub metotları:
+ *   - SendMessage(channelId, senderId, userName, message)
+ *   - UpdateMessage(messageId, newContent)
+ *   - JoinChannel(channelId)
+ *   - LeaveChannel(channelId)
+ *
+ * Sunucudan gelen olaylar:
+ *   - ReceiveMessage  → MessageDto
+ *   - MessageUpdated  → MessageDto
+ *   - MessageUpdateFailed → messageId
  */
+
+import * as signalR from '@microsoft/signalr';
+
+const HUB_URL =
+  import.meta.env.VITE_HUB_URL ||
+  (import.meta.env.VITE_BASE_URL
+    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/hubs/message'
+    : 'http://localhost:5074/hubs/message');
 
 let connection = null;
-const listeners = new Map();
+let connectionPromise = null;
 
 /**
- * SignalR bağlantısını başlat
- * @param {string} token - JWT token
+ * Mevcut bağlantıyı döndürür (veya null).
  */
-export async function startConnection(token) {
-  // TODO: @microsoft/signalr paketi eklenince implement edilecek
-  // const signalR = await import('@microsoft/signalr');
-  // connection = new signalR.HubConnectionBuilder()
-  //   .withUrl('/hubs/chat', { accessTokenFactory: () => token })
-  //   .withAutomaticReconnect()
-  //   .build();
-  // await connection.start();
-  console.info('[SignalR] Connection placeholder - backend hazır olunca aktif edilecek');
+export function getConnection() {
+  return connection;
 }
 
 /**
- * Bağlantıyı durdur
+ * SignalR bağlantısını başlat.
+ * Aynı anda birden fazla çağrıda yalnızca tek bağlantı kurulur.
+ * @param {string} token - JWT token
+ * @returns {Promise<signalR.HubConnection>}
+ */
+export async function startConnection(token) {
+  // Zaten bağlıysa tekrar kurma
+  if (connection?.state === signalR.HubConnectionState.Connected) {
+    return connection;
+  }
+
+  // Devam eden bir bağlantı girişimi varsa onu bekle
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
+  connectionPromise = (async () => {
+    try {
+      connection = new signalR.HubConnectionBuilder()
+        .withUrl(HUB_URL, {
+          accessTokenFactory: () => token,
+        })
+        .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+
+      // Bağlantı durumu loglama
+      connection.onreconnecting((error) => {
+        console.warn('[SignalR] Yeniden bağlanılıyor...', error);
+      });
+
+      connection.onreconnected((connectionId) => {
+        console.info('[SignalR] Yeniden bağlandı:', connectionId);
+      });
+
+      connection.onclose((error) => {
+        console.warn('[SignalR] Bağlantı kapandı', error);
+        connection = null;
+        connectionPromise = null;
+      });
+
+      await connection.start();
+      console.info('[SignalR] Bağlantı kuruldu');
+      return connection;
+    } catch (error) {
+      console.error('[SignalR] Bağlantı hatası:', error);
+      connection = null;
+      connectionPromise = null;
+      throw error;
+    }
+  })();
+
+  return connectionPromise;
+}
+
+/**
+ * Bağlantıyı durdur.
  */
 export async function stopConnection() {
   if (connection) {
-    await connection.stop();
+    try {
+      await connection.stop();
+    } catch (error) {
+      console.error('[SignalR] Bağlantı durdurma hatası:', error);
+    }
     connection = null;
+    connectionPromise = null;
   }
 }
 
 /**
- * Bir kanala katıl (grup)
+ * Bir kanala katıl (SignalR grubuna eklenme).
  * @param {string} channelId
  */
 export async function joinChannel(channelId) {
-  if (!connection) return;
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    console.warn('[SignalR] joinChannel çağrıldı ama bağlantı yok');
+    return;
+  }
   await connection.invoke('JoinChannel', channelId);
 }
 
 /**
- * Bir kanaldan ayrıl
+ * Bir kanaldan ayrıl.
  * @param {string} channelId
  */
 export async function leaveChannel(channelId) {
-  if (!connection) return;
-  await connection.invoke('LeaveChannel', channelId);
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+  try {
+    await connection.invoke('LeaveChannel', channelId);
+  } catch (error) {
+    console.warn('[SignalR] leaveChannel hatası:', error);
+  }
 }
 
 /**
- * Mesaj dinleyici ekle
- * @param {string} event - örn: "ReceiveMessage"
+ * Mesaj gönder (Hub üzerinden).
+ * @param {string} channelId
+ * @param {string} senderId
+ * @param {string} userName
+ * @param {string} message
+ */
+export async function sendMessage(channelId, senderId, userName, message) {
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    throw new Error('SignalR bağlantısı yok');
+  }
+  await connection.invoke('SendMessage', channelId, senderId, userName, message);
+}
+
+/**
+ * Mesajı güncelle (Hub üzerinden).
+ * @param {string} messageId
+ * @param {string} newContent
+ */
+export async function updateMessage(messageId, newContent) {
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    throw new Error('SignalR bağlantısı yok');
+  }
+  await connection.invoke('UpdateMessage', messageId, newContent);
+}
+
+/**
+ * Bir olaya dinleyici ekle.
+ * @param {string} event - örn: "ReceiveMessage", "MessageUpdated", "MessageUpdateFailed"
  * @param {Function} callback
  */
 export function on(event, callback) {
-  if (!listeners.has(event)) {
-    listeners.set(event, []);
-  }
-  listeners.get(event).push(callback);
-
   if (connection) {
     connection.on(event, callback);
   }
 }
 
 /**
- * Mesaj dinleyici kaldır
+ * Dinleyiciyi kaldır.
  * @param {string} event
  * @param {Function} callback
  */
@@ -79,18 +175,16 @@ export function off(event, callback) {
   if (connection) {
     connection.off(event, callback);
   }
-  const eventListeners = listeners.get(event);
-  if (eventListeners) {
-    const index = eventListeners.indexOf(callback);
-    if (index !== -1) eventListeners.splice(index, 1);
-  }
 }
 
 const SignalRService = {
+  getConnection,
   startConnection,
   stopConnection,
   joinChannel,
   leaveChannel,
+  sendMessage,
+  updateMessage,
   on,
   off,
 };

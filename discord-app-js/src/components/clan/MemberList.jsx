@@ -28,7 +28,8 @@ function MemberList({ members, clanId }) {
   // Üyeleri role göre grupla
   const grouped = {};
   for (const member of members) {
-    const role = member.role || getClanRole(member.user, clanId) || 'member';
+    const rawRole = member.role || getClanRole(member.user, clanId) || 'member';
+    const role = rawRole.toLowerCase();
     if (!grouped[role]) grouped[role] = [];
     grouped[role].push(member);
   }
