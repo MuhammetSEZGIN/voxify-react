@@ -1,90 +1,94 @@
 import React from 'react';
-import { getClanRole } from '../../utils/permissions';
-
-const ROLE_LABELS = {
-  owner: 'Sahip',
-  admin: 'Yönetici',
-  moderator: 'Moderatör',
-  member: 'Üye',
-};
-
-const ROLE_COLORS = {
-  owner: '#f0b132',
-  admin: '#e74c3c',
-  moderator: '#2ecc71',
-  member: '#dbdee1',
-};
 
 function MemberList({ members, clanId }) {
-  if (!members || members.length === 0) {
-    return (
-      <aside className="member-list">
-        <div className="member-list__header">Üyeler</div>
-        <div className="member-list__empty">Üye bulunamadı</div>
-      </aside>
-    );
-  }
+  if (!clanId || !members) return null;
 
-  // Üyeleri role göre grupla
-  const grouped = {};
-  for (const member of members) {
-    const rawRole = member.role || getClanRole(member.user, clanId) || 'member';
-    const role = rawRole.toLowerCase();
-    if (!grouped[role]) grouped[role] = [];
-    grouped[role].push(member);
-  }
-
-  // Rol sıralaması
-  const roleOrder = ['owner', 'admin', 'moderator', 'member'];
+  // Group by status
+  const onlineMembers = members.filter((m) => m.status === 'online' || m.isOnline);
+  const offlineMembers = members.filter((m) => m.status !== 'online' && !m.isOnline);
 
   return (
     <aside className="member-list">
-      <div className="member-list__header">Üyeler — {members.length}</div>
-      <div className="member-list__content">
-        {roleOrder.map((role) => {
-          const group = grouped[role];
-          if (!group || group.length === 0) return null;
-
-          return (
-            <div key={role} className="member-list__group">
-              <div
-                className="member-list__role-header"
-                style={{ color: ROLE_COLORS[role] || '#949ba4' }}
-              >
-                {ROLE_LABELS[role] || role} — {group.length}
-              </div>
-              {group.map((member) => (
-                <MemberItem
-                  key={member.userId || member.user?.id}
-                  member={member}
-                  roleColor={ROLE_COLORS[role]}
-                />
-              ))}
-            </div>
-          );
-        })}
+      {/* Header */}
+      <div className="member-list__header">
+        <h2 className="member-list__title">Clan Members</h2>
+        <span className="material-symbols-outlined member-list__header-icon">group</span>
       </div>
-    </aside>
-  );
-}
 
-function MemberItem({ member, roleColor }) {
-  const username = member.user?.username || member.username || 'Bilinmeyen';
-  const avatarUrl = member.user?.avatarUrl || member.avatarUrl;
+      {/* Search */}
+      <div className="member-list__search-wrapper">
+        <div className="member-list__search">
+          <input
+            className="member-list__search-input"
+            placeholder="Search members..."
+            type="text"
+          />
+          <span className="material-symbols-outlined member-list__search-icon">search</span>
+        </div>
+      </div>
 
-  return (
-    <div className="member-item">
-      <div className="member-item__avatar">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={username} />
-        ) : (
-          username.charAt(0).toUpperCase()
+      {/* Members */}
+      <div className="member-list__body">
+        {/* Online */}
+        {onlineMembers.length > 0 && (
+          <div className="member-list__section">
+            <p className="member-list__section-title">
+              Online — {onlineMembers.length}
+            </p>
+            <ul className="member-list__list">
+              {onlineMembers.map((member) => (
+                <li key={member.userId || member.id} className="member-list__item">
+                  <div className="member-list__avatar-wrapper">
+                    <div className="member-list__avatar">
+                      {member.avatarUrl ? (
+                        <img src={member.avatarUrl} alt="" className="member-list__avatar-img" />
+                      ) : (
+                        <span>{member.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </div>
+                    <div className="member-list__status-dot member-list__status-dot--online" />
+                  </div>
+                  <span className="member-list__name">{member.userName || 'Unknown'}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Offline */}
+        {offlineMembers.length > 0 && (
+          <div className="member-list__section">
+            <p className="member-list__section-title">
+              Offline — {offlineMembers.length}
+            </p>
+            <ul className="member-list__list">
+              {offlineMembers.map((member) => (
+                <li key={member.userId || member.id} className="member-list__item member-list__item--offline">
+                  <div className="member-list__avatar-wrapper">
+                    <div className="member-list__avatar member-list__avatar--offline">
+                      {member.avatarUrl ? (
+                        <img src={member.avatarUrl} alt="" className="member-list__avatar-img member-list__avatar-img--offline" />
+                      ) : (
+                        <span>{member.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </div>
+                    <div className="member-list__status-dot member-list__status-dot--offline" />
+                  </div>
+                  <span className="member-list__name">{member.userName || 'Unknown'}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Fallback when no members */}
+        {members.length === 0 && (
+          <div className="member-list__empty">
+            <p>No members found</p>
+          </div>
         )}
       </div>
-      <span className="member-item__name" style={{ color: roleColor }}>
-        {username}
-      </span>
-    </div>
+    </aside>
   );
 }
 

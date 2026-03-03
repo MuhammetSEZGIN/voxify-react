@@ -3,42 +3,60 @@ import React from 'react';
 function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan }) {
   return (
     <nav className="server-list">
-      {/* Home button */}
-      <div
-        className={`server-list__item ${!selectedClanId ? 'server-list__item--active' : ''}`}
-        onClick={() => onSelectClan(null)}
-        title="Ana Sayfa"
-        style={{ background: !selectedClanId ? '#5865f2' : '#313338' }}
-      >
-        🏠
-      </div>
-
-      <div className="server-list__separator" />
-
-      {clans.map((clan) => (
+      {/* Home / DM button */}
+      <div className="server-list__home-wrapper">
         <div
-          key={clan.clanId}
-          className={`server-list__item ${selectedClanId === clan.clanId ? 'server-list__item--active' : ''}`}
-          onClick={() => onSelectClan(clan)}
-          title={clan.name}
+          className={`server-list__indicator ${!selectedClanId ? 'server-list__indicator--active' : ''}`}
+        />
+        <button
+          className={`server-list__item ${!selectedClanId ? 'server-list__item--active' : 'server-list__item--default'}`}
+          onClick={() => onSelectClan(null)}
+          title="Home"
         >
-          {clan.imagePath ? (
-            <img src={clan.imagePath} alt={clan.name} />
-          ) : (
-            clan.name.charAt(0).toUpperCase()
-          )}
-        </div>
-      ))}
+          <span className="material-symbols-outlined server-list__icon">shield</span>
+        </button>
+      </div>
 
       <div className="server-list__separator" />
 
-      <div
-        className="server-list__item server-list__item--add"
+      {/* Clan list */}
+      {clans.map((clan) => {
+        const isSelected = selectedClanId === clan.clanId;
+        return (
+          <button
+            key={clan.clanId}
+            className="server-list__clan-btn group"
+            onClick={() => onSelectClan(clan)}
+            title={clan.name}
+          >
+            <div
+              className={`server-list__indicator ${isSelected ? 'server-list__indicator--active' : 'server-list__indicator--hover'}`}
+            />
+            {clan.avatarUrl ? (
+              <div
+                className={`server-list__clan-avatar ${isSelected ? 'server-list__clan-avatar--selected' : ''}`}
+                style={{ backgroundImage: `url("${clan.avatarUrl}")` }}
+              />
+            ) : (
+              <div
+                className={`server-list__clan-initials ${isSelected ? 'server-list__clan-initials--selected' : ''}`}
+              >
+                {clan.name?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+            )}
+          </button>
+        );
+      })}
+
+      {/* Add clan button */}
+      <button
+        className="server-list__add-btn group"
         onClick={onCreateClan}
-        title="Sunucu Ekle"
+        title="Create a Clan"
       >
-        +
-      </div>
+        <div className="server-list__indicator server-list__indicator--hover" />
+        <span className="material-symbols-outlined server-list__add-icon">add</span>
+      </button>
     </nav>
   );
 }
