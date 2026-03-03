@@ -2,11 +2,14 @@ import api from "./api";
 
 /**
  * Get channels by clan ID
- * GET /api/Channel/clan/{clanId}
+ * GET /channel/clan/{clanId}
  */
+
+
+
 const getChannelsByClanId = async (clanId) => {
   try {
-    const response = await api.get(`/Channel/clan/${clanId}`);
+    const response = await api.get(`/channel/clan/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channels", error.response?.data || error.message);
@@ -16,11 +19,11 @@ const getChannelsByClanId = async (clanId) => {
 
 /**
  * Get a specific channel
- * GET /api/Channel/{channelId}
+ * GET /channel/{channelId}
  */
 const getChannelById = async (channelId) => {
   try {
-    const response = await api.get(`/Channel/${channelId}`);
+    const response = await api.get(`/channel/${channelId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channel", error.response?.data || error.message);
@@ -30,12 +33,11 @@ const getChannelById = async (channelId) => {
 
 /**
  * Create a new channel
- * POST /api/Channel
- * @param {Object} data - { name: string, clanId: string }
+ * POST /channel
  */
 const createChannel = async (data) => {
   try {
-    const response = await api.post("/Channel", data);
+    const response = await api.post("/channel", data);
     return response.data;
   } catch (error) {
     console.error("Error creating channel", error.response?.data || error.message);
@@ -45,12 +47,11 @@ const createChannel = async (data) => {
 
 /**
  * Update a channel
- * PUT /api/Channel
- * @param {Object} data - { channelId: string, name: string }
+ * PUT /channel
  */
 const updateChannel = async (data) => {
   try {
-    const response = await api.put("/Channel", data);
+    const response = await api.put("/channel", data);
     return response.data;
   } catch (error) {
     console.error("Error updating channel", error.response?.data || error.message);
@@ -60,11 +61,11 @@ const updateChannel = async (data) => {
 
 /**
  * Delete a channel
- * DELETE /api/Channel/{channelId}
+ * DELETE /channel/{channelId}
  */
 const deleteChannel = async (channelId) => {
   try {
-    const response = await api.delete(`/Channel/${channelId}`);
+    const response = await api.delete(`/channel/${channelId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting channel", error.response?.data || error.message);
@@ -74,11 +75,11 @@ const deleteChannel = async (channelId) => {
 
 /**
  * Get voice channels by clan ID
- * GET /api/VoiceChannel/clan/{clanId}
+ * GET /voiceChannel/clan/{clanId}
  */
 const getVoiceChannelsByClanId = async (clanId) => {
   try {
-    const response = await api.get(`/VoiceChannel/clan/${clanId}`);
+    const response = await api.get(`/voiceChannel/clan/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching voice channels", error.response?.data || error.message);
@@ -88,12 +89,11 @@ const getVoiceChannelsByClanId = async (clanId) => {
 
 /**
  * Create a voice channel
- * POST /api/VoiceChannel
- * @param {Object} data - { name: string, clanId: string }
+ * POST /voiceChannel
  */
 const createVoiceChannel = async (data) => {
   try {
-    const response = await api.post("/VoiceChannel", data);
+    const response = await api.post("/voiceChannel", data);
     return response.data;
   } catch (error) {
     console.error("Error creating voice channel", error.response?.data || error.message);

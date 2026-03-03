@@ -34,11 +34,13 @@ function RegisterPage() {
       const userDataRegister = {
         email,
         password,
+        passwordConfirmation: confirmPassword,
         userName: username,
         avatarUrl: avatarUrl || undefined,
+        deviceInfo: navigator.userAgent,
       };
       await AuthService.register(userDataRegister);
-      await login(email, password);
+      await login(username, password);
       navigate("/app");
     } catch (err) {
       setError(err.message);
