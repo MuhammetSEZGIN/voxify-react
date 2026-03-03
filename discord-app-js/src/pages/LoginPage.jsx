@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import "../styles/auth.css";
 
 function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await auth.login(email, password);
+      await auth.login(userName, password);
       navigate("/app");
     } catch (err) {
       setError(err.message);
@@ -59,15 +59,15 @@ function LoginPage() {
 
         {/* Form */}
         <form className="auth-form" onSubmit={handleSubmit}>
-          {/* Email */}
+          {/* Username */}
           <label className="auth-field">
-            <p className="auth-field__label">Username or Email</p>
+            <p className="auth-field__label">Username</p>
             <input
               className="auth-field__input"
-              type="email"
-              placeholder="Enter your username or email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Enter your username"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
               required
             />
           </label>

@@ -1,5 +1,6 @@
 import api from "./api";
 
+
 /**
  * Login user
  * @param {Object} credentials - Login credentials
@@ -9,13 +10,20 @@ import api from "./api";
  */
 async function login(userData) {
   try {
-    const response = await api.post("/auth/login", userData);
-    return response.data;
+    const response = await api.post("/identity/login", userData);
+    const result = response.data;
+    console.log("login data:", result);
+
+    if (!result.isSuccessfull) {
+      throw new Error(result.message || "Login failed");
+    }
+
+    return result.data ?? result;
   } catch (error) {
-    console.error("login error", error.response?.data || error.message);
-    throw new Error(
-      error.response?.message || error.message || "Unknown error"
-    );
+    // Backend'den gelen hata mesajını yakala
+    const msg = error.response?.data?.message || error.message || "Unknown error";
+    console.error("login error", msg);
+    throw new Error(msg);
   }
 }
 
@@ -25,18 +33,25 @@ async function login(userData) {
  * @param {string} userData.userName - Username
  * @param {string} userData.email - Email address
  * @param {string} userData.password - Password
+ * @param {string} userData.passwordConfirmation - Password confirmation
  * @param {string} [userData.avatarUrl] - Optional avatar URL
+ * @param {string} [userData.deviceInfo] - Optional device info
  * @returns {Promise<{userId: string, token: string, refreshToken: string}>}
  */
 const register = async (userData) => {
   try {
-    const response = await api.post("/auth/register", userData);
-    return response.data;
+    const response = await api.post("/identity/register", userData);
+    const result = response.data;
+
+    if (!result.isSuccessfull) {
+      throw new Error(result.message || "Registration failed");
+    }
+
+    return result.data ?? result;
   } catch (error) {
-    console.error("Registration error", error.response?.data || error.message);
-    throw new Error(
-      error.response?.message || error.message || "Unknown error"
-    );
+    const msg = error.response?.data?.message || error.message || "Unknown error";
+    console.error("Registration error", msg);
+    throw new Error(msg);
   }
 };
 
@@ -48,7 +63,7 @@ const register = async (userData) => {
  */
 export const refreshToken = async (userId, refreshToken) => {
   try {
-    const response = await api.post('/Auth/refresh-token', { userId, refreshToken });
+    const response = await api.post('/identity/refresh-token', { userId, refreshToken });
     if (response.data.isSuccessfull) {
       return response.data.data;
     }
@@ -68,7 +83,7 @@ export const refreshToken = async (userId, refreshToken) => {
    */
   export const logoutSession = async (sessionId) => {
     try {
-      const response = await api.post(`/Auth/logout-session/${sessionId}`);
+      const response = await api.post(`/identity/logout-session/${sessionId}`);
       if (response.data.isSuccessfull) {
         return response.data;
       }

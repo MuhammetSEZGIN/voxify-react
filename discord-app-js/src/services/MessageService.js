@@ -1,13 +1,13 @@
-import api from "./api-temp.js";
+import api from "./api.js";
 
 /**
  * Get messages for a channel
- * GET /api/Message/channel/{channelId}
+ * GET /message?channelId={channelId}
  * @param {string} channelId
  */
 const getMessagesByChannelId = async (channelId) => {
   try {
-    const response = await api.get(`/Message`, { params: { channelId } });
+    const response = await api.get(`/message`, { params: { channelId } });
     return response.data;
   } catch (error) {
     console.error("Error fetching messages", error.response?.data || error.message);
@@ -17,12 +17,11 @@ const getMessagesByChannelId = async (channelId) => {
 
 /**
  * Send a message to a channel
- * POST /api/Message
- * @param {Object} data - { content: string, channelId: string }
+ * POST /message
  */
 const sendMessage = async (data) => {
   try {
-    const response = await api.post("/Message", data);
+    const response = await api.post("/message", data);
     return response.data;
   } catch (error) {
     console.error("Error sending message", error.response?.data || error.message);
@@ -32,11 +31,11 @@ const sendMessage = async (data) => {
 
 /**
  * Delete a message
- * DELETE /api/Message/{messageId}
+ * DELETE /message/{messageId}
  */
 const deleteMessage = async (messageId) => {
   try {
-    const response = await api.delete(`/Message/${messageId}`);
+    const response = await api.delete(`/message/${messageId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting message", error.response?.data || error.message);
@@ -46,12 +45,11 @@ const deleteMessage = async (messageId) => {
 
 /**
  * Edit a message
- * PUT /api/Message
- * @param {Object} data - { messageId: string, content: string }
+ * PUT /message
  */
 const editMessage = async (data) => {
   try {
-    const response = await api.put("/Message", data);
+    const response = await api.put("/message", data);
     return response.data;
   } catch (error) {
     console.error("Error editing message", error.response?.data || error.message);

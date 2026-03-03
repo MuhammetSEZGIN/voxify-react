@@ -35,13 +35,16 @@ function AuthProvider({ children }) {
     setLoading(false);
   }, [token, user]);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (userName, password) => {
     try {
-      const userData = { email, password };
+      const userData = { userName, password, deviceInfo: navigator.userAgent };
       const data = await AuthService.login(userData);
-      setToken(data.token);
-      localStorage.setItem("token", data.token);
-      const nextUser = data.user ?? (decodeJwt(data.token)?.user || null);
+      const tkn = data.accessToken || data.token;
+      setToken(tkn);
+      localStorage.setItem("token", tkn);
+      const decoded = decodeJwt(tkn);
+      const nextUser = data.user ?? decoded ?? null;
+      if (nextUser && data.userID) nextUser.id = data.userID;
       setUser(nextUser);
       if (nextUser) {
         localStorage.setItem("user", JSON.stringify(nextUser));
@@ -56,8 +59,9 @@ function AuthProvider({ children }) {
   const register = useCallback(async (userData) => {
     try {
       const data = await AuthService.register(userData);
-      setToken(data.token);
-      localStorage.setItem("token", data.token);
+      const tkn = data.accessToken || data.token;
+      setToken(tkn);
+      localStorage.setItem("token", tkn);
       const nextUser = data.user ?? (decodeJwt(data.token)?.user || null);
       setUser(nextUser);
       if (nextUser) {
