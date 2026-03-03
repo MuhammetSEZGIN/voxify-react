@@ -29,7 +29,7 @@ function MainLayout() {
     const fetchClans = async () => {
       try {
         setLoadingClans(true);
-        const data = await ClanService.getMyClans();
+        const data = await ClanService.getClansByUserId(user?.id || user?.sub || '');
         console.log('Fetched clans:', data);
         setClans(data || []);
       } catch (error) {
@@ -45,11 +45,11 @@ function MainLayout() {
   useEffect(() => {
     if (urlClanId && clans.length > 0) {
       const clan = clans.find((c) => c.clanId === urlClanId);
-      if (clan && clan.clanId !== selectedClan?.clanId) {
+      if (clan) {
         setSelectedClan(clan);
       }
     }
-  }, [urlClanId, clans, selectedClan?.clanId]);
+  }, [urlClanId, clans]);
 
   // URL'deki channelId değiştiğinde selectedChannel'ı güncelle
   useEffect(() => {
@@ -88,11 +88,15 @@ function MainLayout() {
     if (!clan) {
       setSelectedClan(null);
       setSelectedChannel(null);
+      setChannels([]);
+      setVoiceChannels([]);
       navigate('/app');
       return;
     }
     setSelectedClan(clan);
     setSelectedChannel(null);
+    setChannels([]);
+    setVoiceChannels([]);
     navigate('/app');
   };
 
@@ -116,6 +120,15 @@ const handleCreateChannel = async (name) => {
       setChannels((prev) => [...prev, newChannel]);
     } catch (error) {
       console.error('Failed to create channel', error);
+    }
+  };
+
+  const handleCreateVoiceChannel = async (name) => {
+    try {
+      const newVoiceChannel = await ChannelService.createVoiceChannel({ name, clanId: selectedClan.clanId });
+      setVoiceChannels((prev) => [...prev, newVoiceChannel]);
+    } catch (error) {
+      console.error('Failed to create voice channel', error);
     }
   };
 
@@ -172,6 +185,7 @@ const handleCreateChannel = async (name) => {
         user={user}
         onLogout={handleLogout}
         onCreateChannel={handleCreateChannel}
+        onCreateVoiceChannel={handleCreateVoiceChannel}
         onUpdateChannel={handleUpdateChannel}
         onDeleteChannel={handleDeleteChannel}
       />

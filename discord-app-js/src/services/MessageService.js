@@ -1,17 +1,13 @@
-import api from "./api";
+import api from "./api-temp.js";
 
 /**
  * Get messages for a channel
  * GET /api/Message/channel/{channelId}
  * @param {string} channelId
- * @param {number} [pageNumber=1]
- * @param {number} [pageSize=50]
  */
-const getMessagesByChannelId = async (channelId, pageNumber = 1, pageSize = 50) => {
+const getMessagesByChannelId = async (channelId) => {
   try {
-    const response = await api.get(`/Message/channel/${channelId}`, {
-      params: { pageNumber, pageSize },
-    });
+    const response = await api.get(`/Message`, { params: { channelId } });
     return response.data;
   } catch (error) {
     console.error("Error fetching messages", error.response?.data || error.message);

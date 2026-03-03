@@ -14,6 +14,7 @@ async function enableMocking() {
   console.log(import.meta.env.VITE_MOCKING, 'Mocking enabled. Starting MSW worker...');
   return worker.start({
     onUnhandledRequest: 'bypass', // Don't warn about unhandled requests
+    
   });
 }
 

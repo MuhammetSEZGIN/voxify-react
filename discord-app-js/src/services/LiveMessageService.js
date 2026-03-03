@@ -18,11 +18,14 @@ import * as signalR from '@microsoft/signalr';
 const HUB_URL =
   import.meta.env.VITE_HUB_URL ||
   (import.meta.env.VITE_BASE_URL
-    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/hubs/message'
+    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/messagehub'
     : 'http://localhost:5074/hubs/message');
 
+console.info('[LiveMessageService] HUB_URL:', HUB_URL);
 let connection = null;
 let connectionPromise = null;
+// Bağlantı kurulmadan önce eklenen dinleyicileri saklayacak kuyruk
+const pendingListeners = [];
 
 /**
  * Mevcut bağlantıyı döndürür (veya null).
@@ -75,6 +78,13 @@ export async function startConnection(token) {
 
       await connection.start();
       console.info('[SignalR] Bağlantı kuruldu');
+
+      // Bağlantı kurulmadan önce kuyrukta bekleyen dinleyicileri kaydet
+      pendingListeners.forEach(({ event, callback }) => {
+        connection.on(event, callback);
+      });
+      // Kuyruğu temizleme — off ile eşleştirme gerekebilir
+
       return connection;
     } catch (error) {
       console.error('[SignalR] Bağlantı hatası:', error);
@@ -97,6 +107,10 @@ export async function stopConnection() {
     } catch (error) {
       console.error('[SignalR] Bağlantı durdurma hatası:', error);
     }
+    if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
+    await connection.stop();
+    console.info('[SignalR] Bağlantı güvenle kapatıldı.');
+  }
     connection = null;
     connectionPromise = null;
   }
@@ -107,6 +121,10 @@ export async function stopConnection() {
  * @param {string} channelId
  */
 export async function joinChannel(channelId) {
+  // Bağlantı kuruluyorsa bekle
+  if (connectionPromise) {
+    await connectionPromise;
+  }
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     console.warn('[SignalR] joinChannel çağrıldı ama bağlantı yok');
     return;
@@ -137,6 +155,10 @@ export async function leaveChannel(channelId) {
  * @param {string} message
  */
 export async function sendMessage(channelId, senderId, userName, message) {
+  // Bağlantı kuruluyorsa bekle
+  if (connectionPromise) {
+    await connectionPromise;
+  }
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     throw new Error('SignalR bağlantısı yok');
   }
@@ -164,6 +186,8 @@ export function on(event, callback) {
   if (connection) {
     connection.on(event, callback);
   }
+  // Bağlantı henüz kurulmamışsa kuyruğa ekle
+  pendingListeners.push({ event, callback });
 }
 
 /**
@@ -175,6 +199,9 @@ export function off(event, callback) {
   if (connection) {
     connection.off(event, callback);
   }
+  // Kuyruktan da kaldır
+  const idx = pendingListeners.findIndex((l) => l.event === event && l.callback === callback);
+  if (idx !== -1) pendingListeners.splice(idx, 1);
 }
 
 const SignalRService = {
