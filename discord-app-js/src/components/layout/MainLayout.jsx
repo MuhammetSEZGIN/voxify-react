@@ -67,6 +67,7 @@ function MainLayout() {
       setChannels([]);
       setVoiceChannels([]);
       setSelectedChannel(null);
+      setMemberships([]);
       return;
     }
 

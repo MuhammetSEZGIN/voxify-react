@@ -100,6 +100,7 @@ export const refreshToken = async (userId, refreshToken) => {
     login,
     register,
     logoutSession,
+    refreshToken,
   };
 
   export { AuthService };
