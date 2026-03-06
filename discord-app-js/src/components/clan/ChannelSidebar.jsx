@@ -56,8 +56,8 @@ function ChannelSidebar({
               <button className="channel-sidebar__user-action-btn" title="Headphones">
                 <span className="material-symbols-outlined">headphones</span>
               </button>
-              <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Settings">
-                <span className="material-symbols-outlined">settings</span>
+              <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Logout" style={{ color: '#ed4245' }}>
+                <span className="material-symbols-outlined">logout</span>
               </button>
             </div>
           </div>
@@ -267,8 +267,8 @@ function ChannelSidebar({
             <button className="channel-sidebar__user-action-btn" title="Headphones">
               <span className="material-symbols-outlined">headphones</span>
             </button>
-            <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Settings">
-              <span className="material-symbols-outlined">settings</span>
+            <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Logout" style={{ color: '#ed4245' }}>
+              <span className="material-symbols-outlined">logout</span>
             </button>
           </div>
         </div>

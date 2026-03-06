@@ -1,18 +1,49 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 function MemberList({ members, clanId }) {
+  const [search, setSearch] = useState('');
+  const [visible, setVisible] = useState(true);
+
   if (!clanId || !members) return null;
 
+  // Kullanıcı adını normalize et (userName veya username)
+  const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
+
+  // Arama filtresi
+  const filtered = members.filter((m) =>
+    getName(m).toLowerCase().includes(search.toLowerCase())
+  );
+
   // Group by status
-  const onlineMembers = members.filter((m) => m.status === 'online' || m.isOnline);
-  const offlineMembers = members.filter((m) => m.status !== 'online' && !m.isOnline);
+  const onlineMembers = filtered.filter((m) => m.status === 'online' || m.isOnline);
+  const offlineMembers = filtered.filter((m) => m.status !== 'online' && !m.isOnline);
+
+  if (!visible) {
+    return (
+      <aside className="member-list member-list--collapsed">
+        <button
+          className="member-list__header-icon"
+          onClick={() => setVisible(true)}
+          title="Show Members"
+        >
+          <span className="material-symbols-outlined">group</span>
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <aside className="member-list">
       {/* Header */}
       <div className="member-list__header">
         <h2 className="member-list__title">Clan Members</h2>
-        <span className="material-symbols-outlined member-list__header-icon">group</span>
+        <button
+          className="member-list__header-icon"
+          onClick={() => setVisible(false)}
+          title="Hide Members"
+        >
+          <span className="material-symbols-outlined">group</span>
+        </button>
       </div>
 
       {/* Search */}
@@ -22,6 +53,8 @@ function MemberList({ members, clanId }) {
             className="member-list__search-input"
             placeholder="Search members..."
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
           <span className="material-symbols-outlined member-list__search-icon">search</span>
         </div>
@@ -43,12 +76,12 @@ function MemberList({ members, clanId }) {
                       {member.avatarUrl ? (
                         <img src={member.avatarUrl} alt="" className="member-list__avatar-img" />
                       ) : (
-                        <span>{member.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                        <span>{getName(member).charAt(0).toUpperCase()}</span>
                       )}
                     </div>
                     <div className="member-list__status-dot member-list__status-dot--online" />
                   </div>
-                  <span className="member-list__name">{member.userName || 'Unknown'}</span>
+                  <span className="member-list__name">{getName(member)}</span>
                 </li>
               ))}
             </ul>
@@ -69,12 +102,12 @@ function MemberList({ members, clanId }) {
                       {member.avatarUrl ? (
                         <img src={member.avatarUrl} alt="" className="member-list__avatar-img member-list__avatar-img--offline" />
                       ) : (
-                        <span>{member.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                        <span>{getName(member).charAt(0).toUpperCase()}</span>
                       )}
                     </div>
                     <div className="member-list__status-dot member-list__status-dot--offline" />
                   </div>
-                  <span className="member-list__name">{member.userName || 'Unknown'}</span>
+                  <span className="member-list__name">{getName(member)}</span>
                 </li>
               ))}
             </ul>
@@ -82,9 +115,9 @@ function MemberList({ members, clanId }) {
         )}
 
         {/* Fallback when no members */}
-        {members.length === 0 && (
+        {filtered.length === 0 && (
           <div className="member-list__empty">
-            <p>No members found</p>
+            <p>{search ? 'No members match your search' : 'No members found'}</p>
           </div>
         )}
       </div>

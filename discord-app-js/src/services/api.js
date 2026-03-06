@@ -11,6 +11,8 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+
     const token = localStorage.getItem("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
@@ -27,10 +29,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.error("Unauthorized! Redirecting to login...");
+      console.error("Unauthorized! Clearing session...");
       localStorage.removeItem("token");
-
-      // TODO: Refresh token mekanizması ile yeniden deneme yapılmalı
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
       window.location.href = "/login";
     }
     return Promise.reject(error);

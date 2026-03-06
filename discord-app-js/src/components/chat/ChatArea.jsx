@@ -185,7 +185,7 @@ function ChatArea({ clan, channel }) {
     const content = newMessage.trim();
     const senderId = user?.id || user?.sub || '';
     // Backend userName alanında ne saklıyorsa onu gönder
-    const userName = user?.userName || user?.username || user?.name || user?.email || senderId || 'Unknown';
+    const userName = user?.userName || user?.username || user?.name || 'Unknown';
     console.log('[ChatArea] Sending message — user object:', user, '→ senderId:', senderId, '→ userName:', userName);
 
     // Optimistik olarak mesajı hemen UI'a ekle
@@ -254,9 +254,7 @@ function ChatArea({ clan, channel }) {
           <button className="chat-area__header-btn" title="Search">
             <span className="material-symbols-outlined">search</span>
           </button>
-          <button className="chat-area__header-btn" title="Members">
-            <span className="material-symbols-outlined">group</span>
-          </button>
+         
         </div>
       </header>
 
