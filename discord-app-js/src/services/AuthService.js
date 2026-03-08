@@ -43,7 +43,7 @@ const register = async (userData) => {
     const response = await api.post("/identity/register", userData);
     const result = response.data;
 
-    if (!result.isSuccessfull) {
+    if (result.isSuccessfull === false) {
       throw new Error(result.message || "Registration failed");
     }
 

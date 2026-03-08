@@ -7,6 +7,7 @@ import ServerList from '../clan/ServerList';
 import ChannelSidebar from '../clan/ChannelSidebar';
 import ChatArea from '../chat/ChatArea';
 import CreateClanModal from '../clan/CreateClanModal';
+import VoiceChannel from '../voicechannel/VoiceChannel';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 
@@ -20,6 +21,7 @@ function MainLayout() {
   const [channels, setChannels] = useState([]);
   const [voiceChannels, setVoiceChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
+  const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -106,6 +108,10 @@ function MainLayout() {
     navigate(`/app/clans/${selectedClan.clanId}/channels/${channel.channelId}`);
   };
 
+  const handleSelectVoiceChannel = (channel) => {
+    setActiveVoiceChannel(channel);
+  };
+
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
       name,
@@ -182,7 +188,9 @@ const handleCreateChannel = async (name) => {
         channels={channels}
         voiceChannels={voiceChannels}
         selectedChannelId={selectedChannel?.channelId}
+        activeVoiceChannelId={activeVoiceChannel?.channelId}
         onSelectChannel={handleSelectChannel}
+        onSelectVoiceChannel={handleSelectVoiceChannel}
         user={user}
         onLogout={handleLogout}
         onCreateChannel={handleCreateChannel}
@@ -195,6 +203,27 @@ const handleCreateChannel = async (name) => {
         clan={selectedClan}
         channel={selectedChannel}
       />
+      
+      {activeVoiceChannel && (
+        <div className="voice-widget">
+          <div className="voice-widget__header">
+            <div className="voice-widget__title-container">
+              <span className="material-symbols-outlined voice-widget__icon">volume_up</span>
+              <span className="voice-widget__title">{activeVoiceChannel.name}</span>
+            </div>
+          </div>
+          <div className="voice-widget__content">
+            {console.log('VoiceChannel props:', { activeVoiceChannel, user })}
+            <VoiceChannel
+              roomId={activeVoiceChannel?.channelId || activeVoiceChannel?.id || 'unknown-room'}
+              userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
+              userName={user?.userName || user?.name || user?.email || 'User'}
+              onLeaveRoom={() => setActiveVoiceChannel(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {showCreateModal && (
         <CreateClanModal
           onClose={() => setShowCreateModal(false)}

@@ -1108,6 +1108,54 @@ body {
 }
 
 /* ============================
+   Voice Widget
+   ============================ */
+.voice-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  height: 180px;
+  background-color: #2b2d31;
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2), 0 0 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-widget__header {
+  padding: 8px 12px;
+  background-color: #1e1f22;
+  border-bottom: 1px solid #3f4147;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voice-widget__title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-widget__icon {
+  color: #23a559;
+  font-size: 16px;
+}
+
+.voice-widget__title {
+  color: #f2f3f5;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.voice-widget__content {
+  flex: 1;
+}
+
+/* ============================
    Scrollbar Styling
    ============================ */
 ::-webkit-scrollbar {
