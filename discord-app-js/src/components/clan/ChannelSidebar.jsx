@@ -5,7 +5,9 @@ function ChannelSidebar({
   channels,
   voiceChannels,
   selectedChannelId,
+  activeVoiceChannelId,
   onSelectChannel,
+  onSelectVoiceChannel,
   user,
   onLogout,
   onCreateChannel,
@@ -204,9 +206,13 @@ function ChannelSidebar({
             <div className="channel-sidebar__group-items">
               {voiceChannels && voiceChannels.length > 0 && (
                 voiceChannels.map((vc) => (
-                  <div key={vc.channelId || vc.name} className="channel-sidebar__channel">
-                    <span className="material-symbols-outlined channel-sidebar__channel-icon">volume_up</span>
-                    <p className="channel-sidebar__channel-name">{vc.name}</p>
+                  <div
+                    key={vc.channelId || vc.name}
+                    className={`channel-sidebar__channel ${activeVoiceChannelId === vc.channelId ? 'channel-sidebar__channel--active' : ''}`}
+                    onClick={() => onSelectVoiceChannel && onSelectVoiceChannel(vc)}
+                  >
+                    <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.channelId ? '#23a559' : undefined }}>volume_up</span>
+                    <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.channelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
                   </div>
                 ))
               )}
