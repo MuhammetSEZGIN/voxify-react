@@ -835,7 +835,7 @@ body {
 }
 
 .chat-area__message-group--own {
-  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
 .chat-area__message-group--own .chat-area__message-content {
