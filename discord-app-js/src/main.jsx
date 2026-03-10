@@ -20,12 +20,10 @@ async function enableMocking() {
 
 enableMocking().then(() => {
   createRoot(document.getElementById("root")).render(
-    <StrictMode>
       <BrowserRouter>
         <AuthProvider>
           <App />
         </AuthProvider>
       </BrowserRouter>
-    </StrictMode>
   );
 });

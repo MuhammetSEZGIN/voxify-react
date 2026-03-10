@@ -207,12 +207,12 @@ function ChannelSidebar({
               {voiceChannels && voiceChannels.length > 0 && (
                 voiceChannels.map((vc) => (
                   <div
-                    key={vc.channelId || vc.name}
-                    className={`channel-sidebar__channel ${activeVoiceChannelId === vc.channelId ? 'channel-sidebar__channel--active' : ''}`}
+                    key={vc.voiceChannelId || vc.name}
+                    className={`channel-sidebar__channel ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel--active' : ''}`}
                     onClick={() => onSelectVoiceChannel && onSelectVoiceChannel(vc)}
                   >
-                    <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.channelId ? '#23a559' : undefined }}>volume_up</span>
-                    <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.channelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
+                    <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.voiceChannelId ? '#23a559' : undefined }}>volume_up</span>
+                    <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
                   </div>
                 ))
               )}

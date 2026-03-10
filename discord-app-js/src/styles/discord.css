@@ -1107,6 +1107,76 @@ body {
   font-size: 14px;
 }
 
+/* Member List — Invite */
+.member-list__invite {
+  padding: 12px;
+  border-top: 1px solid var(--border-dark);
+}
+
+.member-list__invite-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--primary);
+  color: var(--white);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.member-list__invite-btn:hover {
+  background: #2478d0;
+}
+
+.member-list__invite-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.member-list__invite-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.member-list__invite-link-box {
+  display: flex;
+  margin-top: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-dark);
+}
+
+.member-list__invite-link-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  border: none;
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.member-list__invite-copy-btn {
+  padding: 6px 12px;
+  background: var(--green);
+  color: var(--white);
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.member-list__invite-copy-btn:hover {
+  background: #1aab4e;
+}
+
 /* ============================
    Voice Widget
    ============================ */
@@ -1157,6 +1227,159 @@ body {
 
 /* ============================
    Scrollbar Styling
+   ============================ */
+/* ============================
+   Modal
+   ============================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: var(--surface-dark);
+  border-radius: 12px;
+  width: 440px;
+  max-width: 90vw;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: modal-appear 0.15s ease;
+}
+
+@keyframes modal-appear {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.modal__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-dark);
+}
+
+.modal__tab {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.modal__tab:hover {
+  color: var(--text-light);
+}
+
+.modal__tab--active {
+  color: var(--white);
+  border-bottom-color: var(--primary);
+}
+
+.modal__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.modal__subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.modal__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.modal__input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.modal__input:focus {
+  border-color: var(--primary);
+}
+
+.modal__input::placeholder {
+  color: var(--text-muted);
+}
+
+.modal__error {
+  color: var(--red);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.modal__btn {
+  padding: 10px 24px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal__btn--cancel {
+  background: transparent;
+  color: var(--text-light);
+}
+
+.modal__btn--cancel:hover {
+  text-decoration: underline;
+}
+
+.modal__btn--primary {
+  background: var(--primary);
+  color: var(--white);
+}
+
+.modal__btn--primary:hover {
+  background: #2478d0;
+}
+
+/* ============================
+   Scrollbar
    ============================ */
 ::-webkit-scrollbar {
   width: 6px;
