@@ -61,6 +61,7 @@ function ChatArea({ clan, channel }) {
         normalized = {
           messageId: crypto.randomUUID(),
           channelId: args[0],
+          senderId: args[1],
           userName: args[2],
           content: args[3],
           createdAt: new Date().toISOString(),
@@ -135,10 +136,38 @@ function ChatArea({ clan, channel }) {
       userName: msg.userName || msg.UserName
         || msg.user?.userName || msg.user?.username || msg.user?.UserName
         || msg.senderName || msg.SenderName || 'Unknown',
+      senderId: msg.senderId || msg.SenderId || msg.userId || msg.UserId || msg.user?.id || '',
       avatarUrl: msg.avatarUrl || msg.AvatarUrl || msg.user?.avatarUrl || null,
       createdAt: msg.createdAt || msg.CreatedAt || msg.sentAt || msg.SentAt || new Date().toISOString(),
       channelId: msg.channelId || msg.ChannelId || '',
     };
+  };
+
+  /**
+   * Mesajları grupla: aynı kullanıcıdan 1 dakika içinde gelen mesajlar tek blok.
+   */
+  const groupMessages = (msgs) => {
+    const groups = [];
+    for (const msg of msgs) {
+      const lastGroup = groups[groups.length - 1];
+      if (
+        lastGroup &&
+        lastGroup.userName === msg.userName &&
+        lastGroup.senderId === msg.senderId &&
+        Math.abs(new Date(msg.createdAt) - new Date(lastGroup.messages[lastGroup.messages.length - 1].createdAt)) < 60000
+      ) {
+        lastGroup.messages.push(msg);
+      } else {
+        groups.push({
+          userName: msg.userName,
+          senderId: msg.senderId,
+          avatarUrl: msg.avatarUrl,
+          createdAt: msg.createdAt,
+          messages: [msg],
+        });
+      }
+    }
+    return groups;
   };
 
   /**
@@ -193,6 +222,7 @@ function ChatArea({ clan, channel }) {
       messageId: `temp-${Date.now()}`,
       content,
       userName,
+      senderId,
       avatarUrl: user?.avatarUrl || null,
       createdAt: new Date().toISOString(),
       channelId: channel.channelId,
@@ -273,28 +303,45 @@ function ChatArea({ clan, channel }) {
               <p className="chat-area__empty-subtitle">This is the start of the channel. Send a message to begin!</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.messageId || msg.id} className="chat-area__message">
-                <div className="chat-area__message-avatar">
-                  {msg.avatarUrl ? (
-                    <img src={msg.avatarUrl} alt="" className="chat-area__message-avatar-img" />
-                  ) : (
-                    <span>{msg.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+            groupMessages(messages).map((group, gi) => {
+              const currentUserId = user?.id || user?.sub || '';
+              const isOwn = group.senderId === currentUserId || group.userName === (user?.userName || user?.name);
+              return (
+                <div key={group.messages[0].messageId || gi} className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}>
+                  {!isOwn && (
+                    <div className="chat-area__message-avatar">
+                      {group.avatarUrl ? (
+                        <img src={group.avatarUrl} alt="" className="chat-area__message-avatar-img" />
+                      ) : (
+                        <span>{group.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </div>
+                  )}
+                  <div className="chat-area__message-content">
+                    <div className="chat-area__message-header">
+                      <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
+                      <p className="chat-area__message-time">
+                        {group.createdAt
+                          ? new Date(group.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          : ''}
+                      </p>
+                    </div>
+                    {group.messages.map((msg) => (
+                      <p key={msg.messageId} className="chat-area__message-text">{msg.content}</p>
+                    ))}
+                  </div>
+                  {isOwn && (
+                    <div className="chat-area__message-avatar">
+                      {group.avatarUrl ? (
+                        <img src={group.avatarUrl} alt="" className="chat-area__message-avatar-img" />
+                      ) : (
+                        <span>{group.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="chat-area__message-content">
-                  <div className="chat-area__message-header">
-                    <p className="chat-area__message-author">{msg.userName || 'Unknown'}</p>
-                    <p className="chat-area__message-time">
-                      {msg.createdAt
-                        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : ''}
-                    </p>
-                  </div>
-                  <p className="chat-area__message-text">{msg.content}</p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

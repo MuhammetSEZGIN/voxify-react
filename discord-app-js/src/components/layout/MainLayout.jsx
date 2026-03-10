@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import ClanService from '../../services/ClanService';
 import ChannelService from '../../services/ChannelService';
+import ClanMembershipService from '../../services/ClanMembershipService';
 import ServerList from '../clan/ServerList';
 import ChannelSidebar from '../clan/ChannelSidebar';
 import ChatArea from '../chat/ChatArea';
@@ -10,6 +11,7 @@ import CreateClanModal from '../clan/CreateClanModal';
 import VoiceChannel from '../voicechannel/VoiceChannel';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
+import ClanSettings from '../clan/ClanSettings';
 
 function MainLayout() {
   const { user, logout } = useAuth();
@@ -22,9 +24,24 @@ function MainLayout() {
   const [voiceChannels, setVoiceChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
+  const [voiceState, setVoiceState] = useState(null);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showClanSettings, setShowClanSettings] = useState(false);
+
+  // Kullanıcının seçili klandaki rolünü hesapla
+  const userRole = useMemo(() => {
+    if (!selectedClan || !memeberShips?.length || !user) return 'member';
+    const userId = user.id || user.sub || '';
+    const membership = memeberShips.find((m) => {
+      const mUserId = m.userId || m.user?.id || '';
+      return mUserId === userId;
+    });
+    return membership?.role?.toLowerCase() || 'member';
+  }, [selectedClan, memeberShips, user]);
+
+  const canManage = userRole === 'owner' || userRole === 'admin';
 
   // Klanları yükle
   useEffect(() => {
@@ -112,6 +129,15 @@ function MainLayout() {
     setActiveVoiceChannel(channel);
   };
 
+  const handleVoiceStateChange = useCallback((state) => {
+    setVoiceState(state);
+  }, []);
+
+  const handleDisconnectVoice = useCallback(() => {
+    setActiveVoiceChannel(null);
+    setVoiceState(null);
+  }, []);
+
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
       name,
@@ -165,6 +191,67 @@ const handleCreateChannel = async (name) => {
     logout();
   };
 
+  const handleLeaveClan = async () => {
+    if (!selectedClan || !user) return;
+    const userId = user.id || user.sub || '';
+    try {
+      await ClanMembershipService.removeUserFromClan(selectedClan.clanId, userId);
+      setClans((prev) => prev.filter((c) => c.clanId !== selectedClan.clanId));
+      setSelectedClan(null);
+      setSelectedChannel(null);
+      setChannels([]);
+      setVoiceChannels([]);
+      navigate('/app');
+    } catch (error) {
+      console.error('Failed to leave clan', error);
+    }
+  };
+
+  const handleUpdateClan = async (data) => {
+    try {
+      const updated = await ClanService.updateClan(data);
+      setClans((prev) => prev.map((c) => c.clanId === data.clanId ? { ...c, ...updated } : c));
+      setSelectedClan((prev) => prev ? { ...prev, ...updated } : prev);
+    } catch (error) {
+      console.error('Failed to update clan', error);
+    }
+  };
+
+  const handleDeleteClan = async () => {
+    if (!selectedClan) return;
+    try {
+      await ClanService.deleteClan(selectedClan.clanId);
+      setClans((prev) => prev.filter((c) => c.clanId !== selectedClan.clanId));
+      setSelectedClan(null);
+      setSelectedChannel(null);
+      setChannels([]);
+      setVoiceChannels([]);
+      navigate('/app');
+    } catch (error) {
+      console.error('Failed to delete clan', error);
+    }
+  };
+
+  const handleUpdateMemberRole = async (membershipId, roleName) => {
+    try {
+      await ClanMembershipService.updateMemberRole(membershipId, roleName);
+      // Membership listesini yenile
+      const data = await ClanService.getClanById(selectedClan.clanId);
+      setMemberships(data.clanMemberships || []);
+    } catch (error) {
+      console.error('Failed to update member role', error);
+    }
+  };
+
+  const handleKickMember = async (clanId, userId) => {
+    try {
+      await ClanMembershipService.removeUserFromClan(clanId, userId);
+      setMemberships((prev) => prev.filter((m) => (m.userId || m.user?.id) !== userId));
+    } catch (error) {
+      console.error('Failed to kick member', error);
+    }
+  };
+
   if (loadingClans) {
     return (
       <div className="loading-screen">
@@ -197,6 +284,13 @@ const handleCreateChannel = async (name) => {
         onCreateVoiceChannel={handleCreateVoiceChannel}
         onUpdateChannel={handleUpdateChannel}
         onDeleteChannel={handleDeleteChannel}
+        voiceState={voiceState}
+        activeVoiceChannel={activeVoiceChannel}
+        onDisconnectVoice={handleDisconnectVoice}
+        canManage={canManage}
+        userRole={userRole}
+        onLeaveClan={handleLeaveClan}
+        onOpenClanSettings={() => setShowClanSettings(true)}
       />
 
       <ChatArea
@@ -205,23 +299,13 @@ const handleCreateChannel = async (name) => {
       />
       
       {activeVoiceChannel && (
-        <div className="voice-widget">
-          <div className="voice-widget__header">
-            <div className="voice-widget__title-container">
-              <span className="material-symbols-outlined voice-widget__icon">volume_up</span>
-              <span className="voice-widget__title">{activeVoiceChannel.name}</span>
-            </div>
-          </div>
-          <div className="voice-widget__content">
-            {console.log('VoiceChannel props:', { activeVoiceChannel, user })}
-            <VoiceChannel
-              roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
-              userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
-              userName={user?.userName || user?.name || user?.email || 'User'}
-              onLeaveRoom={() => setActiveVoiceChannel(null)}
-            />
-          </div>
-        </div>
+        <VoiceChannel
+          roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
+          userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
+          userName={user?.userName || user?.name || user?.email || 'User'}
+          onLeaveRoom={handleDisconnectVoice}
+          onVoiceStateChange={handleVoiceStateChange}
+        />
       )}
 
       {showCreateModal && (
@@ -236,6 +320,20 @@ const handleCreateChannel = async (name) => {
       )}
 
       <MemberList members={memeberShips} clanId={selectedClan?.clanId} />
+
+      {showClanSettings && selectedClan && (
+        <ClanSettings
+          clan={selectedClan}
+          members={memeberShips}
+          userRole={userRole}
+          user={user}
+          onClose={() => setShowClanSettings(false)}
+          onUpdateClan={handleUpdateClan}
+          onDeleteClan={handleDeleteClan}
+          onUpdateMemberRole={handleUpdateMemberRole}
+          onKickMember={handleKickMember}
+        />
+      )}
     </div>
   );
 }

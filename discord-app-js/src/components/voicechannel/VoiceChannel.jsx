@@ -1,23 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   LiveKitRoom,
   RoomAudioRenderer,
-  ControlBar,
+  useLocalParticipant,
+  useParticipants,
+  useRoomContext,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
 
-const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom }) => {
+/**
+ * LiveKitRoom içinde çalışarak ses durumunu üst bileşene aktaran köprü bileşen.
+ * Mikrofon durumu, katılımcı listesi ve kontrol fonksiyonlarını raporlar.
+ */
+function VoiceRoomBridge({ onVoiceStateChange }) {
+  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+  const participants = useParticipants();
+  const room = useRoomContext();
+
+  const toggleMute = useCallback(() => {
+    localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled);
+  }, [localParticipant]);
+
+  const disconnect = useCallback(() => {
+    room.disconnect();
+  }, [room]);
+
+  useEffect(() => {
+    if (!onVoiceStateChange) return;
+
+    const participantInfo = participants.map((p) => ({
+      identity: p.identity,
+      name: p.name || p.identity,
+      isMuted: !p.isMicrophoneEnabled,
+      isSpeaking: p.isSpeaking,
+      isLocal: p === localParticipant,
+    }));
+
+    onVoiceStateChange({
+      isMuted: !isMicrophoneEnabled,
+      participants: participantInfo,
+      toggleMute,
+      disconnect,
+    });
+  }, [isMicrophoneEnabled, participants, toggleMute, disconnect, onVoiceStateChange, localParticipant]);
+
+  return null;
+}
+
+const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChange }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Vite projeleri için ortam değişkenleri import.meta.env üzerinden okunur.
-  // Not: Eğer Create React App kullanıyorsan process.env.REACT_APP_LIVEKIT_URL olarak değiştirebilirsin.
   const serverUrl = import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.5.122:7880';
 
   useEffect(() => {
-    // İstek atılırken bileşen unmount olursa hatayı önlemek için AbortController
     const abortController = new AbortController();
 
     const fetchToken = async () => {
@@ -25,16 +63,13 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom }) => {
         setLoading(true);
         setError(null);
 
-        // Token'ı VoiceService üzerinden alıyoruz
         const data = await VoiceService.joinRoom(roomId, userId, userName, abortController.signal);
-        
-        // Backend'in { "token": "..." } şeklinde döndüğünü varsayıyoruz
+
         if (data && data.token) {
           setToken(data.token);
         } else {
           throw new Error('Odadan geçerli bir token alınamadı.');
         }
-
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError(err.message);
@@ -52,22 +87,20 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom }) => {
     }
 
     return () => {
-      abortController.abort(); // Cleanup fonksiyonu
+      abortController.abort();
     };
   }, [roomId, userId, userName]);
 
-  // Kullanıcı odadan çıktığında (Disconnect butonuna bastığında veya bağlantı koptuğunda)
   const handleDisconnect = () => {
     setToken(null);
-    
-    // Üst bileşenden (örneğin Router'dan) gelen yönlendirme fonksiyonu çağrılır
-    // Kullanıcıyı arayüze/odalara geri döndürüp temizliyoruz.
+    if (onVoiceStateChange) {
+      onVoiceStateChange(null);
+    }
     if (onLeaveRoom) {
       onLeaveRoom();
     }
   };
 
-  // 2. Adım: Yükleniyor durumu UI bildirimi
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8 h-full">
@@ -76,13 +109,12 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom }) => {
     );
   }
 
-  // Hata durumu UI bildirimi
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center p-8 h-full">
         <p className="text-red-500 font-semibold mb-4">Hata: {error}</p>
-        <button 
-          onClick={() => onLeaveRoom?.()} 
+        <button
+          onClick={() => onLeaveRoom?.()}
           className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
         >
           Odalar Listesine Dön
@@ -95,38 +127,18 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom }) => {
     return null;
   }
 
-  // 3. Adım ve 4. Adım: LiveKitRoom ve İçerikleri
   return (
     <LiveKitRoom
-      video={false}     // Görüntü kapalı
-      audio={true}      // Ses otomatik olarak açılacak
-      token={token}     // Fetch edilen token
-      serverUrl={serverUrl} 
-      connect={true}    // Otomatik bağlanma
-      onDisconnected={handleDisconnect} // Odadan çıkıldığında tetiklenen eventi dinliyoruz
-      data-lk-theme="default" // LiveKit'in hazır default temasını etkinleştiriyoruz
-      style={{
-        height: '100%',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      video={false}
+      audio={true}
+      token={token}
+      serverUrl={serverUrl}
+      connect={true}
+      onDisconnected={handleDisconnect}
+      style={{ display: 'none' }}
     >
-      {/* Odadaki diğer kullanıcıların seslerini duymak için arka planda çalışır */}
       <RoomAudioRenderer />
-
-      {/* Alt kısımdaki hazır kontroller. 
-          Sadece mikrofon ve çıkış (disconnect) aktif. */}
-      {/* İsimlendirilen props'lara göre diğer butonlar gizlenir. */}
-      <ControlBar 
-        controls={{ 
-          microphone: true, 
-          camera: false, 
-          screenShare: false, 
-          chat: false, 
-          leave: true 
-        }} 
-      />
+      <VoiceRoomBridge onVoiceStateChange={onVoiceStateChange} />
     </LiveKitRoom>
   );
 };

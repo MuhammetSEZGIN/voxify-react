@@ -828,6 +828,39 @@ body {
   word-break: break-word;
 }
 
+/* Message Group */
+.chat-area__message-group {
+  display: flex;
+  gap: 16px;
+}
+
+.chat-area__message-group--own {
+  flex-direction: row-reverse;
+}
+
+.chat-area__message-group--own .chat-area__message-content {
+  align-items: flex-end;
+}
+
+.chat-area__message-group--own .chat-area__message-header {
+  flex-direction: row-reverse;
+}
+
+.chat-area__message-group--own .chat-area__message-text {
+  background: rgba(43, 140, 238, 0.15);
+  padding: 6px 12px;
+  border-radius: 12px 2px 12px 12px;
+  max-width: fit-content;
+  align-self: flex-end;
+}
+
+.chat-area__message-group:not(.chat-area__message-group--own) .chat-area__message-text {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 12px;
+  border-radius: 2px 12px 12px 12px;
+  max-width: fit-content;
+}
+
 /* Message Input */
 .chat-area__input-wrapper {
   position: sticky;
@@ -1178,51 +1211,170 @@ body {
 }
 
 /* ============================
-   Voice Widget
+   Voice Widget (hidden - controls moved to sidebar)
    ============================ */
 .voice-widget {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 320px;
-  height: 180px;
-  background-color: #2b2d31;
-  border-radius: 8px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.2), 0 0 4px rgba(0,0,0,0.1);
-  z-index: 1000;
-  overflow: hidden;
+  display: none;
+}
+
+/* ============================
+   Voice Status Panel (Sidebar)
+   ============================ */
+.voice-status-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(35, 165, 89, 0.1);
+  border-top: 1px solid rgba(35, 165, 89, 0.3);
+  flex-shrink: 0;
+}
+
+.voice-status-panel__info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
 }
 
-.voice-widget__header {
-  padding: 8px 12px;
-  background-color: #1e1f22;
-  border-bottom: 1px solid #3f4147;
+.voice-status-panel__signal {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
 }
 
-.voice-widget__title-container {
+.voice-status-panel__signal-icon {
+  font-size: 16px;
+  color: #23a559;
+}
+
+.voice-status-panel__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #23a559;
+}
+
+.voice-status-panel__channel-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 22px;
+}
+
+.voice-status-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voice-status-panel__btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+
+.voice-status-panel__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.voice-status-panel__btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+/* ============================
+   Voice Participants (under voice channel)
+   ============================ */
+.voice-participants {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 28px;
+  margin-top: 2px;
+}
+
+.voice-participants__item {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.1s;
 }
 
-.voice-widget__icon {
-  color: #23a559;
-  font-size: 16px;
+.voice-participants__item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.voice-widget__title {
-  color: #f2f3f5;
+.voice-participants__item--speaking {
+  background: rgba(35, 165, 89, 0.08);
+}
+
+.voice-participants__avatar {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
   font-weight: 600;
-  font-size: 14px;
+  color: var(--white);
+  flex-shrink: 0;
 }
 
-.voice-widget__content {
+.voice-participants__speaking-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid #23a559;
+  animation: speaking-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes speaking-pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+.voice-participants__name {
+  font-size: 13px;
+  color: var(--text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   flex: 1;
+}
+
+.voice-participants__muted-icon {
+  font-size: 14px;
+  color: var(--red);
+  flex-shrink: 0;
+}
+
+/* Muted mic button style */
+.channel-sidebar__user-action-btn--muted {
+  background: rgba(237, 66, 69, 0.15);
+  color: var(--red) !important;
+  position: relative;
+}
+
+.channel-sidebar__user-action-btn--muted .material-symbols-outlined {
+  color: var(--red);
+}
+
+.channel-sidebar__user-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* ============================
@@ -1396,4 +1548,430 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* ============================
+   Clan Dropdown Menu
+   ============================ */
+.channel-sidebar__header-menu-wrapper {
+  position: relative;
+}
+
+.clan-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 220px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  padding: 6px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: modal-appear 0.1s ease;
+}
+
+.clan-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-light);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.clan-dropdown-menu__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.clan-dropdown-menu__item .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.clan-dropdown-menu__item--danger {
+  color: var(--red);
+}
+
+.clan-dropdown-menu__item--danger .material-symbols-outlined {
+  color: var(--red);
+}
+
+.clan-dropdown-menu__item--danger:hover {
+  background: rgba(237, 66, 69, 0.15);
+}
+
+/* ============================
+   Clan Settings
+   ============================ */
+.clan-settings {
+  display: flex;
+  width: 90vw;
+  max-width: 900px;
+  height: 80vh;
+  background: var(--surface-dark);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  animation: modal-appear 0.15s ease;
+}
+
+.clan-settings__sidebar {
+  width: 220px;
+  background: var(--bg-dark);
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.clan-settings__sidebar-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clan-settings__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.clan-settings__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.clan-settings__nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-light);
+}
+
+.clan-settings__nav-item--active {
+  background: rgba(43, 140, 238, 0.2);
+  color: var(--text-light);
+}
+
+.clan-settings__nav-item--danger {
+  color: var(--red);
+}
+
+.clan-settings__nav-item .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.clan-settings__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+.clan-settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.clan-settings__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.clan-settings__close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.clan-settings__close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-light);
+}
+
+.clan-settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.clan-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clan-settings__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.clan-settings__input {
+  padding: 10px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.clan-settings__input:focus {
+  border-color: var(--primary);
+}
+
+.clan-settings__textarea {
+  padding: 10px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 14px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.clan-settings__textarea:focus {
+  border-color: var(--primary);
+}
+
+.clan-settings__save-btn {
+  align-self: flex-start;
+  padding: 10px 24px;
+  background: var(--primary);
+  color: var(--white);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clan-settings__save-btn:hover {
+  background: #2478d0;
+}
+
+.clan-settings__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Members List */
+.clan-settings__members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clan-settings__member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.clan-settings__member-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.clan-settings__member-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clan-settings__member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.clan-settings__member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.clan-settings__member-you {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.clan-settings__member-role-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.clan-settings__member-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clan-settings__role-select {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 4px;
+  color: var(--text-light);
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.clan-settings__role-select:focus {
+  border-color: var(--primary);
+}
+
+.clan-settings__kick-btn {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--red);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+
+.clan-settings__kick-btn:hover {
+  background: rgba(237, 66, 69, 0.15);
+}
+
+.clan-settings__kick-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.clan-settings__empty {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Danger Zone */
+.clan-settings__danger-zone {
+  background: rgba(237, 66, 69, 0.08);
+  border: 1px solid rgba(237, 66, 69, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.clan-settings__danger-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+
+.clan-settings__danger-description {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.clan-settings__delete-btn {
+  padding: 10px 24px;
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clan-settings__delete-btn:hover {
+  background: #d63031;
+}
+
+.clan-settings__delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clan-settings__delete-confirm p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.clan-settings__delete-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.clan-settings__cancel-btn {
+  padding: 10px 24px;
+  background: transparent;
+  color: var(--text-light);
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clan-settings__cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
