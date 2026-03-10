@@ -35,6 +35,11 @@ const joinClan = async ({ inviteCode, userId }) => {
   return response.data;
 };
 
+const updateMemberRole = async (membershipId, roleName) => {
+  const response = await api.put(`/role/${membershipId}`, { membershipId, roleName });
+  return response.data;
+};
+
 const ClanMembershipService = {
   getMembershipById,
   deleteMembership,
@@ -43,6 +48,7 @@ const ClanMembershipService = {
   removeUserFromClan,
   createInvitation,
   joinClan,
+  updateMemberRole,
 };
 
 export default ClanMembershipService;

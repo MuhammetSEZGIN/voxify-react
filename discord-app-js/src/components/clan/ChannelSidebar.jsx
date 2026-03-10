@@ -14,6 +14,13 @@ function ChannelSidebar({
   onCreateVoiceChannel,
   onUpdateChannel,
   onDeleteChannel,
+  voiceState,
+  activeVoiceChannel,
+  onDisconnectVoice,
+  canManage,
+  userRole,
+  onLeaveClan,
+  onOpenClanSettings,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -23,6 +30,7 @@ function ChannelSidebar({
   const [newVoiceChannelName, setNewVoiceChannelName] = useState('');
   const [editingChannel, setEditingChannel] = useState(null);
   const [editName, setEditName] = useState('');
+  const [showClanMenu, setShowClanMenu] = useState(false);
 
   if (!clan) {
     return (
@@ -107,9 +115,25 @@ function ChannelSidebar({
       {/* Clan Header */}
       <header className="channel-sidebar__header">
         <h1 className="channel-sidebar__title">{clan.name}</h1>
-        <button className="channel-sidebar__header-btn">
-          <span className="material-symbols-outlined">expand_more</span>
-        </button>
+        <div className="channel-sidebar__header-menu-wrapper">
+          <button className="channel-sidebar__header-btn" onClick={() => setShowClanMenu(!showClanMenu)}>
+            <span className="material-symbols-outlined">{showClanMenu ? 'close' : 'expand_more'}</span>
+          </button>
+          {showClanMenu && (
+            <div className="clan-dropdown-menu">
+              {(userRole === 'owner' || userRole === 'admin') && (
+                <button className="clan-dropdown-menu__item" onClick={() => { setShowClanMenu(false); onOpenClanSettings?.(); }}>
+                  <span className="material-symbols-outlined">settings</span>
+                  <span>Klan Ayarları</span>
+                </button>
+              )}
+              <button className="clan-dropdown-menu__item clan-dropdown-menu__item--danger" onClick={() => { setShowClanMenu(false); onLeaveClan?.(); }}>
+                <span className="material-symbols-outlined">logout</span>
+                <span>Klandan Ayrıl</span>
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Channel List */}
@@ -149,7 +173,7 @@ function ChannelSidebar({
                       {ch.name}
                     </p>
                   )}
-                  {selectedChannelId === ch.channelId && editingChannel !== ch.channelId && (
+                  {canManage && selectedChannelId === ch.channelId && editingChannel !== ch.channelId && (
                     <div className="channel-sidebar__channel-actions">
                       <button onClick={(e) => handleStartEdit(ch, e)} title="Edit">
                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
@@ -161,7 +185,7 @@ function ChannelSidebar({
                   )}
                 </div>
               ))}
-              {showChannelInput ? (
+              {canManage && (showChannelInput ? (
                 <div className="channel-sidebar__new-channel">
                   <input
                     className="channel-sidebar__new-channel-input"
@@ -186,7 +210,7 @@ function ChannelSidebar({
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
                   <span>Add Channel</span>
                 </button>
-              )}
+              ))}
             </div>
           )}
         </details>
@@ -206,17 +230,35 @@ function ChannelSidebar({
             <div className="channel-sidebar__group-items">
               {voiceChannels && voiceChannels.length > 0 && (
                 voiceChannels.map((vc) => (
-                  <div
-                    key={vc.voiceChannelId || vc.name}
-                    className={`channel-sidebar__channel ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel--active' : ''}`}
-                    onClick={() => onSelectVoiceChannel && onSelectVoiceChannel(vc)}
-                  >
-                    <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.voiceChannelId ? '#23a559' : undefined }}>volume_up</span>
-                    <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
+                  <div key={vc.voiceChannelId || vc.name}>
+                    <div
+                      className={`channel-sidebar__channel ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel--active' : ''}`}
+                      onClick={() => onSelectVoiceChannel && onSelectVoiceChannel(vc)}
+                    >
+                      <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.voiceChannelId ? '#23a559' : undefined }}>volume_up</span>
+                      <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
+                    </div>
+                    {/* Ses kanalına bağlı kullanıcıları göster */}
+                    {activeVoiceChannelId === vc.voiceChannelId && voiceState?.participants && (
+                      <div className="voice-participants">
+                        {voiceState.participants.map((p) => (
+                          <div key={p.identity} className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}>
+                            <div className="voice-participants__avatar">
+                              <span>{(p.name || '?').charAt(0).toUpperCase()}</span>
+                              {p.isSpeaking && <div className="voice-participants__speaking-ring" />}
+                            </div>
+                            <span className="voice-participants__name">{p.name}</span>
+                            {p.isMuted && (
+                              <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
-              {showVoiceChannelInput ? (
+              {canManage && (showVoiceChannelInput ? (
                 <div className="channel-sidebar__new-channel">
                   <input
                     className="channel-sidebar__new-channel-input"
@@ -241,11 +283,33 @@ function ChannelSidebar({
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
                   <span>Add Channel</span>
                 </button>
-              )}
+              ))}
             </div>
           )}
         </details>
       </div>
+
+      {/* Voice Connection Panel - Discord tarzı bağlantı durumu */}
+      {activeVoiceChannel && voiceState && (
+        <div className="voice-status-panel">
+          <div className="voice-status-panel__info">
+            <div className="voice-status-panel__signal">
+              <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
+              <span className="voice-status-panel__label">Ses Bağlantısı</span>
+            </div>
+            <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>
+          </div>
+          <div className="voice-status-panel__actions">
+            <button
+              className="voice-status-panel__btn"
+              onClick={() => onDisconnectVoice?.()}
+              title="Bağlantıyı Kes"
+            >
+              <span className="material-symbols-outlined" style={{ color: '#ed4245' }}>call_end</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* User Control Bar */}
       {user && (
@@ -267,8 +331,15 @@ function ChannelSidebar({
             </div>
           </div>
           <div className="channel-sidebar__user-actions">
-            <button className="channel-sidebar__user-action-btn" title="Microphone">
-              <span className="material-symbols-outlined">mic</span>
+            <button
+              className={`channel-sidebar__user-action-btn ${voiceState?.isMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
+              title={voiceState ? (voiceState.isMuted ? 'Mikrofonu Aç' : 'Sustur') : 'Mikrofon'}
+              onClick={() => voiceState?.toggleMute?.()}
+              disabled={!voiceState}
+            >
+              <span className="material-symbols-outlined">
+                {voiceState?.isMuted ? 'mic_off' : 'mic'}
+              </span>
             </button>
             <button className="channel-sidebar__user-action-btn" title="Headphones">
               <span className="material-symbols-outlined">headphones</span>
