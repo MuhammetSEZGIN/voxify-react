@@ -23,8 +23,9 @@ const VoiceService = {
       // However, we should check what api.js baseUrl is. If it's the same, we can use api.get().
       // To be safe as per the user's initial code, let's use fetch but through the service.
       
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+      const baseUrl = import.meta.env.VITE_VOICE_SERVER_URL;
       
+      console.log(`[VoiceService] Joining room with URL: ${baseUrl}/voice/join-room/${roomId}?${params.toString()}`);
       const response = await fetch(
         `${baseUrl}/voice/join-room/${roomId}?${params.toString()}`,
         { 

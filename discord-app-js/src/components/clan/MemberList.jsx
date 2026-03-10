@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
+import ClanMembershipService from '../../services/ClanMembershipService';
 
 function MemberList({ members, clanId }) {
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(true);
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!clanId || !members) return null;
 
@@ -17,6 +21,25 @@ function MemberList({ members, clanId }) {
   // Group by status
   const onlineMembers = filtered.filter((m) => m.status === 'online' || m.isOnline);
   const offlineMembers = filtered.filter((m) => m.status !== 'online' && !m.isOnline);
+
+  const handleCreateInvite = async () => {
+    try {
+      setInviteLoading(true);
+      const data = await ClanMembershipService.createInvitation(clanId);
+      setInviteCode(data.inviteCode || data);
+      setCopied(false);
+    } catch (error) {
+      console.error('Failed to create invite', error);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (!visible) {
     return (
@@ -118,6 +141,34 @@ function MemberList({ members, clanId }) {
         {filtered.length === 0 && (
           <div className="member-list__empty">
             <p>{search ? 'No members match your search' : 'No members found'}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Invite */}
+      <div className="member-list__invite">
+        <button
+          className="member-list__invite-btn"
+          onClick={handleCreateInvite}
+          disabled={inviteLoading}
+        >
+          <span className="material-symbols-outlined">person_add</span>
+          {inviteLoading ? 'Creating...' : 'Invite People'}
+        </button>
+
+        {inviteCode && (
+          <div className="member-list__invite-link-box">
+            <input
+              className="member-list__invite-link-input"
+              value={inviteCode}
+              readOnly
+            />
+            <button
+              className="member-list__invite-copy-btn"
+              onClick={handleCopyCode}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
         )}
       </div>

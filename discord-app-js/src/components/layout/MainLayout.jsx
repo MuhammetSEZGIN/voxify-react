@@ -188,7 +188,7 @@ const handleCreateChannel = async (name) => {
         channels={channels}
         voiceChannels={voiceChannels}
         selectedChannelId={selectedChannel?.channelId}
-        activeVoiceChannelId={activeVoiceChannel?.channelId}
+        activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
         onSelectChannel={handleSelectChannel}
         onSelectVoiceChannel={handleSelectVoiceChannel}
         user={user}
@@ -215,7 +215,7 @@ const handleCreateChannel = async (name) => {
           <div className="voice-widget__content">
             {console.log('VoiceChannel props:', { activeVoiceChannel, user })}
             <VoiceChannel
-              roomId={activeVoiceChannel?.channelId || activeVoiceChannel?.id || 'unknown-room'}
+              roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
               userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
               userName={user?.userName || user?.name || user?.email || 'User'}
               onLeaveRoom={() => setActiveVoiceChannel(null)}
@@ -228,6 +228,10 @@ const handleCreateChannel = async (name) => {
         <CreateClanModal
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateClan}
+          onJoin={async () => {
+            const data = await ClanService.getClansByUserId(user?.id || user?.sub || '');
+            setClans(data || []);
+          }}
         />
       )}
 
