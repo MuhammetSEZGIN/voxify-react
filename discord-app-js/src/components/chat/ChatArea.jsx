@@ -124,9 +124,12 @@ function ChatArea({ clan, channel }) {
    * tek bir yapıya dönüştür.
    */
   const normalizeMessage = (msg) => {
-    // id alanı nesne olabilir (MongoDB ObjectId: { timestamp, creationTime })
+    // id alanı nesne olabilir (MongoDB ObjectId: { timestamp, machine, pid, increment } veya { $oid })
     const messageId = msg.messageId
-      || (typeof msg.id === 'object' && msg.id !== null ? `${msg.id.timestamp}` : msg.id)
+      || (typeof msg.id === 'object' && msg.id !== null
+        ? (msg.id.$oid
+            || `${msg.id.timestamp ?? ''}-${msg.id.machine ?? ''}-${msg.id.pid ?? ''}-${msg.id.increment ?? ''}`)
+        : msg.id)
       || msg.Id
       || crypto.randomUUID();
 
@@ -307,7 +310,7 @@ function ChatArea({ clan, channel }) {
               const currentUserId = user?.id || user?.sub || '';
               const isOwn = group.senderId === currentUserId || group.userName === (user?.userName || user?.name);
               return (
-                <div key={group.messages[0].messageId || gi} className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}>
+                <div key={`${gi}-${group.messages[0].messageId}`} className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}>
                   {!isOwn && (
                     <div className="chat-area__message-avatar">
                       {group.avatarUrl ? (

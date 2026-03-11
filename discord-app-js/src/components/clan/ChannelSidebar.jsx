@@ -17,6 +17,7 @@ function ChannelSidebar({
   voiceState,
   activeVoiceChannel,
   onDisconnectVoice,
+  voicePresence,
   canManage,
   userRole,
   onLeaveClan,
@@ -239,22 +240,45 @@ function ChannelSidebar({
                       <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
                     </div>
                     {/* Ses kanalına bağlı kullanıcıları göster */}
-                    {activeVoiceChannelId === vc.voiceChannelId && voiceState?.participants && (
-                      <div className="voice-participants">
-                        {voiceState.participants.map((p) => (
-                          <div key={p.identity} className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}>
-                            <div className="voice-participants__avatar">
-                              <span>{(p.name || '?').charAt(0).toUpperCase()}</span>
-                              {p.isSpeaking && <div className="voice-participants__speaking-ring" />}
-                            </div>
-                            <span className="voice-participants__name">{p.name}</span>
-                            {p.isMuted && (
-                              <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {(() => {
+                      const isActiveAndConnected =
+                        activeVoiceChannelId === vc.voiceChannelId && voiceState?.participants;
+                      const participants = isActiveAndConnected
+                        ? voiceState.participants
+                        : (voicePresence?.[vc.voiceChannelId] || []);
+
+                      if (!participants.length) return null;
+
+                      return (
+                        <div className="voice-participants">
+                          {isActiveAndConnected
+                            ? participants.map((p) => (
+                                <div
+                                  key={p.identity}
+                                  className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}
+                                >
+                                  <div className="voice-participants__avatar">
+                                    <span>{(p.name || '?').charAt(0).toUpperCase()}</span>
+                                    {p.isSpeaking && <div className="voice-participants__speaking-ring" />}
+                                  </div>
+                                  <span className="voice-participants__name">{p.name}</span>
+                                  {p.isMuted && (
+                                    <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
+                                  )}
+                                </div>
+                              ))
+                            : participants.map((p) => (
+                                <div key={p.userId} className="voice-participants__item">
+                                  <div className="voice-participants__avatar">
+                                    <span>{(p.userName || '?').charAt(0).toUpperCase()}</span>
+                                  </div>
+                                  <span className="voice-participants__name">{p.userName}</span>
+                                </div>
+                              ))
+                          }
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))
               )}

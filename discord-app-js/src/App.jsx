@@ -32,6 +32,14 @@ function App() {
       />
       {/* Clan/Channel URL'lerini de MainLayout yakalar */}
       <Route
+        path="/app/clans/:clanId"
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/app/clans/:clanId/channels/:channelId"
         element={
           <ProtectedRoute>
