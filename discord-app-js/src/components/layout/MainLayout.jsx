@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import ClanService from '../../services/ClanService';
@@ -12,6 +12,7 @@ import VoiceChannel from '../voicechannel/VoiceChannel';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
+import * as VoicePresenceService from '../../services/VoicePresenceService';
 
 function MainLayout() {
   const { user, logout } = useAuth();
@@ -25,6 +26,11 @@ function MainLayout() {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
   const [voiceState, setVoiceState] = useState(null);
+  // { [voiceChannelId]: [{userId, userName}] } — populated by VoicePresenceHub for all clan members
+  const [voicePresence, setVoicePresence] = useState({});
+  // Refs for voice presence cleanup without stale closures
+  const activeVoiceChannelRef = useRef(null);
+  const voiceConnectedRef = useRef(false);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -134,9 +140,107 @@ function MainLayout() {
   }, []);
 
   const handleDisconnectVoice = useCallback(() => {
+    // Report leaving to presence hub before clearing state
+    const channel = activeVoiceChannelRef.current;
+    if (channel && selectedClan && user) {
+      const userId = user.id || user.sub || '';
+      VoicePresenceService.leaveVoiceChannel(selectedClan.clanId, channel.voiceChannelId, userId)
+        .catch((err) => console.error('[VoicePresence] leave failed', err));
+      // Remove from local presence state immediately — server removes caller from the group
+      // before broadcasting UserLeftVoice, so the local user never receives that event.
+      setVoicePresence((prev) => ({
+        ...prev,
+        [channel.voiceChannelId]: (prev[channel.voiceChannelId] || []).filter(
+          (u) => u.userId !== userId
+        ),
+      }));
+    }
+    activeVoiceChannelRef.current = null;
+    voiceConnectedRef.current = false;
     setActiveVoiceChannel(null);
     setVoiceState(null);
-  }, []);
+  }, [selectedClan, user]);
+
+  // Keep ref in sync so handleDisconnectVoice always sees the latest channel
+  useEffect(() => {
+    activeVoiceChannelRef.current = activeVoiceChannel;
+  }, [activeVoiceChannel]);
+
+  // Report joining to presence hub once LiveKit room connects (voiceState null → non-null)
+  useEffect(() => {
+    if (voiceState && !voiceConnectedRef.current && activeVoiceChannel && selectedClan && user) {
+      voiceConnectedRef.current = true;
+      const userId = user.id || user.sub || '';
+      const userName = user.userName || user.name || user.email || 'User';
+      VoicePresenceService.joinVoiceChannel(
+        selectedClan.clanId,
+        activeVoiceChannel.voiceChannelId,
+        userId,
+        userName
+      ).catch((err) => console.error('[VoicePresence] join failed', err));
+    }
+    if (!voiceState) {
+      voiceConnectedRef.current = false;
+    }
+  }, [voiceState]);
+
+  // Connect to VoicePresenceHub whenever the selected clan changes
+  useEffect(() => {
+    if (!selectedClan) {
+      VoicePresenceService.stopConnection();
+      setVoicePresence({});
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const clanId = selectedClan.clanId;
+
+    const handleUserJoined = ({ voiceChannelId, userId, userName }) => {
+      setVoicePresence((prev) => {
+        const existing = prev[voiceChannelId] || [];
+        if (existing.find((u) => u.userId === userId)) return prev;
+        return { ...prev, [voiceChannelId]: [...existing, { userId, userName }] };
+      });
+    };
+
+    const handleUserLeft = ({ voiceChannelId, userId }) => {
+      setVoicePresence((prev) => ({
+        ...prev,
+        [voiceChannelId]: (prev[voiceChannelId] || []).filter((u) => u.userId !== userId),
+      }));
+    };
+
+    const handleSnapshot = ({ participants }) => {
+      const grouped = {};
+      for (const { voiceChannelId, userId, userName } of participants) {
+        if (!grouped[voiceChannelId]) grouped[voiceChannelId] = [];
+        grouped[voiceChannelId].push({ userId, userName });
+      }
+      setVoicePresence(grouped);
+    };
+
+    const connect = async () => {
+      try {
+        await VoicePresenceService.startConnection(token);
+        VoicePresenceService.onUserJoinedVoice(handleUserJoined);
+        VoicePresenceService.onUserLeftVoice(handleUserLeft);
+        VoicePresenceService.onVoiceChannelParticipants(handleSnapshot);
+        await VoicePresenceService.getParticipants(clanId);
+      } catch (err) {
+        console.error('[VoicePresence] connection failed', err);
+      }
+    };
+
+    connect();
+
+    return () => {
+      VoicePresenceService.offUserJoinedVoice(handleUserJoined);
+      VoicePresenceService.offUserLeftVoice(handleUserLeft);
+      VoicePresenceService.offVoiceChannelParticipants(handleSnapshot);
+      VoicePresenceService.stopConnection();
+      setVoicePresence({});
+    };
+  }, [selectedClan?.clanId]);
 
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
@@ -287,6 +391,7 @@ const handleCreateChannel = async (name) => {
         voiceState={voiceState}
         activeVoiceChannel={activeVoiceChannel}
         onDisconnectVoice={handleDisconnectVoice}
+        voicePresence={voicePresence}
         canManage={canManage}
         userRole={userRole}
         onLeaveClan={handleLeaveClan}
