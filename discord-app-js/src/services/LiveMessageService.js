@@ -108,9 +108,9 @@ export async function stopConnection() {
       console.error('[SignalR] Bağlantı durdurma hatası:', error);
     }
     if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
-    await connection.stop();
-    console.info('[SignalR] Bağlantı güvenle kapatıldı.');
-  }
+      await connection.stop();
+      console.info('[SignalR] Bağlantı güvenle kapatıldı.');
+    }
     connection = null;
     connectionPromise = null;
   }
@@ -150,11 +150,12 @@ export async function leaveChannel(channelId) {
 /**
  * Mesaj gönder (Hub üzerinden).
  * @param {string} channelId
+ * @param {string} clanId
  * @param {string} senderId
  * @param {string} userName
  * @param {string} message
  */
-export async function sendMessage(channelId, senderId, userName, message) {
+export async function sendMessage(channelId, clanId, senderId, userName, message) {
   // Bağlantı kuruluyorsa bekle
   if (connectionPromise) {
     await connectionPromise;
@@ -162,7 +163,7 @@ export async function sendMessage(channelId, senderId, userName, message) {
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     throw new Error('SignalR bağlantısı yok');
   }
-  await connection.invoke('SendMessage', channelId, senderId, userName, message);
+  await connection.invoke('SendMessage', channelId, clanId, senderId, userName, message);
 }
 
 /**

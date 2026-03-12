@@ -861,6 +861,48 @@ body {
   max-width: fit-content;
 }
 
+/* Send Error Banner */
+.chat-area__send-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ed4245;
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  margin: 0 0 8px 0;
+  flex-shrink: 0;
+}
+
+.chat-area__send-error .material-symbols-outlined {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.chat-area__send-error span:nth-child(2) {
+  flex: 1;
+}
+
+.chat-area__send-error-close {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+}
+
+.chat-area__send-error-close:hover {
+  opacity: 1;
+}
+
+.chat-area__send-error-close .material-symbols-outlined {
+  font-size: 16px;
+}
+
 /* Message Input */
 .chat-area__input-wrapper {
   position: sticky;
@@ -1974,4 +2016,130 @@ body {
 
 .clan-settings__cancel-btn:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+/* ============================
+   Audio Control Wrapper
+   ============================ */
+.channel-sidebar__audio-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.channel-sidebar__audio-settings-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.1s, color 0.1s;
+  margin-left: -2px;
+}
+
+.channel-sidebar__audio-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-light);
+}
+
+/* ============================
+   Audio Settings Menu (Popover)
+   ============================ */
+.audio-settings-menu {
+  position: absolute;
+  bottom: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: modal-appear 0.1s ease;
+}
+
+.audio-settings-menu__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.audio-settings-menu__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audio-settings-menu__select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--surface-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 4px;
+  color: var(--text-light);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.audio-settings-menu__select:focus {
+  border-color: var(--primary);
+}
+
+.audio-settings-menu__slider {
+  width: 100%;
+  margin-top: 4px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  height: 6px;
+}
+
+/* ============================
+   Member List — Role Badge
+   ============================ */
+.member-list__role-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid;
+  margin-left: auto;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ============================
+   Invite Close Button
+   ============================ */
+.member-list__invite-close-btn {
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.member-list__invite-close-btn:hover {
+  background: rgba(237, 66, 69, 0.15);
+  color: var(--red);
 }
