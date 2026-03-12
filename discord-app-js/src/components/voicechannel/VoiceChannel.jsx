@@ -6,6 +6,7 @@ import {
   useParticipants,
   useRoomContext,
 } from '@livekit/components-react';
+import { RoomEvent } from 'livekit-client';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
 
@@ -17,6 +18,27 @@ function VoiceRoomBridge({ onVoiceStateChange }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
+
+  // Mikrofonu sadece oda bağlandıktan sonra aç — izin sadece burada istenir
+  useEffect(() => {
+    const enableMic = () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        console.error('[VoiceChannel] Mikrofon kullanılamıyor: Sayfa HTTPS üzerinden açılmalı.');
+        return;
+      }
+      localParticipant.setMicrophoneEnabled(true).catch((err) => {
+        console.warn('[VoiceChannel] Mikrofon açılamadı:', err);
+      });
+    };
+    if (room.state === 'connected') {
+      enableMic();
+    } else {
+      room.once(RoomEvent.Connected, enableMic);
+    }
+    return () => {
+      room.off(RoomEvent.Connected, enableMic);
+    };
+  }, [room, localParticipant]);
 
   const toggleMute = useCallback(() => {
     localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled);
@@ -52,6 +74,9 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Secure context check — getUserMedia requires HTTPS (or localhost)
+  const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
 
   const serverUrl = import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.5.122:7880';
 
@@ -130,7 +155,7 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
   return (
     <LiveKitRoom
       video={false}
-      audio={true}
+      audio={false}
       token={token}
       serverUrl={serverUrl}
       connect={true}

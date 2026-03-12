@@ -16,6 +16,9 @@
  *   - UserJoinedVoice  → { clanId, voiceChannelId, userId, userName }
  *   - UserLeftVoice    → { clanId, voiceChannelId, userId }
  *   - VoiceChannelParticipants → { clanId, participants: [{ voiceChannelId, userId, userName }] }
+ *   - OnChannelDeleted      → channelId
+ *   - OnVoiceChannelDeleted → voiceChannelId
+ *   - OnClanDeleted         → clanId
  */
 
 import * as signalR from '@microsoft/signalr';
@@ -145,4 +148,29 @@ export function offUserLeftVoice(callback) {
 }
 export function offVoiceChannelParticipants(callback) {
   connection?.off('VoiceChannelParticipants', callback);
+}
+
+// Channel / Clan deletion events
+export function onChannelDeleted(callback) {
+  connection?.on('OnChannelDeleted', callback);
+}
+export function offChannelDeleted(callback) {
+  connection?.off('OnChannelDeleted', callback);
+}
+export function onVoiceChannelDeleted(callback) {
+  connection?.on('OnVoiceChannelDeleted', callback);
+}
+export function offVoiceChannelDeleted(callback) {
+  connection?.off('OnVoiceChannelDeleted', callback);
+}
+export function onClanDeleted(callback) {
+  connection?.on('OnClanDeleted', callback);
+}
+export function offClanDeleted(callback) {
+  connection?.off('OnClanDeleted', callback);
+}
+
+/** Reconnection hook — fires after SignalR auto-reconnects. */
+export function onReconnected(callback) {
+  connection?.onreconnected(callback);
 }

@@ -48,18 +48,19 @@ function ChannelSidebar({
   const micSettingsRef = useRef(null);
   const headphoneSettingsRef = useRef(null);
 
-  // Load audio devices
+  // Load audio devices — no getUserMedia on mount; enumerate with whatever labels are already available.
+  // Labels are populated if the user has previously granted permission or once they open mic settings.
+  const loadDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setAudioInputDevices(devices.filter(d => d.kind === 'audioinput'));
+      setAudioOutputDevices(devices.filter(d => d.kind === 'audiooutput'));
+    } catch {
+      // Device enumeration not supported
+    }
+  };
+
   useEffect(() => {
-    const loadDevices = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        setAudioInputDevices(devices.filter(d => d.kind === 'audioinput'));
-        setAudioOutputDevices(devices.filter(d => d.kind === 'audiooutput'));
-      } catch {
-        // Permission denied or no devices
-      }
-    };
     loadDevices();
   }, []);
 
@@ -465,7 +466,18 @@ function ChannelSidebar({
               <button
                 className="channel-sidebar__audio-settings-btn"
                 title="Mikrofon Ayarları"
-                onClick={() => { setShowMicSettings(!showMicSettings); setShowHeadphoneSettings(false); }}
+                onClick={async () => {
+                  if (!showMicSettings) {
+                    // İzin istenip cihaz etiketlerini güncelle; track'i hemen durdur
+                    try {
+                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                      stream.getTracks().forEach(t => t.stop());
+                      await loadDevices();
+                    } catch { /* izin reddedildi */ }
+                  }
+                  setShowMicSettings(!showMicSettings);
+                  setShowHeadphoneSettings(false);
+                }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
               </button>
