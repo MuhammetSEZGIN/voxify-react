@@ -903,6 +903,47 @@ body {
   font-size: 16px;
 }
 
+/* App-level Toast Notification */
+.app-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  min-width: 260px;
+  max-width: 480px;
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.app-toast--info  { background: #4e5d94; }
+.app-toast--error { background: #ed4245; }
+.app-toast .material-symbols-outlined { font-size: 18px; flex-shrink: 0; }
+.app-toast span:nth-child(2) { flex: 1; }
+.app-toast__close {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.75;
+}
+.app-toast__close:hover { opacity: 1; }
+.app-toast__close .material-symbols-outlined { font-size: 16px; }
+
 /* Message Input */
 .chat-area__input-wrapper {
   position: sticky;

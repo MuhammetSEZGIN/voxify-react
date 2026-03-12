@@ -33,10 +33,14 @@ function MainLayout() {
   // Refs for voice presence cleanup without stale closures
   const activeVoiceChannelRef = useRef(null);
   const voiceConnectedRef = useRef(false);
+  const selectedClanRef = useRef(null);
+  const selectedChannelRef = useRef(null);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showClanSettings, setShowClanSettings] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
@@ -50,6 +54,12 @@ function MainLayout() {
   }, [selectedClan, memeberShips, user]);
 
   const canManage = userRole === 'owner' || userRole === 'admin';
+
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type });
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }, []);
 
   // Klanları yükle
   useEffect(() => {
@@ -167,6 +177,8 @@ function MainLayout() {
   useEffect(() => {
     activeVoiceChannelRef.current = activeVoiceChannel;
   }, [activeVoiceChannel]);
+  useEffect(() => { selectedClanRef.current = selectedClan; }, [selectedClan]);
+  useEffect(() => { selectedChannelRef.current = selectedChannel; }, [selectedChannel]);
 
   // Report joining to presence hub once LiveKit room connects (voiceState null → non-null)
   useEffect(() => {
@@ -233,6 +245,42 @@ function MainLayout() {
       setOnlineUserIds(new Set(userIds));
     };
 
+    // ── Deletion event handlers ────────────────────────────────────────────────────
+    const handleChannelDeleted = (channelId) => {
+      setChannels((prev) => prev.filter((ch) => ch.channelId !== channelId));
+      if (selectedChannelRef.current?.channelId === channelId) {
+        setSelectedChannel(null);
+        const clanId = selectedClanRef.current?.clanId;
+        navigate(clanId ? `/app/clans/${clanId}` : '/app');
+      }
+    };
+
+    const handleVoiceChannelDeleted = (voiceChannelId) => {
+      setVoiceChannels((prev) => prev.filter((vc) => vc.voiceChannelId !== voiceChannelId));
+      if (activeVoiceChannelRef.current?.voiceChannelId === voiceChannelId) {
+        handleDisconnectVoice();
+      }
+      showToast('Ses kanalı silindi.', 'info');
+    };
+
+    const handleClanDeleted = (clanId) => {
+      if (selectedClanRef.current?.clanId === clanId) {
+        handleDisconnectVoice();
+        setSelectedClan(null);
+        setSelectedChannel(null);
+        setChannels([]);
+        setVoiceChannels([]);
+        navigate('/app');
+      }
+      setClans((prev) => prev.filter((c) => c.clanId !== clanId));
+      showToast('Klan silindi.', 'info');
+    };
+
+    const handleReconnected = async () => {
+      console.info('[Presence] Yeniden bağlandi — klan abonelikleri yenileniyor');
+      await PresenceService.subscribeToClans(clanIds).catch(() => {});
+    };
+
     const connect = async () => {
       try {
         await PresenceService.startConnection(token);
@@ -244,6 +292,10 @@ function MainLayout() {
         PresenceService.onUserOnline(handleUserOnline);
         PresenceService.onUserOffline(handleUserOffline);
         PresenceService.onOnlineUsers(handleOnlineUsers);
+        PresenceService.onChannelDeleted(handleChannelDeleted);
+        PresenceService.onVoiceChannelDeleted(handleVoiceChannelDeleted);
+        PresenceService.onClanDeleted(handleClanDeleted);
+        PresenceService.onReconnected(handleReconnected);
 
         // Subscribe to all user's clans for presence events
         await PresenceService.subscribeToClans(clanIds);
@@ -261,6 +313,9 @@ function MainLayout() {
       PresenceService.offUserOnline(handleUserOnline);
       PresenceService.offUserOffline(handleUserOffline);
       PresenceService.offOnlineUsers(handleOnlineUsers);
+      PresenceService.offChannelDeleted(handleChannelDeleted);
+      PresenceService.offVoiceChannelDeleted(handleVoiceChannelDeleted);
+      PresenceService.offClanDeleted(handleClanDeleted);
       PresenceService.stopConnection();
       setVoicePresence({});
       setOnlineUserIds(new Set());
@@ -507,6 +562,23 @@ const handleCreateChannel = async (name) => {
           onUpdateMemberRole={handleUpdateMemberRole}
           onKickMember={handleKickMember}
         />
+      )}
+
+      {toast && (
+        <div className={`app-toast app-toast--${toast.type}`} role="alert">
+          <span className="material-symbols-outlined">
+            {toast.type === 'error' ? 'error' : 'info'}
+          </span>
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            className="app-toast__close"
+            onClick={() => setToast(null)}
+            aria-label="Kapat"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
       )}
     </div>
   );
