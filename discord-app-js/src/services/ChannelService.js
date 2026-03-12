@@ -101,6 +101,34 @@ const createVoiceChannel = async (data) => {
   }
 };
 
+/**
+ * Update a voice channel
+ * PUT /voiceChannel
+ */
+const updateVoiceChannel = async (data) => {
+  try {
+    const response = await api.put("/voiceChannel", data);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating voice channel", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * Delete a voice channel
+ * DELETE /voiceChannel/{voiceChannelId}
+ */
+const deleteVoiceChannel = async (voiceChannelId) => {
+  try {
+    const response = await api.delete(`/voiceChannel/${voiceChannelId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting voice channel", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 const ChannelService = {
   getChannelsByClanId,
   getChannelById,
@@ -109,6 +137,8 @@ const ChannelService = {
   deleteChannel,
   getVoiceChannelsByClanId,
   createVoiceChannel,
+  updateVoiceChannel,
+  deleteVoiceChannel,
 };
 
 export default ChannelService;
