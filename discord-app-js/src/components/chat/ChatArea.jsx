@@ -8,6 +8,8 @@ function ChatArea({ clan, channel }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState(null);
+  const sendErrorTimerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const prevChannelIdRef = useRef(null);
 
@@ -200,7 +202,9 @@ function ChatArea({ clan, channel }) {
       const data = await MessageService.getMessagesByChannelId(channelId);
       console.log('[ChatArea] Raw API response:', data);
       const rawMessages = extractMessages(data);
-      const normalized = rawMessages.map(normalizeMessage);
+      const normalized = rawMessages
+        .map(normalizeMessage)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       console.log('[ChatArea] Normalized messages:', normalized);
       setMessages(normalized);
     } catch (err) {
@@ -235,12 +239,19 @@ function ChatArea({ clan, channel }) {
     setNewMessage('');
 
     try {
-      await SignalRService.sendMessage(channel.channelId, senderId, userName, content);
+      await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, content);
     } catch (err) {
       console.error('Failed to send message via SignalR:', err);
       // Optimistik mesajı kaldır ve input'a geri koy
       setMessages((prev) => prev.filter((m) => m.messageId !== optimisticMsg.messageId));
       setNewMessage(content);
+      // Kullanıcıya hata bildirimi göster
+      const msg = err?.message?.includes('SignalR bağlantısı yok')
+        ? 'Sunucuya bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.'
+        : 'Mesaj gönderilemedi. Lütfen tekrar deneyin.';
+      setSendError(msg);
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
     }
   };
 
@@ -348,6 +359,22 @@ function ChatArea({ clan, channel }) {
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Hata bildirimi */}
+        {sendError && (
+          <div className="chat-area__send-error" role="alert">
+            <span className="material-symbols-outlined">error</span>
+            <span>{sendError}</span>
+            <button
+              type="button"
+              className="chat-area__send-error-close"
+              onClick={() => setSendError(null)}
+              aria-label="Kapat"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        )}
 
         {/* Message Input */}
         <div className="chat-area__input-wrapper">
