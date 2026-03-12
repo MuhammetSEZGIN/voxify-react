@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function ChannelSidebar({
   clan,
@@ -14,6 +14,8 @@ function ChannelSidebar({
   onCreateVoiceChannel,
   onUpdateChannel,
   onDeleteChannel,
+  onUpdateVoiceChannel,
+  onDeleteVoiceChannel,
   voiceState,
   activeVoiceChannel,
   onDisconnectVoice,
@@ -30,8 +32,50 @@ function ChannelSidebar({
   const [showVoiceChannelInput, setShowVoiceChannelInput] = useState(false);
   const [newVoiceChannelName, setNewVoiceChannelName] = useState('');
   const [editingChannel, setEditingChannel] = useState(null);
+  const [editingVoiceChannel, setEditingVoiceChannel] = useState(null);
   const [editName, setEditName] = useState('');
   const [showClanMenu, setShowClanMenu] = useState(false);
+  // Audio settings state
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [showMicSettings, setShowMicSettings] = useState(false);
+  const [showHeadphoneSettings, setShowHeadphoneSettings] = useState(false);
+  const [inputVolume, setInputVolume] = useState(100);
+  const [outputVolume, setOutputVolume] = useState(100);
+  const [audioInputDevices, setAudioInputDevices] = useState([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState([]);
+  const [selectedInputDevice, setSelectedInputDevice] = useState('');
+  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
+  const micSettingsRef = useRef(null);
+  const headphoneSettingsRef = useRef(null);
+
+  // Load audio devices
+  useEffect(() => {
+    const loadDevices = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setAudioInputDevices(devices.filter(d => d.kind === 'audioinput'));
+        setAudioOutputDevices(devices.filter(d => d.kind === 'audiooutput'));
+      } catch {
+        // Permission denied or no devices
+      }
+    };
+    loadDevices();
+  }, []);
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (micSettingsRef.current && !micSettingsRef.current.contains(e.target)) {
+        setShowMicSettings(false);
+      }
+      if (headphoneSettingsRef.current && !headphoneSettingsRef.current.contains(e.target)) {
+        setShowHeadphoneSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!clan) {
     return (
@@ -109,6 +153,35 @@ function ChannelSidebar({
   const handleDeleteChannel = (channelId, e) => {
     e.stopPropagation();
     onDeleteChannel(channelId);
+  };
+
+  const handleStartEditVoice = (vc, e) => {
+    e.stopPropagation();
+    setEditingVoiceChannel(vc.voiceChannelId);
+    setEditName(vc.name);
+  };
+
+  const handleSaveEditVoice = (vc) => {
+    if (editName.trim() && editName !== vc.name) {
+      onUpdateVoiceChannel({ voiceChannelId: vc.voiceChannelId, name: editName.trim() });
+    }
+    setEditingVoiceChannel(null);
+  };
+
+  const handleDeleteVoiceChannel = (voiceChannelId, e) => {
+    e.stopPropagation();
+    onDeleteVoiceChannel(voiceChannelId);
+  };
+
+  const handleToggleDeafen = () => {
+    setIsDeafened((prev) => {
+      const newDeafened = !prev;
+      // Mute/unmute all audio elements on the page
+      document.querySelectorAll('audio, video').forEach((el) => {
+        el.muted = newDeafened;
+      });
+      return newDeafened;
+    });
   };
 
   return (
@@ -237,7 +310,29 @@ function ChannelSidebar({
                       onClick={() => onSelectVoiceChannel && onSelectVoiceChannel(vc)}
                     >
                       <span className="material-symbols-outlined channel-sidebar__channel-icon" style={{ color: activeVoiceChannelId === vc.voiceChannelId ? '#23a559' : undefined }}>volume_up</span>
-                      <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
+                      {editingVoiceChannel === vc.voiceChannelId ? (
+                        <input
+                          className="channel-sidebar__channel-edit-input"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={() => handleSaveEditVoice(vc)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEditVoice(vc)}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <p className={`channel-sidebar__channel-name ${activeVoiceChannelId === vc.voiceChannelId ? 'channel-sidebar__channel-name--active' : ''}`}>{vc.name}</p>
+                      )}
+                      {canManage && editingVoiceChannel !== vc.voiceChannelId && (
+                        <div className="channel-sidebar__channel-actions">
+                          <button onClick={(e) => handleStartEditVoice(vc, e)} title="Edit">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
+                          </button>
+                          <button onClick={(e) => handleDeleteVoiceChannel(vc.voiceChannelId, e)} title="Delete">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {/* Ses kanalına bağlı kullanıcıları göster */}
                     {(() => {
@@ -355,19 +450,97 @@ function ChannelSidebar({
             </div>
           </div>
           <div className="channel-sidebar__user-actions">
-            <button
-              className={`channel-sidebar__user-action-btn ${voiceState?.isMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
-              title={voiceState ? (voiceState.isMuted ? 'Mikrofonu Aç' : 'Sustur') : 'Mikrofon'}
-              onClick={() => voiceState?.toggleMute?.()}
-              disabled={!voiceState}
-            >
-              <span className="material-symbols-outlined">
-                {voiceState?.isMuted ? 'mic_off' : 'mic'}
-              </span>
-            </button>
-            <button className="channel-sidebar__user-action-btn" title="Headphones">
-              <span className="material-symbols-outlined">headphones</span>
-            </button>
+            {/* Microphone button + settings */}
+            <div className="channel-sidebar__audio-control" ref={micSettingsRef}>
+              <button
+                className={`channel-sidebar__user-action-btn ${voiceState?.isMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
+                title={voiceState ? (voiceState.isMuted ? 'Mikrofonu Aç' : 'Sustur') : 'Mikrofon'}
+                onClick={() => voiceState?.toggleMute?.()}
+                disabled={!voiceState}
+              >
+                <span className="material-symbols-outlined">
+                  {voiceState?.isMuted ? 'mic_off' : 'mic'}
+                </span>
+              </button>
+              <button
+                className="channel-sidebar__audio-settings-btn"
+                title="Mikrofon Ayarları"
+                onClick={() => { setShowMicSettings(!showMicSettings); setShowHeadphoneSettings(false); }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
+              </button>
+              {showMicSettings && (
+                <div className="audio-settings-menu audio-settings-menu--mic">
+                  <h4 className="audio-settings-menu__title">Giriş Ayarları</h4>
+                  <label className="audio-settings-menu__label">Giriş Aygıtı</label>
+                  <select
+                    className="audio-settings-menu__select"
+                    value={selectedInputDevice}
+                    onChange={(e) => setSelectedInputDevice(e.target.value)}
+                  >
+                    <option value="">Varsayılan</option>
+                    {audioInputDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label || `Mikrofon ${d.deviceId.slice(0, 5)}`}</option>
+                    ))}
+                  </select>
+                  <label className="audio-settings-menu__label">Giriş Sesi — {inputVolume}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={inputVolume}
+                    onChange={(e) => setInputVolume(Number(e.target.value))}
+                    className="audio-settings-menu__slider"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Headphone button + settings */}
+            <div className="channel-sidebar__audio-control" ref={headphoneSettingsRef}>
+              <button
+                className={`channel-sidebar__user-action-btn ${isDeafened ? 'channel-sidebar__user-action-btn--muted' : ''}`}
+                title={isDeafened ? 'Sesi Aç' : 'Sesi Kapat'}
+                onClick={handleToggleDeafen}
+              >
+                <span className="material-symbols-outlined">
+                  {isDeafened ? 'headset_off' : 'headphones'}
+                </span>
+              </button>
+              <button
+                className="channel-sidebar__audio-settings-btn"
+                title="Ses Çıkış Ayarları"
+                onClick={() => { setShowHeadphoneSettings(!showHeadphoneSettings); setShowMicSettings(false); }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
+              </button>
+              {showHeadphoneSettings && (
+                <div className="audio-settings-menu audio-settings-menu--headphone">
+                  <h4 className="audio-settings-menu__title">Çıkış Ayarları</h4>
+                  <label className="audio-settings-menu__label">Çıkış Aygıtı</label>
+                  <select
+                    className="audio-settings-menu__select"
+                    value={selectedOutputDevice}
+                    onChange={(e) => setSelectedOutputDevice(e.target.value)}
+                  >
+                    <option value="">Varsayılan</option>
+                    {audioOutputDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label || `Hoparlör ${d.deviceId.slice(0, 5)}`}</option>
+                    ))}
+                  </select>
+                  <label className="audio-settings-menu__label">Çıkış Sesi — {outputVolume}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={outputVolume}
+                    onChange={(e) => setOutputVolume(Number(e.target.value))}
+                    className="audio-settings-menu__slider"
+                  />
+                </div>
+              )}
+            </div>
+
             <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Logout" style={{ color: '#ed4245' }}>
               <span className="material-symbols-outlined">logout</span>
             </button>
