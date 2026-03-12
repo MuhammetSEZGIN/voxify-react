@@ -12,7 +12,7 @@ import VoiceChannel from '../voicechannel/VoiceChannel';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
-import * as VoicePresenceService from '../../services/VoicePresenceService';
+import * as PresenceService from '../../services/PresenceService';
 
 function MainLayout() {
   const { user, logout } = useAuth();
@@ -26,8 +26,10 @@ function MainLayout() {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
   const [voiceState, setVoiceState] = useState(null);
-  // { [voiceChannelId]: [{userId, userName}] } — populated by VoicePresenceHub for all clan members
+  // { [voiceChannelId]: [{userId, userName}] } — populated by PresenceHub for all clan members
   const [voicePresence, setVoicePresence] = useState({});
+  // Set of online user IDs — populated by PresenceHub
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   // Refs for voice presence cleanup without stale closures
   const activeVoiceChannelRef = useRef(null);
   const voiceConnectedRef = useRef(false);
@@ -142,10 +144,10 @@ function MainLayout() {
   const handleDisconnectVoice = useCallback(() => {
     // Report leaving to presence hub before clearing state
     const channel = activeVoiceChannelRef.current;
-    if (channel && selectedClan && user) {
+    if (channel && user) {
       const userId = user.id || user.sub || '';
-      VoicePresenceService.leaveVoiceChannel(selectedClan.clanId, channel.voiceChannelId, userId)
-        .catch((err) => console.error('[VoicePresence] leave failed', err));
+      PresenceService.leaveVoiceChannel()
+        .catch((err) => console.error('[Presence] leave voice failed', err));
       // Remove from local presence state immediately — server removes caller from the group
       // before broadcasting UserLeftVoice, so the local user never receives that event.
       setVoicePresence((prev) => ({
@@ -159,7 +161,7 @@ function MainLayout() {
     voiceConnectedRef.current = false;
     setActiveVoiceChannel(null);
     setVoiceState(null);
-  }, [selectedClan, user]);
+  }, [user]);
 
   // Keep ref in sync so handleDisconnectVoice always sees the latest channel
   useEffect(() => {
@@ -170,31 +172,26 @@ function MainLayout() {
   useEffect(() => {
     if (voiceState && !voiceConnectedRef.current && activeVoiceChannel && selectedClan && user) {
       voiceConnectedRef.current = true;
-      const userId = user.id || user.sub || '';
       const userName = user.userName || user.name || user.email || 'User';
-      VoicePresenceService.joinVoiceChannel(
+      PresenceService.joinVoiceChannel(
         selectedClan.clanId,
         activeVoiceChannel.voiceChannelId,
-        userId,
         userName
-      ).catch((err) => console.error('[VoicePresence] join failed', err));
+      ).catch((err) => console.error('[Presence] join voice failed', err));
     }
     if (!voiceState) {
       voiceConnectedRef.current = false;
     }
   }, [voiceState]);
 
-  // Connect to VoicePresenceHub whenever the selected clan changes
+  // Connect to PresenceHub once and manage subscriptions across clan changes
   useEffect(() => {
-    if (!selectedClan) {
-      VoicePresenceService.stopConnection();
-      setVoicePresence({});
-      return;
-    }
+    if (!clans.length || loadingClans) return;
 
     const token = localStorage.getItem('token');
-    const clanId = selectedClan.clanId;
+    const clanIds = clans.map((c) => c.clanId);
 
+    // ── Voice presence handlers ─────────────────────────────────────────
     const handleUserJoined = ({ voiceChannelId, userId, userName }) => {
       setVoicePresence((prev) => {
         const existing = prev[voiceChannelId] || [];
@@ -219,28 +216,77 @@ function MainLayout() {
       setVoicePresence(grouped);
     };
 
+    // ── Online presence handlers ────────────────────────────────────────
+    const handleUserOnline = (userId) => {
+      setOnlineUserIds((prev) => new Set([...prev, userId]));
+    };
+
+    const handleUserOffline = (userId) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    };
+
+    const handleOnlineUsers = (userIds) => {
+      setOnlineUserIds(new Set(userIds));
+    };
+
     const connect = async () => {
       try {
-        await VoicePresenceService.startConnection(token);
-        VoicePresenceService.onUserJoinedVoice(handleUserJoined);
-        VoicePresenceService.onUserLeftVoice(handleUserLeft);
-        VoicePresenceService.onVoiceChannelParticipants(handleSnapshot);
-        await VoicePresenceService.getParticipants(clanId);
+        await PresenceService.startConnection(token);
+
+        // Register event listeners
+        PresenceService.onUserJoinedVoice(handleUserJoined);
+        PresenceService.onUserLeftVoice(handleUserLeft);
+        PresenceService.onVoiceChannelParticipants(handleSnapshot);
+        PresenceService.onUserOnline(handleUserOnline);
+        PresenceService.onUserOffline(handleUserOffline);
+        PresenceService.onOnlineUsers(handleOnlineUsers);
+
+        // Subscribe to all user's clans for presence events
+        await PresenceService.subscribeToClans(clanIds);
       } catch (err) {
-        console.error('[VoicePresence] connection failed', err);
+        console.error('[Presence] connection failed', err);
       }
     };
 
     connect();
 
     return () => {
-      VoicePresenceService.offUserJoinedVoice(handleUserJoined);
-      VoicePresenceService.offUserLeftVoice(handleUserLeft);
-      VoicePresenceService.offVoiceChannelParticipants(handleSnapshot);
-      VoicePresenceService.stopConnection();
+      PresenceService.offUserJoinedVoice(handleUserJoined);
+      PresenceService.offUserLeftVoice(handleUserLeft);
+      PresenceService.offVoiceChannelParticipants(handleSnapshot);
+      PresenceService.offUserOnline(handleUserOnline);
+      PresenceService.offUserOffline(handleUserOffline);
+      PresenceService.offOnlineUsers(handleOnlineUsers);
+      PresenceService.stopConnection();
       setVoicePresence({});
+      setOnlineUserIds(new Set());
     };
-  }, [selectedClan?.clanId]);
+  }, [clans, loadingClans]);
+
+  // When the selected clan changes, fetch voice channel participants & online members
+  useEffect(() => {
+    if (!selectedClan) {
+      setVoicePresence({});
+      return;
+    }
+
+    const clanId = selectedClan.clanId;
+
+    // Fetch voice participants for this clan
+    PresenceService.getParticipants(clanId)
+      .catch((err) => console.error('[Presence] getParticipants failed', err));
+
+    // Fetch online status for clan members
+    if (memeberShips.length > 0) {
+      const memberUserIds = memeberShips.map((m) => m.userId || m.user?.id || '').filter(Boolean);
+      PresenceService.getOnlineUsers(memberUserIds)
+        .catch((err) => console.error('[Presence] getOnlineUsers failed', err));
+    }
+  }, [selectedClan?.clanId, memeberShips]);
 
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
@@ -266,6 +312,27 @@ const handleCreateChannel = async (name) => {
       setVoiceChannels((prev) => [...prev, newVoiceChannel]);
     } catch (error) {
       console.error('Failed to create voice channel', error);
+    }
+  };
+
+  const handleUpdateVoiceChannel = async ({ voiceChannelId, name }) => {
+    try {
+      const updated = await ChannelService.updateVoiceChannel({ voiceChannelId, name });
+      setVoiceChannels((prev) => prev.map((vc) => vc.voiceChannelId === voiceChannelId ? { ...vc, name: updated.name ?? name } : vc));
+    } catch (error) {
+      console.error('Failed to update voice channel', error);
+    }
+  };
+
+  const handleDeleteVoiceChannel = async (voiceChannelId) => {
+    try {
+      await ChannelService.deleteVoiceChannel(voiceChannelId);
+      setVoiceChannels((prev) => prev.filter((vc) => vc.voiceChannelId !== voiceChannelId));
+      if (activeVoiceChannel?.voiceChannelId === voiceChannelId) {
+        handleDisconnectVoice();
+      }
+    } catch (error) {
+      console.error('Failed to delete voice channel', error);
     }
   };
 
@@ -388,6 +455,8 @@ const handleCreateChannel = async (name) => {
         onCreateVoiceChannel={handleCreateVoiceChannel}
         onUpdateChannel={handleUpdateChannel}
         onDeleteChannel={handleDeleteChannel}
+        onUpdateVoiceChannel={handleUpdateVoiceChannel}
+        onDeleteVoiceChannel={handleDeleteVoiceChannel}
         voiceState={voiceState}
         activeVoiceChannel={activeVoiceChannel}
         onDisconnectVoice={handleDisconnectVoice}
@@ -424,7 +493,7 @@ const handleCreateChannel = async (name) => {
         />
       )}
 
-      <MemberList members={memeberShips} clanId={selectedClan?.clanId} />
+      <MemberList members={memeberShips} clanId={selectedClan?.clanId} onlineUserIds={onlineUserIds} />
 
       {showClanSettings && selectedClan && (
         <ClanSettings

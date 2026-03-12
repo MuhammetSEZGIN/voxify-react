@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import ClanMembershipService from '../../services/ClanMembershipService';
 
-function MemberList({ members, clanId }) {
+const ROLE_ORDER = { owner: 0, admin: 1, moderator: 2, member: 3 };
+const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', moderator: 'Moderator', member: 'Member' };
+const ROLE_COLORS = { owner: '#e2b714', admin: '#e74c3c', moderator: '#2ecc71', member: '' };
+
+function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(true);
   const [inviteCode, setInviteCode] = useState('');
@@ -10,17 +14,35 @@ function MemberList({ members, clanId }) {
 
   if (!clanId || !members) return null;
 
-  // Kullanıcı adını normalize et (userName veya username)
   const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
+  const getUserId = (m) => m.userId || m.user?.id || m.id || '';
+  const getRole = (m) => (m.role || 'member').toLowerCase();
 
-  // Arama filtresi
   const filtered = members.filter((m) =>
     getName(m).toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by status
-  const onlineMembers = filtered.filter((m) => m.status === 'online' || m.isOnline);
-  const offlineMembers = filtered.filter((m) => m.status !== 'online' && !m.isOnline);
+  // Group by role, then sort within each group by online status
+  const grouped = {};
+  for (const m of filtered) {
+    const role = getRole(m);
+    if (!grouped[role]) grouped[role] = [];
+    grouped[role].push(m);
+  }
+
+  // Sort roles by hierarchy
+  const sortedRoles = Object.keys(grouped).sort(
+    (a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99)
+  );
+
+  // Within each role, online first
+  for (const role of sortedRoles) {
+    grouped[role].sort((a, b) => {
+      const aOnline = onlineUserIds.has(getUserId(a)) ? 0 : 1;
+      const bOnline = onlineUserIds.has(getUserId(b)) ? 0 : 1;
+      return aOnline - bOnline;
+    });
+  }
 
   const handleCreateInvite = async () => {
     try {
@@ -39,6 +61,11 @@ function MemberList({ members, clanId }) {
     navigator.clipboard.writeText(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCloseInvite = () => {
+    setInviteCode('');
+    setCopied(false);
   };
 
   if (!visible) {
@@ -83,61 +110,41 @@ function MemberList({ members, clanId }) {
         </div>
       </div>
 
-      {/* Members */}
+      {/* Members grouped by role */}
       <div className="member-list__body">
-        {/* Online */}
-        {onlineMembers.length > 0 && (
-          <div className="member-list__section">
-            <p className="member-list__section-title">
-              Online — {onlineMembers.length}
+        {sortedRoles.map((role) => (
+          <div key={role} className="member-list__section">
+            <p className="member-list__section-title" style={ROLE_COLORS[role] ? { color: ROLE_COLORS[role] } : undefined}>
+              {ROLE_LABELS[role] || role} — {grouped[role].length}
             </p>
             <ul className="member-list__list">
-              {onlineMembers.map((member) => (
-                <li key={member.userId || member.id} className="member-list__item">
-                  <div className="member-list__avatar-wrapper">
-                    <div className="member-list__avatar">
-                      {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" className="member-list__avatar-img" />
-                      ) : (
-                        <span>{getName(member).charAt(0).toUpperCase()}</span>
-                      )}
+              {grouped[role].map((member) => {
+                const isOnline = onlineUserIds.has(getUserId(member));
+                return (
+                  <li key={member.userId || member.id} className={`member-list__item ${!isOnline ? 'member-list__item--offline' : ''}`}>
+                    <div className="member-list__avatar-wrapper">
+                      <div className={`member-list__avatar ${!isOnline ? 'member-list__avatar--offline' : ''}`}>
+                        {member.avatarUrl ? (
+                          <img src={member.avatarUrl} alt="" className={`member-list__avatar-img ${!isOnline ? 'member-list__avatar-img--offline' : ''}`} />
+                        ) : (
+                          <span>{getName(member).charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className={`member-list__status-dot ${isOnline ? 'member-list__status-dot--online' : 'member-list__status-dot--offline'}`} />
                     </div>
-                    <div className="member-list__status-dot member-list__status-dot--online" />
-                  </div>
-                  <span className="member-list__name">{getName(member)}</span>
-                </li>
-              ))}
+                    <span className="member-list__name">{getName(member)}</span>
+                    {ROLE_COLORS[role] && (
+                      <span className="member-list__role-badge" style={{ color: ROLE_COLORS[role], borderColor: ROLE_COLORS[role] }}>
+                        {ROLE_LABELS[role]}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
-        )}
+        ))}
 
-        {/* Offline */}
-        {offlineMembers.length > 0 && (
-          <div className="member-list__section">
-            <p className="member-list__section-title">
-              Offline — {offlineMembers.length}
-            </p>
-            <ul className="member-list__list">
-              {offlineMembers.map((member) => (
-                <li key={member.userId || member.id} className="member-list__item member-list__item--offline">
-                  <div className="member-list__avatar-wrapper">
-                    <div className="member-list__avatar member-list__avatar--offline">
-                      {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" className="member-list__avatar-img member-list__avatar-img--offline" />
-                      ) : (
-                        <span>{getName(member).charAt(0).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div className="member-list__status-dot member-list__status-dot--offline" />
-                  </div>
-                  <span className="member-list__name">{getName(member)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Fallback when no members */}
         {filtered.length === 0 && (
           <div className="member-list__empty">
             <p>{search ? 'No members match your search' : 'No members found'}</p>
@@ -168,6 +175,13 @@ function MemberList({ members, clanId }) {
               onClick={handleCopyCode}
             >
               {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              className="member-list__invite-close-btn"
+              onClick={handleCloseInvite}
+              title="Kapat"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
             </button>
           </div>
         )}
