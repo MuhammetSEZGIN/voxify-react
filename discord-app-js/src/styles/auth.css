@@ -1,0 +1,346 @@
+/* ===== Shared Auth Styles ===== */
+.auth-container {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #101922;
+  padding: 1rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.auth-card {
+  display: flex;
+  width: 100%;
+  max-width: 28rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Logo */
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-logo__image {
+  width: auto;
+  height: 100px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.auth-logo__text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Header */
+.auth-header {
+  width: 100%;
+  text-align: center;
+}
+
+.auth-header__title {
+  color: #fff;
+  letter-spacing: -0.025em;
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.auth-header__subtitle {
+  color: #9ca3af;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Form */
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Member List */
+.member-list {
+  width: 280px;
+  background: var(--surface-dark);
+  border-left: 1px solid var(--border-dark);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.member-list__show-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--surface-dark-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.member-list__show-btn:hover {
+  color: var(--text-light);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.auth-form--register {
+  gap: 1.5rem;
+}
+
+/* Field */
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.auth-field__label-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+}
+
+.auth-field__label {
+  color: #e5e7eb;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  padding-bottom: 0.5rem;
+}
+
+.auth-field__label--inline {
+  padding-bottom: 0;
+}
+
+.auth-field__forgot {
+  background: none;
+  border: none;
+  color: #2b8cee;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 0.75rem;
+  text-align: right;
+  width: 100%;
+}
+
+.auth-field__forgot:hover {
+  text-decoration: underline;
+}
+
+.auth-field__input {
+  width: 100%;
+  height: 3rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: #283039;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 0.75rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.auth-field__input::placeholder {
+  color: #6b7280;
+}
+
+.auth-field__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #2b8cee;
+}
+
+/* Register-specific: darker bg + border */
+.auth-field__input--register {
+  background: #1c2127;
+  border-color: #3b4754;
+}
+
+.auth-field__input--register:focus {
+  border-color: #007BFF;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+.auth-field__input--error {
+  border-color: #FF4D4F !important;
+}
+
+.auth-field__input--error:focus {
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+}
+
+/* Password wrapper */
+.auth-field__password-wrapper {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  border-radius: 0.5rem;
+  background: #283039;
+  position: relative;
+}
+
+.auth-field__password-wrapper:focus-within {
+  box-shadow: 0 0 0 2px #2b8cee;
+}
+
+.auth-field__password-wrapper .auth-field__input {
+  border: none;
+  background: transparent;
+  border-radius: 0.5rem 0 0 0.5rem;
+  padding-right: 0.5rem;
+  flex: 1;
+}
+
+.auth-field__password-wrapper .auth-field__input:focus {
+  box-shadow: none;
+}
+
+/* Register password: uses relative positioning */
+.auth-field__input-wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+
+.auth-field__input-wrapper .auth-field__input {
+  padding-right: 2.5rem;
+}
+
+.auth-field__toggle-password {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 0.75rem;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.auth-field__toggle-password:hover {
+  color: #2b8cee;
+}
+
+.auth-field__toggle-password--login {
+  position: static;
+  padding-right: 0.75rem;
+  color: #9ca3af;
+}
+
+.auth-field__error {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #FF4D4F;
+}
+
+/* Submit button */
+.auth-submit {
+  display: flex;
+  width: 100%;
+  height: 3rem;
+  min-width: 84px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #2b8cee;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-family: inherit;
+}
+
+.auth-submit:hover {
+  background: rgba(43, 140, 238, 0.9);
+}
+
+.auth-submit:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #2b8cee, 0 0 0 4px rgba(43, 140, 238, 0.3);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-submit--register {
+  background: #007BFF;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.auth-submit--register:hover {
+  background: rgba(0, 123, 255, 0.9);
+}
+
+/* Error message */
+.auth-error {
+  background: rgba(255, 77, 79, 0.1);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: #FF4D4F;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Footer link */
+.auth-footer {
+  text-align: center;
+}
+
+.auth-footer__text {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.auth-footer__link {
+  color: #2b8cee;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer__link:hover {
+  text-decoration: underline;
+}
+
+/* Register-specific layout adjustments */
+.auth-form--register {
+  margin-top: 0.5rem;
+}

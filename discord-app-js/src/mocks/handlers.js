@@ -1,129 +1,174 @@
 import { http, HttpResponse } from 'msw';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:5000/api';
+const IDENTITY_URL = import.meta.env.VITE_IDENTITY_URL || 'http://localhost:5158/api';
+
+// Mock data
+
+const mockMessages = {
+  'ch-1111-0001': [
+    {
+      messageId: 'msg-0001',
+      content: 'Herkese merhaba! 👋',
+      channelId: 'ch-1111-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      isEdited: false,
+    },
+    {
+      messageId: 'msg-0002',
+      content: 'Merhaba, hoş geldin!',
+      channelId: 'ch-1111-0001',
+      userId: 'user-002',
+      user: { id: 'user-002', username: 'user2' },
+      createdAt: new Date(Date.now() - 3000000).toISOString(),
+      isEdited: false,
+    },
+    {
+      messageId: 'msg-0003',
+      content: 'Bu sunucu harika görünüyor 🎉',
+      channelId: 'ch-1111-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 1800000).toISOString(),
+      isEdited: false,
+    },
+  ],
+  'ch-2222-0001': [
+    {
+      messageId: 'msg-0004',
+      content: 'Bu akşam oyun oynayacak var mı?',
+      channelId: 'ch-2222-0001',
+      userId: 'user-002',
+      user: { id: 'user-002', username: 'user2' },
+      createdAt: new Date(Date.now() - 600000).toISOString(),
+      isEdited: false,
+    },
+  ],
+  'ch-3333-0001': [
+    {
+      messageId: 'msg-0005',
+      content: 'React 19 çok iyi olmuş!',
+      channelId: 'ch-3333-0001',
+      userId: 'user-001',
+      user: { id: 'user-001', username: 'testuser' },
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      isEdited: false,
+    },
+  ],
+};
+const mockClans = [
+  {
+    clanId: 'c1a1a1a1-1111-1111-1111-111111111111',
+    name: 'Genel Sunucu',
+    imagePath: null,
+    description: 'Herkesin katılabileceği genel sunucu',
+    isPublic: true,
+    channels: [],
+    voiceChannels: [],
+  },
+  {
+    clanId: 'c2b2b2b2-2222-2222-2222-222222222222',
+    name: 'Oyun Klanı',
+    imagePath: null,
+    description: 'Oyun severler için',
+    isPublic: false,
+    channels: [],
+    voiceChannels: [],
+  },
+  {
+    clanId: 'c3c3c3c3-3333-3333-3333-333333333333',
+    name: 'Yazılım Dev',
+    imagePath: null,
+    description: 'Yazılımcılar burada',
+    isPublic: true,
+    channels: [],
+    voiceChannels: [],
+  },
+];
+
+const mockChannels = {
+  'c1a1a1a1-1111-1111-1111-111111111111': [
+    { channelId: 'ch-1111-0001', name: 'genel', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
+    { channelId: 'ch-1111-0002', name: 'duyurular', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
+  ],
+  'c2b2b2b2-2222-2222-2222-222222222222': [
+    { channelId: 'ch-2222-0001', name: 'oyun-sohbet', clanId: 'c2b2b2b2-2222-2222-2222-222222222222' },
+    { channelId: 'ch-2222-0002', name: 'strateji', clanId: 'c2b2b2b2-2222-2222-2222-222222222222' },
+  ],
+  'c3c3c3c3-3333-3333-3333-333333333333': [
+    { channelId: 'ch-3333-0001', name: 'javascript', clanId: 'c3c3c3c3-3333-3333-3333-333333333333' },
+    { channelId: 'ch-3333-0002', name: 'react', clanId: 'c3c3c3c3-3333-3333-3333-333333333333' },
+    { channelId: 'ch-3333-0003', name: 'backend', clanId: 'c3c3c3c3-3333-3333-3333-333333333333' },
+  ],
+};
+
+const mockVoiceChannels = {
+  'c1a1a1a1-1111-1111-1111-111111111111': [
+    { voiceChannelId: 'vc-1111-0001', name: 'Sohbet 1', clanId: 'c1a1a1a1-1111-1111-1111-111111111111', isActive: true, maxParticipants: 10 },
+  ],
+  'c2b2b2b2-2222-2222-2222-222222222222': [
+    { voiceChannelId: 'vc-2222-0001', name: 'Oyun Odası', clanId: 'c2b2b2b2-2222-2222-2222-222222222222', isActive: true, maxParticipants: 5 },
+    { voiceChannelId: 'vc-2222-0002', name: 'AFK', clanId: 'c2b2b2b2-2222-2222-2222-222222222222', isActive: false, maxParticipants: 10 },
+  ],
+  'c3c3c3c3-3333-3333-3333-333333333333': [
+    { voiceChannelId: 'vc-3333-0001', name: 'Pair Programming', clanId: 'c3c3c3c3-3333-3333-3333-333333333333', isActive: true, maxParticipants: 2 },
+  ],
+};
 
 export const handlers = [
-  // Auth endpoints
+   
+    // ===== Message endpoints =====
+
+    // ===== Auth endpoints =====
   http.post(`${API_URL}/auth/login`, async ({ request }) => {
     const { email, password } = await request.json();
-    
+
     if (email === 'test@example.com' && password === 'password123') {
+      console.log('mock login girişimi');
       return HttpResponse.json({
         token: 'mock-jwt-token-12345',
         user: {
-          id: 1,
+          id: 'user-001',
           email: 'test@example.com',
           username: 'testuser',
         },
       });
     }
-    
-    return HttpResponse.json(
-      { error: 'Invalid credentials' },
-      { status: 401 }
-    );
+
+    return HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }),
 
   http.post(`${API_URL}/auth/register`, async ({ request }) => {
     const data = await request.json();
-    
-    return HttpResponse.json({
-      token: 'mock-jwt-token-12345',
-      user: {
-        id: 2,
-        email: data.email,
-        username: data.username,
+
+    return HttpResponse.json(
+      {
+        token: 'mock-jwt-token-12345',
+        user: {
+          id: 'user-002',
+          email: data.email,
+          username: data.userName,
+        },
       },
-    }, { status: 201 });
+      { status: 201 }
+    );
   }),
 
   http.get(`${API_URL}/auth/me`, ({ request }) => {
     const token = request.headers.get('Authorization');
-    
+
     if (!token) {
-      return HttpResponse.json(
-        { error: 'No token provided' },
-        { status: 401 }
-      );
+      return HttpResponse.json({ error: 'No token provided' }, { status: 401 });
     }
-    
+
     return HttpResponse.json({
-      id: 1,
+      id: 'user-001',
       email: 'test@example.com',
       username: 'testuser',
     });
   }),
 
-  // Users endpoints
-  http.get(`${API_URL}/users`, () => {
-    return HttpResponse.json([
-      { id: 1, username: 'user1', email: 'user1@example.com' },
-      { id: 2, username: 'user2', email: 'user2@example.com' },
-      { id: 3, username: 'user3', email: 'user3@example.com' },
-    ]);
-  }),
-
-  http.get(`${API_URL}/users/:id`, ({ params }) => {
-    const { id } = params;
-    
-    return HttpResponse.json({
-      id: Number(id),
-      username: `user${id}`,
-      email: `user${id}@example.com`,
-    });
-  }),
-
-  // Servers/Channels endpoints (Discord-like)
-  http.get(`${API_URL}/servers`, () => {
-    return HttpResponse.json([
-      { id: 1, name: 'General Server', icon: '🏠' },
-      { id: 2, name: 'Gaming Server', icon: '🎮' },
-      { id: 3, name: 'Dev Server', icon: '💻' },
-    ]);
-  }),
-
-  http.get(`${API_URL}/servers/:id/channels`, ({ params }) => {
-    const { id } = params;
-    
-    return HttpResponse.json([
-      { id: 1, serverId: Number(id), name: 'general', type: 'text' },
-      { id: 2, serverId: Number(id), name: 'random', type: 'text' },
-      { id: 3, serverId: Number(id), name: 'voice-chat', type: 'voice' },
-    ]);
-  }),
-
-  // Messages endpoints
-  http.get(`${API_URL}/channels/:id/messages`, ({ params }) => {
-    const { id } = params;
-    
-    return HttpResponse.json([
-      {
-        id: 1,
-        channelId: Number(id),
-        content: 'Hello everyone!',
-        author: { id: 1, username: 'user1' },
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        channelId: Number(id),
-        content: 'Welcome to the channel',
-        author: { id: 2, username: 'user2' },
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-  }),
-
-  http.post(`${API_URL}/channels/:id/messages`, async ({ request, params }) => {
-    const { id } = params;
-    const { content } = await request.json();
-    
-    return HttpResponse.json({
-      id: Date.now(),
-      channelId: Number(id),
-      content,
-      author: { id: 1, username: 'testuser' },
-      createdAt: new Date().toISOString(),
-    }, { status: 201 });
-  }),
+ 
 ];
