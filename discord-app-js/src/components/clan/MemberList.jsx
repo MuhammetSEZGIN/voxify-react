@@ -70,15 +70,13 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
 
   if (!visible) {
     return (
-      <aside className="member-list member-list--collapsed">
-        <button
-          className="member-list__header-icon"
-          onClick={() => setVisible(true)}
-          title="Show Members"
-        >
-          <span className="material-symbols-outlined">group</span>
-        </button>
-      </aside>
+      <button
+        className="member-list__show-btn"
+        onClick={() => setVisible(true)}
+        title="Show Members"
+      >
+        <span className="material-symbols-outlined">group</span>
+      </button>
     );
   }
 

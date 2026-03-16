@@ -152,20 +152,36 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
     return null;
   }
 
+  // VoiceChannel.jsx içindeki return kısmı
+
   return (
     <LiveKitRoom
       video={false}
-      audio={false}
+      // audio={false} yerine nesne olarak geçiyoruz
+      audio={{
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1, // Mono ses gürültü engelleme için daha iyidir
+      }}
       token={token}
       serverUrl={serverUrl}
       connect={true}
       onDisconnected={handleDisconnect}
+      options={{
+        audioCaptureDefaults: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        // Bağlantı kalitesi için adaptive stream ayarı
+        adaptiveStream: true,
+      }}
       style={{ display: 'none' }}
     >
       <RoomAudioRenderer />
       <VoiceRoomBridge onVoiceStateChange={onVoiceStateChange} />
     </LiveKitRoom>
   );
-};
 
-export default VoiceChannel;
+  export default VoiceChannel;

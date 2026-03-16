@@ -45,8 +45,10 @@ function ChannelSidebar({
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [selectedInputDevice, setSelectedInputDevice] = useState('');
   const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const micSettingsRef = useRef(null);
   const headphoneSettingsRef = useRef(null);
+  const userMenuRef = useRef(null);
 
   // Load audio devices — no getUserMedia on mount; enumerate with whatever labels are already available.
   // Labels are populated if the user has previously granted permission or once they open mic settings.
@@ -73,6 +75,9 @@ function ChannelSidebar({
       if (headphoneSettingsRef.current && !headphoneSettingsRef.current.contains(e.target)) {
         setShowHeadphoneSettings(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -82,14 +87,19 @@ function ChannelSidebar({
     return (
       <aside className="channel-sidebar">
         <header className="channel-sidebar__header">
-          <h1 className="channel-sidebar__title">SesVer</h1>
+          <h1 className="channel-sidebar__title">Voxify</h1>
         </header>
         <div className="channel-sidebar__empty">
           <p className="channel-sidebar__empty-text">Select a clan to see channels</p>
         </div>
         {user && (
           <div className="channel-sidebar__user-bar">
-            <div className="channel-sidebar__user-info">
+            <div
+              className="channel-sidebar__user-info"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              ref={userMenuRef}
+              style={{ cursor: 'pointer', position: 'relative' }}
+            >
               <div className="channel-sidebar__user-avatar-wrapper">
                 <div className="channel-sidebar__user-avatar">
                   {user.avatarUrl ? (
@@ -104,6 +114,15 @@ function ChannelSidebar({
                 <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
                 <p className="channel-sidebar__user-status">Online</p>
               </div>
+
+              {showUserMenu && (
+                <div className="channel-sidebar__user-dropdown">
+                  <button className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
+                    <span className="material-symbols-outlined">logout</span>
+                    Çıkış Yap
+                  </button>
+                </div>
+              )}
             </div>
             <div className="channel-sidebar__user-actions">
               <button className="channel-sidebar__user-action-btn" title="Microphone">
@@ -111,9 +130,6 @@ function ChannelSidebar({
               </button>
               <button className="channel-sidebar__user-action-btn" title="Headphones">
                 <span className="material-symbols-outlined">headphones</span>
-              </button>
-              <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Logout" style={{ color: '#ed4245' }}>
-                <span className="material-symbols-outlined">logout</span>
               </button>
             </div>
           </div>
@@ -349,28 +365,28 @@ function ChannelSidebar({
                         <div className="voice-participants">
                           {isActiveAndConnected
                             ? participants.map((p) => (
-                                <div
-                                  key={p.identity}
-                                  className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}
-                                >
-                                  <div className="voice-participants__avatar">
-                                    <span>{(p.name || '?').charAt(0).toUpperCase()}</span>
-                                    {p.isSpeaking && <div className="voice-participants__speaking-ring" />}
-                                  </div>
-                                  <span className="voice-participants__name">{p.name}</span>
-                                  {p.isMuted && (
-                                    <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
-                                  )}
+                              <div
+                                key={p.identity}
+                                className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}
+                              >
+                                <div className="voice-participants__avatar">
+                                  <span>{(p.name || '?').charAt(0).toUpperCase()}</span>
+                                  {p.isSpeaking && <div className="voice-participants__speaking-ring" />}
                                 </div>
-                              ))
+                                <span className="voice-participants__name">{p.name}</span>
+                                {p.isMuted && (
+                                  <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
+                                )}
+                              </div>
+                            ))
                             : participants.map((p) => (
-                                <div key={p.userId} className="voice-participants__item">
-                                  <div className="voice-participants__avatar">
-                                    <span>{(p.userName || '?').charAt(0).toUpperCase()}</span>
-                                  </div>
-                                  <span className="voice-participants__name">{p.userName}</span>
+                              <div key={p.userId} className="voice-participants__item">
+                                <div className="voice-participants__avatar">
+                                  <span>{(p.userName || '?').charAt(0).toUpperCase()}</span>
                                 </div>
-                              ))
+                                <span className="voice-participants__name">{p.userName}</span>
+                              </div>
+                            ))
                           }
                         </div>
                       );
@@ -434,7 +450,12 @@ function ChannelSidebar({
       {/* User Control Bar */}
       {user && (
         <div className="channel-sidebar__user-bar">
-          <div className="channel-sidebar__user-info">
+          <div
+            className="channel-sidebar__user-info"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            ref={userMenuRef}
+            style={{ cursor: 'pointer', position: 'relative' }}
+          >
             <div className="channel-sidebar__user-avatar-wrapper">
               <div className="channel-sidebar__user-avatar">
                 {user.avatarUrl ? (
@@ -449,6 +470,15 @@ function ChannelSidebar({
               <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
               <p className="channel-sidebar__user-status">Online</p>
             </div>
+
+            {showUserMenu && (
+              <div className="channel-sidebar__user-dropdown">
+                <button className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
+                  <span className="material-symbols-outlined">logout</span>
+                  Çıkış Yap
+                </button>
+              </div>
+            )}
           </div>
           <div className="channel-sidebar__user-actions">
             {/* Microphone button + settings */}
@@ -468,7 +498,6 @@ function ChannelSidebar({
                 title="Mikrofon Ayarları"
                 onClick={async () => {
                   if (!showMicSettings) {
-                    // İzin istenip cihaz etiketlerini güncelle; track'i hemen durdur
                     try {
                       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                       stream.getTracks().forEach(t => t.stop());
@@ -479,7 +508,7 @@ function ChannelSidebar({
                   setShowHeadphoneSettings(false);
                 }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>expand_less</span>
               </button>
               {showMicSettings && (
                 <div className="audio-settings-menu audio-settings-menu--mic">
@@ -524,7 +553,7 @@ function ChannelSidebar({
                 title="Ses Çıkış Ayarları"
                 onClick={() => { setShowHeadphoneSettings(!showHeadphoneSettings); setShowMicSettings(false); }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>expand_less</span>
               </button>
               {showHeadphoneSettings && (
                 <div className="audio-settings-menu audio-settings-menu--headphone">
@@ -552,10 +581,6 @@ function ChannelSidebar({
                 </div>
               )}
             </div>
-
-            <button className="channel-sidebar__user-action-btn" onClick={onLogout} title="Logout" style={{ color: '#ed4245' }}>
-              <span className="material-symbols-outlined">logout</span>
-            </button>
           </div>
         </div>
       )}
