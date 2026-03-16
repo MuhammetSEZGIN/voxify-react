@@ -32,29 +32,7 @@ function LoginPage() {
       <div className="auth-card">
         {/* Logo */}
         <div className="auth-logo">
-          <svg
-            className="auth-logo__icon"
-            fill="none"
-            height="32"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            width="32"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" />
-            <path d="M8 12h8" />
-            <path d="M12 8v8" />
-          </svg>
-          <h1 className="auth-logo__text">SesVer</h1>
-        </div>
-
-        {/* Header */}
-        <div className="auth-header">
-          <h1 className="auth-header__title">Log in to your account</h1>
-          <p className="auth-header__subtitle">Welcome back! Please enter your details.</p>
+          <img src="/logo.png" alt="Voxify Logo" className="auth-logo__image" />
         </div>
 
         {/* Form */}
@@ -76,7 +54,6 @@ function LoginPage() {
           <div className="auth-field">
             <div className="auth-field__label-row">
               <p className="auth-field__label auth-field__label--inline">Password</p>
-              <button type="button" className="auth-field__forgot">Forgot Password?</button>
             </div>
             <div className="auth-field__password-wrapper">
               <input
@@ -87,9 +64,10 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+
               <button
                 type="button"
-                className="auth-field__toggle-password--login"
+                className="auth-field__toggle-password"
                 aria-label="Toggle password visibility"
                 onClick={() => setShowPassword(!showPassword)}
               >
@@ -97,7 +75,9 @@ function LoginPage() {
                   {showPassword ? "visibility" : "visibility_off"}
                 </span>
               </button>
+
             </div>
+            <button type="button" className="auth-field__forgot">Forgot Password?</button>
           </div>
 
           {/* Error */}

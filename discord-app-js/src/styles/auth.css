@@ -32,10 +32,11 @@
   gap: 0.5rem;
 }
 
-.auth-logo__icon {
-  color: #2b8cee;
-  width: 32px;
-  height: 32px;
+.auth-logo__image {
+  width: auto;
+  height: 100px;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .auth-logo__text {
@@ -72,6 +73,40 @@
   gap: 1rem;
 }
 
+/* Member List */
+.member-list {
+  width: 280px;
+  background: var(--surface-dark);
+  border-left: 1px solid var(--border-dark);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.member-list__show-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--surface-dark-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.member-list__show-btn:hover {
+  color: var(--text-light);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
 .auth-form--register {
   gap: 1.5rem;
 }
@@ -85,7 +120,7 @@
 
 .auth-field__label-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   padding-bottom: 0.5rem;
 }
@@ -103,13 +138,16 @@
 }
 
 .auth-field__forgot {
+  background: none;
+  border: none;
   color: #2b8cee;
   font-size: 0.875rem;
   font-weight: 500;
-  text-decoration: none;
-  background: none;
-  border: none;
   cursor: pointer;
+  padding: 0;
+  margin-top: 0.75rem;
+  text-align: right;
+  width: 100%;
 }
 
 .auth-field__forgot:hover {
@@ -199,7 +237,8 @@
 
 .auth-field__toggle-password {
   position: absolute;
-  inset-y: 0;
+  top: 0;
+  bottom: 0;
   right: 0;
   display: flex;
   align-items: center;
@@ -301,28 +340,7 @@
   text-decoration: underline;
 }
 
-/* Register form container */
-.auth-form-container {
-  width: 100%;
-  border-radius: 0.75rem;
-  background: #1D2432;
-  padding: 2rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.auth-form-container__header {
-  text-align: center;
-}
-
-.auth-form-container__title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: #E0E0E0;
-}
-
-.auth-form-container__subtitle {
+/* Register-specific layout adjustments */
+.auth-form--register {
   margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: #8A94A6;
 }

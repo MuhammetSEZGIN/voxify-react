@@ -8,9 +8,14 @@ function ChatArea({ clan, channel }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [sendError, setSendError] = useState(null);
   const sendErrorTimerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const observerTargetRef = useRef(null);
+  const chatContainerRef = useRef(null);
   const prevChannelIdRef = useRef(null);
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
@@ -29,7 +34,6 @@ function ChatArea({ clan, channel }) {
     const prevId = prevChannelIdRef.current;
     const newId = channel?.channelId;
 
-    // Eski kanaldan ayrıl
     if (prevId && prevId !== newId) {
       SignalRService.leaveChannel(prevId);
     }
@@ -38,16 +42,18 @@ function ChatArea({ clan, channel }) {
 
     if (!newId) {
       setMessages([]);
+      setHasMore(false);
+      setPage(1);
       return;
     }
 
-    // Yeni kanala katıl
     SignalRService.joinChannel(newId).catch((err) => {
       console.error('Failed to join channel:', err);
     });
 
-    // REST ile mevcut mesajları yükle
-    loadMessages(newId);
+    setPage(1);
+    setHasMore(true);
+    loadMessages(newId, 1, true);
   }, [channel?.channelId]);
 
   // SignalR'dan gelen mesajları dinle
@@ -113,8 +119,28 @@ function ChatArea({ clan, channel }) {
     };
   }, []);
 
+  // Intersection Observer for pagination
   useEffect(() => {
-    scrollToBottom();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && channel?.channelId) {
+          loadMoreMessages();
+        }
+      },
+      { threshold: 1.0, rootMargin: '100px' }
+    );
+
+    if (observerTargetRef.current) {
+      observer.observe(observerTargetRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, channel?.channelId, page]);
+
+  useEffect(() => {
+    if (page === 1) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -195,23 +221,63 @@ function ChatArea({ clan, channel }) {
     return [];
   };
 
-  const loadMessages = async (channelId) => {
-    setLoading(true);
+  const loadMessages = async (channelId, pageNum = 1, isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      console.log('Loading messages for channel:', channelId);
-      const data = await MessageService.getMessagesByChannelId(channelId);
-      console.log('[ChatArea] Raw API response:', data);
+      console.log(`Loading messages for channel: ${channelId}, page: ${pageNum}`);
+      const data = await MessageService.getMessagesByChannelId(channelId, pageNum, 50);
       const rawMessages = extractMessages(data);
+      
+      // Assume no more messages if we get less than requested or 0
+      if (rawMessages.length < 50) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+
       const normalized = rawMessages
         .map(normalizeMessage)
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      console.log('[ChatArea] Normalized messages:', normalized);
-      setMessages(normalized);
+      
+      if (isInitial) {
+        setMessages(normalized);
+      } else {
+        // Prepend older messages and maintain scroll position
+        const prevScrollHeight = chatContainerRef.current?.scrollHeight || 0;
+        
+        setMessages((prev) => {
+          // Filter duplicates
+          const newIds = new Set(normalized.map(m => m.messageId));
+          const filteredPrev = prev.filter(m => !newIds.has(m.messageId));
+          return [...normalized, ...filteredPrev].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        });
+
+        // Restore scroll position after React updates the DOM
+        setTimeout(() => {
+          if (chatContainerRef.current) {
+            const newScrollHeight = chatContainerRef.current.scrollHeight;
+            chatContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+          }
+        }, 0);
+      }
     } catch (err) {
       console.error('Failed to load messages:', err);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const loadMoreMessages = () => {
+    if (!channel?.channelId || loadingMore || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadMessages(channel.channelId, nextPage, false);
   };
 
   const handleSendMessage = async (e) => {
@@ -255,13 +321,61 @@ function ChatArea({ clan, channel }) {
     }
   };
 
+  // Yardımcı fonksiyon: Mesaj içeriğindeki linkleri ve medyayı render et
+  const renderMessageContent = (content) => {
+    if (!content) return null;
+
+    // Basit URL regex'i
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        const url = part;
+        const lowerUrl = url.toLowerCase();
+        
+        // Görüntü önizleme
+        if (lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)$/) || lowerUrl.includes('imgur.com')) {
+          return (
+            <div key={i} className="chat-area__media-preview">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
+                {url}
+              </a>
+              <img src={url} alt="attachment" className="chat-area__preview-img" loading="lazy" />
+            </div>
+          );
+        }
+        
+        // Video önizleme
+        if (lowerUrl.match(/\.(mp4|webm|ogg)$/)) {
+          return (
+            <div key={i} className="chat-area__media-preview">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
+                {url}
+              </a>
+              <video src={url} controls className="chat-area__preview-video" preload="metadata" />
+            </div>
+          );
+        }
+
+        // Normal link
+        return (
+          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
+            {url}
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   // No clan selected
   if (!clan) {
     return (
       <main className="chat-area">
         <div className="chat-area__welcome">
           <span className="material-symbols-outlined chat-area__welcome-icon">shield</span>
-          <h2 className="chat-area__welcome-title">Welcome to SesVer</h2>
+          <h2 className="chat-area__welcome-title">Welcome to Voxify</h2>
           <p className="chat-area__welcome-subtitle">Select a clan to get started</p>
         </div>
       </main>
@@ -304,7 +418,13 @@ function ChatArea({ clan, channel }) {
 
       {/* Messages */}
       <div className="chat-area__body">
-        <div className="chat-area__messages">
+        <div className="chat-area__messages" ref={chatContainerRef}>
+          {hasMore && !loading && messages.length > 0 && (
+            <div ref={observerTargetRef} className="chat-area__load-more-trigger">
+              {loadingMore && <div className="chat-area__loading-spinner chat-area__loading-spinner--small" />}
+            </div>
+          )}
+          
           {loading ? (
             <div className="chat-area__loading">
               <div className="chat-area__loading-spinner" />
@@ -341,7 +461,9 @@ function ChatArea({ clan, channel }) {
                       </p>
                     </div>
                     {group.messages.map((msg) => (
-                      <p key={msg.messageId} className="chat-area__message-text">{msg.content}</p>
+                      <div key={msg.messageId} className="chat-area__message-text">
+                        {renderMessageContent(msg.content)}
+                      </div>
                     ))}
                   </div>
                   {isOwn && (

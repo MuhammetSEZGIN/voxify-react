@@ -22,18 +22,21 @@ const VoiceService = {
       // or api instance if it matches. Let's use direct fetch given the requirement to hit localhost:4000.
       // However, we should check what api.js baseUrl is. If it's the same, we can use api.get().
       // To be safe as per the user's initial code, let's use fetch but through the service.
-      
+
       const baseUrl = import.meta.env.VITE_VOICE_SERVER_URL;
-      
+
       console.log(`[VoiceService] Joining room with URL: ${baseUrl}/voice/join-room/${roomId}?${params.toString()}`);
+      const token = localStorage.getItem("token");
+
       const response = await fetch(
         `${baseUrl}/voice/join-room/${roomId}?${params.toString()}`,
-        { 
-            method: 'GET',
-            signal: signal,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        {
+          method: 'GET',
+          signal: signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
         }
       );
 
