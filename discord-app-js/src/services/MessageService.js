@@ -2,14 +2,14 @@ import api from "./api.js";
 
 /**
  * Get messages for a channel
- * GET /message?channelId={channelId}&pageNumber={page}&pageSize={pageSize}
+ * GET /message?channelId={channelId}&page={page}&limit={limit}
  * @param {string} channelId
  * @param {number} page
- * @param {number} pageSize
+ * @param {number} limit
  */
-const getMessagesByChannelId = async (channelId, page = 1, pageSize = 50) => {
+const getMessagesByChannelId = async (channelId, page = 1, limit = 50) => {
   try {
-    const response = await api.get(`/message`, { params: { channelId, pageNumber: page, pageSize } });
+    const response = await api.get(`/message`, { params: { channelId, page, limit } });
     return response.data;
   } catch (error) {
     console.error("Error fetching messages", error.response?.data || error.message);

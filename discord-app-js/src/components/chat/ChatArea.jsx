@@ -124,10 +124,11 @@ function ChatArea({ clan, channel }) {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && channel?.channelId) {
+          console.log('[ChatArea] Load more triggered by observer');
           loadMoreMessages();
         }
       },
-      { threshold: 1.0, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '100px' }
     );
 
     if (observerTargetRef.current) {
@@ -138,13 +139,16 @@ function ChatArea({ clan, channel }) {
   }, [hasMore, loading, loadingMore, channel?.channelId, page]);
 
   useEffect(() => {
-    if (page === 1) {
-      scrollToBottom();
+    if (page === 1 && messages.length > 0) {
+      // Use behavior: 'auto' for initial load to avoid visible jumping/scrolling
+      scrollToBottom('auto');
     }
-  }, [messages]);
+  }, [messages, page]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
   };
 
   /**
@@ -156,7 +160,7 @@ function ChatArea({ clan, channel }) {
     const messageId = msg.messageId
       || (typeof msg.id === 'object' && msg.id !== null
         ? (msg.id.$oid
-            || `${msg.id.timestamp ?? ''}-${msg.id.machine ?? ''}-${msg.id.pid ?? ''}-${msg.id.increment ?? ''}`)
+          || `${msg.id.timestamp ?? ''}-${msg.id.machine ?? ''}-${msg.id.pid ?? ''}-${msg.id.increment ?? ''}`)
         : msg.id)
       || msg.Id
       || crypto.randomUUID();
@@ -232,7 +236,7 @@ function ChatArea({ clan, channel }) {
       console.log(`Loading messages for channel: ${channelId}, page: ${pageNum}`);
       const data = await MessageService.getMessagesByChannelId(channelId, pageNum, 50);
       const rawMessages = extractMessages(data);
-      
+
       // Assume no more messages if we get less than requested or 0
       if (rawMessages.length < 50) {
         setHasMore(false);
@@ -243,27 +247,30 @@ function ChatArea({ clan, channel }) {
       const normalized = rawMessages
         .map(normalizeMessage)
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      
+
       if (isInitial) {
         setMessages(normalized);
+        // Instant scroll on first page
+        setTimeout(() => scrollToBottom('auto'), 50);
       } else {
         // Prepend older messages and maintain scroll position
-        const prevScrollHeight = chatContainerRef.current?.scrollHeight || 0;
-        
+        const container = chatContainerRef.current;
+        const prevScrollHeight = container?.scrollHeight || 0;
+
         setMessages((prev) => {
-          // Filter duplicates
           const newIds = new Set(normalized.map(m => m.messageId));
           const filteredPrev = prev.filter(m => !newIds.has(m.messageId));
-          return [...normalized, ...filteredPrev].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          const combined = [...normalized, ...filteredPrev].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          return combined;
         });
 
         // Restore scroll position after React updates the DOM
-        setTimeout(() => {
-          if (chatContainerRef.current) {
-            const newScrollHeight = chatContainerRef.current.scrollHeight;
-            chatContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+        requestAnimationFrame(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - prevScrollHeight;
           }
-        }, 0);
+        });
       }
     } catch (err) {
       console.error('Failed to load messages:', err);
@@ -333,7 +340,7 @@ function ChatArea({ clan, channel }) {
       if (part.match(urlRegex)) {
         const url = part;
         const lowerUrl = url.toLowerCase();
-        
+
         // Görüntü önizleme
         if (lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)$/) || lowerUrl.includes('imgur.com')) {
           return (
@@ -345,7 +352,7 @@ function ChatArea({ clan, channel }) {
             </div>
           );
         }
-        
+
         // Video önizleme
         if (lowerUrl.match(/\.(mp4|webm|ogg)$/)) {
           return (
@@ -412,7 +419,7 @@ function ChatArea({ clan, channel }) {
           <button className="chat-area__header-btn" title="Search">
             <span className="material-symbols-outlined">search</span>
           </button>
-         
+
         </div>
       </header>
 
@@ -424,7 +431,7 @@ function ChatArea({ clan, channel }) {
               {loadingMore && <div className="chat-area__loading-spinner chat-area__loading-spinner--small" />}
             </div>
           )}
-          
+
           {loading ? (
             <div className="chat-area__loading">
               <div className="chat-area__loading-spinner" />

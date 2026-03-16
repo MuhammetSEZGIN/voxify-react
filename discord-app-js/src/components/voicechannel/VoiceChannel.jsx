@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -21,14 +22,19 @@ function VoiceRoomBridge({ onVoiceStateChange }) {
 
   // Mikrofonu sadece oda bağlandıktan sonra aç — izin sadece burada istenir
   useEffect(() => {
-    const enableMic = () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        console.error('[VoiceChannel] Mikrofon kullanılamıyor: Sayfa HTTPS üzerinden açılmalı.');
-        return;
-      }
-      localParticipant.setMicrophoneEnabled(true).catch((err) => {
+    const enableMic = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) return;
+
+        // SDK ayarlarını (Echo/Noise) kullanarak mikrofonu açar
+        await localParticipant.setMicrophoneEnabled(true, {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        });
+      } catch (err) {
         console.warn('[VoiceChannel] Mikrofon açılamadı:', err);
-      });
+      }
     };
     if (room.state === 'connected') {
       enableMic();
@@ -152,30 +158,26 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
     return null;
   }
 
-  // VoiceChannel.jsx içindeki return kısmı
-
   return (
     <LiveKitRoom
       video={false}
-      // audio={false} yerine nesne olarak geçiyoruz
+      // audio={false} yerine nesne olarak ayarları veriyoruz:
       audio={{
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1, // Mono ses gürültü engelleme için daha iyidir
+        echoCancellation: true,   // Hoparlörden gelen sesi (YouTube) geri gitmesini engeller
+        noiseSuppression: true,   // Klavye tıkırtısı ve fan sesini filtreler
+        autoGainControl: true,    // Ses seviyesini dengeler
       }}
       token={token}
       serverUrl={serverUrl}
       connect={true}
       onDisconnected={handleDisconnect}
+      // Alttaki options kısmı da garantici olmak için kalsın:
       options={{
         audioCaptureDefaults: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
-        // Bağlantı kalitesi için adaptive stream ayarı
-        adaptiveStream: true,
       }}
       style={{ display: 'none' }}
     >
@@ -183,5 +185,6 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
       <VoiceRoomBridge onVoiceStateChange={onVoiceStateChange} />
     </LiveKitRoom>
   );
+};
 
-  export default VoiceChannel;
+export default VoiceChannel;
