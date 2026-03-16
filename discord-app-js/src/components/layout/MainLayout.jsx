@@ -42,6 +42,10 @@ function MainLayout() {
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
+  // Global Audio Settings
+  const [inputVolume, setInputVolume] = useState(100);
+  const [outputVolume, setOutputVolume] = useState(100);
+
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
     if (!selectedClan || !memeberShips?.length || !user) return 'member';
@@ -520,6 +524,10 @@ const handleCreateChannel = async (name) => {
         userRole={userRole}
         onLeaveClan={handleLeaveClan}
         onOpenClanSettings={() => setShowClanSettings(true)}
+        inputVolume={inputVolume}
+        setInputVolume={setInputVolume}
+        outputVolume={outputVolume}
+        setOutputVolume={setOutputVolume}
       />
 
       <ChatArea
@@ -534,6 +542,8 @@ const handleCreateChannel = async (name) => {
           userName={user?.userName || user?.name || user?.email || 'User'}
           onLeaveRoom={handleDisconnectVoice}
           onVoiceStateChange={handleVoiceStateChange}
+          inputVolume={inputVolume}
+          outputVolume={outputVolume}
         />
       )}
 
