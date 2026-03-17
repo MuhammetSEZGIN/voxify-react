@@ -42,6 +42,10 @@ function MainLayout() {
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
+  // Global Audio Settings
+  const [inputVolume, setInputVolume] = useState(100);
+  const [outputVolume, setOutputVolume] = useState(100);
+
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
     if (!selectedClan || !memeberShips?.length || !user) return 'member';
@@ -278,7 +282,7 @@ function MainLayout() {
 
     const handleReconnected = async () => {
       console.info('[Presence] Yeniden bağlandi — klan abonelikleri yenileniyor');
-      await PresenceService.subscribeToClans(clanIds).catch(() => {});
+      await PresenceService.subscribeToClans(clanIds).catch(() => { });
     };
 
     const connect = async () => {
@@ -352,7 +356,7 @@ function MainLayout() {
     setClans((prev) => [...prev, newClan]);
     setSelectedClan(newClan);
   };
-const handleCreateChannel = async (name) => {
+  const handleCreateChannel = async (name) => {
     try {
       const newChannel = await ChannelService.createChannel({ name, clanId: selectedClan.clanId });
       setChannels((prev) => [...prev, newChannel]);
@@ -520,13 +524,17 @@ const handleCreateChannel = async (name) => {
         userRole={userRole}
         onLeaveClan={handleLeaveClan}
         onOpenClanSettings={() => setShowClanSettings(true)}
+        inputVolume={inputVolume}
+        setInputVolume={setInputVolume}
+        outputVolume={outputVolume}
+        setOutputVolume={setOutputVolume}
       />
 
       <ChatArea
         clan={selectedClan}
         channel={selectedChannel}
       />
-      
+
       {activeVoiceChannel && (
         <VoiceChannel
           roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
@@ -534,6 +542,8 @@ const handleCreateChannel = async (name) => {
           userName={user?.userName || user?.name || user?.email || 'User'}
           onLeaveRoom={handleDisconnectVoice}
           onVoiceStateChange={handleVoiceStateChange}
+          inputVolume={inputVolume}
+          outputVolume={outputVolume}
         />
       )}
 

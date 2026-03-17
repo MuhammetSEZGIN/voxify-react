@@ -24,6 +24,14 @@ function ChannelSidebar({
   userRole,
   onLeaveClan,
   onOpenClanSettings,
+  inputVolume,
+  setInputVolume,
+  outputVolume,
+  setOutputVolume,
+  selectedInputDevice,
+  setSelectedInputDevice,
+  selectedOutputDevice,
+  setSelectedOutputDevice,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -35,16 +43,11 @@ function ChannelSidebar({
   const [editingVoiceChannel, setEditingVoiceChannel] = useState(null);
   const [editName, setEditName] = useState('');
   const [showClanMenu, setShowClanMenu] = useState(false);
-  // Audio settings state
   const [isDeafened, setIsDeafened] = useState(false);
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [showHeadphoneSettings, setShowHeadphoneSettings] = useState(false);
-  const [inputVolume, setInputVolume] = useState(100);
-  const [outputVolume, setOutputVolume] = useState(100);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const micSettingsRef = useRef(null);
   const headphoneSettingsRef = useRef(null);
