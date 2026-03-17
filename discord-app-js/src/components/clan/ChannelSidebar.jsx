@@ -28,6 +28,10 @@ function ChannelSidebar({
   setInputVolume,
   outputVolume,
   setOutputVolume,
+  selectedInputDevice,
+  setSelectedInputDevice,
+  selectedOutputDevice,
+  setSelectedOutputDevice,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -44,8 +48,6 @@ function ChannelSidebar({
   const [showHeadphoneSettings, setShowHeadphoneSettings] = useState(false);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const micSettingsRef = useRef(null);
   const headphoneSettingsRef = useRef(null);

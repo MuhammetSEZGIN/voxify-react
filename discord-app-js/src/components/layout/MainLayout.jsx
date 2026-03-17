@@ -282,7 +282,7 @@ function MainLayout() {
 
     const handleReconnected = async () => {
       console.info('[Presence] Yeniden bağlandi — klan abonelikleri yenileniyor');
-      await PresenceService.subscribeToClans(clanIds).catch(() => {});
+      await PresenceService.subscribeToClans(clanIds).catch(() => { });
     };
 
     const connect = async () => {
@@ -356,7 +356,7 @@ function MainLayout() {
     setClans((prev) => [...prev, newClan]);
     setSelectedClan(newClan);
   };
-const handleCreateChannel = async (name) => {
+  const handleCreateChannel = async (name) => {
     try {
       const newChannel = await ChannelService.createChannel({ name, clanId: selectedClan.clanId });
       setChannels((prev) => [...prev, newChannel]);
@@ -534,7 +534,7 @@ const handleCreateChannel = async (name) => {
         clan={selectedClan}
         channel={selectedChannel}
       />
-      
+
       {activeVoiceChannel && (
         <VoiceChannel
           roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}

@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -7,48 +6,80 @@ import {
   useParticipants,
   useRoomContext,
 } from '@livekit/components-react';
-import { RoomEvent } from 'livekit-client';
+import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
 
 /**
- * LiveKitRoom içinde çalışarak ses durumunu üst bileşene aktaran köprü bileşen.
- * Mikrofon durumu, katılımcı listesi ve kontrol fonksiyonlarını raporlar.
+ * ── MİKROFON VE KONTROL KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange }) {
+function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
 
-  // Mikrofonu sadece oda bağlandıktan sonra aç — izin sadece burada istenir
-  useEffect(() => {
-    const enableMic = async () => {
-      try {
-        if (!navigator.mediaDevices?.getUserMedia) return;
+  const audioContextRef = useRef(null);
+  const gainNodeRef = useRef(null);
 
-        // SDK ayarlarını (Echo/Noise) kullanarak mikrofonu açar
-        await localParticipant.setMicrophoneEnabled(true, {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        });
-      } catch (err) {
-        console.warn('[VoiceChannel] Mikrofon açılamadı:', err);
-      }
-    };
-    if (room.state === 'connected') {
-      enableMic();
-    } else {
-      room.once(RoomEvent.Connected, enableMic);
+  // 1. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
+  useEffect(() => {
+    if (outputDevice && room.state === 'connected') {
+      room.switchActiveDevice('audiooutput', outputDevice).catch(err => {
+        console.warn("Çıkış cihazı değiştirilemedi:", err);
+      });
     }
-    return () => {
-      room.off(RoomEvent.Connected, enableMic);
-    };
-  }, [room, localParticipant]);
+  }, [outputDevice, room]);
+
+  // 2. GİRİŞ SESİ (INPUT VOLUME) KONTROLÜ - WEB AUDIO API (GAIN NODE)
+  useEffect(() => {
+    if (!localParticipant) return;
+
+    // Aktif mikrofon yayınını bul
+    const trackPub = localParticipant.getTrackPublication(Track.Source.Microphone);
+    const audioTrack = trackPub?.track;
+
+    if (audioTrack && audioTrack.sender && audioTrack.mediaStreamTrack) {
+      // Eğer filtre (GainNode) henüz kurulmadıysa kur
+      if (!gainNodeRef.current) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioContext();
+          audioContextRef.current = ctx;
+
+          // Mikrofonun ham sesini al
+          const source = ctx.createMediaStreamSource(new MediaStream([audioTrack.mediaStreamTrack]));
+
+          // Ses filtresini (GainNode) oluştur
+          const gainNode = ctx.createGain();
+          gainNodeRef.current = gainNode;
+
+          // Çıkış noktası oluştur
+          const destination = ctx.createMediaStreamDestination();
+
+          // Birleştir: Ham Ses -> Filtre -> Çıkış
+          source.connect(gainNode);
+          gainNode.connect(destination);
+
+          // LiveKit'in sunucuya yolladığı ham sesi, bizim filtrelenmiş sesimizle değiştir!
+          const processedTrack = destination.stream.getAudioTracks()[0];
+          audioTrack.sender.replaceTrack(processedTrack);
+
+        } catch (error) {
+          console.error("Giriş sesi filtresi oluşturulamadı:", error);
+        }
+      }
+
+      // Sürgüden gelen 0-100 değerini sese dönüştür
+      // 50 = Normal Ses (1x), 100 = İki Katı Ses (2x), 0 = Sessiz (0x)
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = inputVolume / 50;
+      }
+    }
+  }, [localParticipant, inputVolume, isMicrophoneEnabled]);
 
   const toggleMute = useCallback(() => {
-    localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled);
-  }, [localParticipant]);
+    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+  }, [localParticipant, isMicrophoneEnabled]);
 
   const disconnect = useCallback(() => {
     room.disconnect();
@@ -76,13 +107,16 @@ function VoiceRoomBridge({ onVoiceStateChange }) {
   return null;
 }
 
-const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChange }) => {
+/**
+ * ── ANA VOICE CHANNEL BİLEŞENİ ──
+ */
+const VoiceChannel = ({
+  roomId, userId, userName, onLeaveRoom, onVoiceStateChange,
+  inputDevice, outputDevice, inputVolume, outputVolume
+}) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Secure context check — getUserMedia requires HTTPS (or localhost)
-  const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
 
   const serverUrl = import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.5.122:7880';
 
@@ -93,96 +127,67 @@ const VoiceChannel = ({ roomId, userId, userName, onLeaveRoom, onVoiceStateChang
       try {
         setLoading(true);
         setError(null);
-
         const data = await VoiceService.joinRoom(roomId, userId, userName, abortController.signal);
-
-        if (data && data.token) {
-          setToken(data.token);
-        } else {
-          throw new Error('Odadan geçerli bir token alınamadı.');
-        }
+        if (data && data.token) setToken(data.token);
+        else throw new Error('Odadan geçerli bir token alınamadı.');
       } catch (err) {
-        if (err.name !== 'AbortError') {
-          setError(err.message);
-        }
+        if (err.name !== 'AbortError') setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (roomId && userId && userName) {
-      fetchToken();
-    } else {
+    if (roomId && userId && userName) fetchToken();
+    else {
       setLoading(false);
       setError('Bağlanmak için roomId, userId ve userName bilgileri gereklidir.');
     }
 
-    return () => {
-      abortController.abort();
-    };
+    return () => abortController.abort();
   }, [roomId, userId, userName]);
 
   const handleDisconnect = () => {
     setToken(null);
-    if (onVoiceStateChange) {
-      onVoiceStateChange(null);
-    }
-    if (onLeaveRoom) {
-      onLeaveRoom();
-    }
+    if (onVoiceStateChange) onVoiceStateChange(null);
+    if (onLeaveRoom) onLeaveRoom();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center p-8 h-full">
-        <p className="text-gray-400 font-semibold animate-pulse">Bağlanıyor...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center p-8 h-full">
-        <p className="text-red-500 font-semibold mb-4">Hata: {error}</p>
-        <button
-          onClick={() => onLeaveRoom?.()}
-          className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
-        >
-          Odalar Listesine Dön
-        </button>
-      </div>
-    );
-  }
-
-  if (!token) {
-    return null;
-  }
+  if (loading) return <div className="flex justify-center items-center p-8 h-full"><p className="text-gray-400">Bağlanıyor...</p></div>;
+  if (error) return <div className="flex flex-col justify-center items-center p-8"><p className="text-red-500 mb-4">{error}</p></div>;
+  if (!token) return null;
 
   return (
     <LiveKitRoom
       video={false}
-      // audio={false} yerine nesne olarak ayarları veriyoruz:
       audio={{
-        echoCancellation: true,   // Hoparlörden gelen sesi (YouTube) geri gitmesini engeller
-        noiseSuppression: true,   // Klavye tıkırtısı ve fan sesini filtreler
-        autoGainControl: true,    // Ses seviyesini dengeler
+        deviceId: inputDevice || undefined, // Sidebar'dan seçilen mikrofon
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: false, // DİKKAT: Biz manuel ayarladığımız için bunu KAPATTIK!
       }}
       token={token}
       serverUrl={serverUrl}
       connect={true}
       onDisconnected={handleDisconnect}
-      // Alttaki options kısmı da garantici olmak için kalsın:
       options={{
         audioCaptureDefaults: {
+          deviceId: inputDevice || undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-        },
+          autoGainControl: false
+        }
       }}
-      style={{ display: 'none' }}
+      style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
     >
-      <RoomAudioRenderer />
-      <VoiceRoomBridge onVoiceStateChange={onVoiceStateChange} />
+      {/* Çıkış Ses Seviyesi (Hoparlör) Kontrolü */}
+      <RoomAudioRenderer volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1} />
+
+      {/* Köprüye tüm ayarları gönderiyoruz */}
+      <VoiceRoomBridge
+        onVoiceStateChange={onVoiceStateChange}
+        outputDevice={outputDevice}
+        inputVolume={inputVolume}
+      />
     </LiveKitRoom>
   );
 };
