@@ -1,4 +1,4 @@
-# Sesver - Real-Time Communication Platform (Frontend)
+# Voxify - Real-Time Communication Platform (Frontend)
 
 This repository contains the frontend client for **Sesver**, a Discord-like real-time communication platform. It is a highly optimized, memory-friendly application built with **React** and **Vite**, designed to be fast, lightweight, and compatible with **Tauri**.
 
