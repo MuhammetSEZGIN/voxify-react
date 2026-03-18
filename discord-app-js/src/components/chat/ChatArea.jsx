@@ -643,7 +643,7 @@ function ChatArea({ clan, channel }) {
                       <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
                       <p className="chat-area__message-time">
                         {group.createdAt
-                          ? new Date(group.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          ? new Date(group.createdAt).toLocaleTimeString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                           : ''}
                       </p>
                     </div>
