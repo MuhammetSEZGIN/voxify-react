@@ -179,6 +179,18 @@ export async function updateMessage(messageId, newContent) {
 }
 
 /**
+ * Mesajı sil (Hub üzerinden).
+ * @param {string} messageId
+ * @param {string} channelId
+ */
+export async function deleteMessage(messageId, channelId) {
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    throw new Error('SignalR bağlantısı yok');
+  }
+  await connection.invoke('DeleteMessage', messageId, channelId);
+}
+
+/**
  * Bir olaya dinleyici ekle.
  * @param {string} event - örn: "ReceiveMessage", "MessageUpdated", "MessageUpdateFailed"
  * @param {Function} callback
@@ -213,6 +225,7 @@ const SignalRService = {
   leaveChannel,
   sendMessage,
   updateMessage,
+  deleteMessage,
   on,
   off,
 };
