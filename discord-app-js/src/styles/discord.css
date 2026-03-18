@@ -68,7 +68,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================
@@ -258,7 +260,7 @@ body {
   height: 56px;
   padding: 0 16px;
   border-bottom: 1px solid var(--bg-dark);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
@@ -371,7 +373,7 @@ body {
 }
 
 .channel-sidebar__channel:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-light);
 }
 
@@ -416,7 +418,7 @@ body {
 
 .channel-sidebar__channel-actions button:hover {
   color: var(--text-light);
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .channel-sidebar__channel-edit-input {
@@ -487,7 +489,7 @@ body {
 }
 
 .channel-sidebar__add-channel-btn:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-light);
 }
 
@@ -531,8 +533,15 @@ body {
 }
 
 @keyframes dropdown-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .channel-sidebar__user-dropdown-item {
@@ -544,7 +553,8 @@ body {
   background: none;
   border: none;
   border-radius: 4px;
-  color: #ed4245; /* Red for logout */
+  color: #ed4245;
+  /* Red for logout */
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -632,7 +642,7 @@ body {
 }
 
 .channel-sidebar__user-action-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-light);
 }
 
@@ -650,15 +660,16 @@ body {
 }
 
 .channel-sidebar__audio-control:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .channel-sidebar__user-action-btn {
   /* No background transition here so it matches the parent split effect */
   background: none;
 }
+
 .channel-sidebar__user-action-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .channel-sidebar__audio-settings-btn {
@@ -679,7 +690,7 @@ body {
 
 .channel-sidebar__audio-settings-btn:hover {
   color: var(--text-light);
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Audio settings menus */
@@ -694,11 +705,12 @@ body {
   padding: 12px;
   width: 200px;
   z-index: 100;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 /* ============================
    Chat Area
    ============================ */
@@ -746,7 +758,7 @@ body {
   height: 56px;
   padding: 0 16px;
   border-bottom: 1px solid var(--surface-dark);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
@@ -1064,14 +1076,36 @@ body {
   max-width: 480px;
   animation: toast-in 0.2s ease;
 }
+
 @keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
-.app-toast--info  { background: #4e5d94; }
-.app-toast--error { background: #ed4245; }
-.app-toast .material-symbols-outlined { font-size: 18px; flex-shrink: 0; }
-.app-toast span:nth-child(2) { flex: 1; }
+
+.app-toast--info {
+  background: #4e5d94;
+}
+
+.app-toast--error {
+  background: #ed4245;
+}
+
+.app-toast .material-symbols-outlined {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.app-toast span:nth-child(2) {
+  flex: 1;
+}
+
 .app-toast__close {
   background: none;
   border: none;
@@ -1082,8 +1116,14 @@ body {
   align-items: center;
   opacity: 0.75;
 }
-.app-toast__close:hover { opacity: 1; }
-.app-toast__close .material-symbols-outlined { font-size: 16px; }
+
+.app-toast__close:hover {
+  opacity: 1;
+}
+
+.app-toast__close .material-symbols-outlined {
+  font-size: 16px;
+}
 
 /* Message Input */
 .chat-area__input-wrapper {
@@ -1135,13 +1175,222 @@ body {
 }
 
 .chat-area__input-action-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--primary);
 }
 
 .chat-area__input-action-btn .material-symbols-outlined {
   font-size: 24px;
 }
+
+.chat-area__input-action-btn--active {
+  color: var(--primary) !important;
+  background: rgba(43, 140, 238, 0.15) !important;
+}
+
+/* GIF Picker "Kutucuk" */
+.chat-area__gif-picker {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 360px;
+  height: 480px;
+  background: #1e1f22;
+  /* Discord-like dark */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000;
+  animation: modal-appear 0.15s ease-out;
+}
+
+.chat-area__gif-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  background: #1e1f22;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-area__gif-picker-icon {
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.chat-area__gif-picker-search {
+  flex: 1;
+  background: #000000;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.chat-area__gif-picker-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.chat-area__gif-picker-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.chat-area__gif-picker-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+  background: #2b2d31;
+}
+
+.chat-area__gif-item {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0;
+  height: 100px;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+
+.chat-area__gif-item:hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+}
+
+.chat-area__gif-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.chat-area__gif-picker-footer {
+  padding: 8px 12px;
+  background: #1e1f22;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-area__gif-picker-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.chat-area__gif-picker-empty {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+/* Emoji Picker "Kutucuk" */
+.chat-area__emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 320px;
+  height: 400px;
+  background: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1001;
+  animation: modal-appear 0.15s ease-out;
+}
+
+.chat-area__emoji-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #1e1f22;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-area__emoji-picker-icon {
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.chat-area__emoji-picker-title {
+  flex: 1;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chat-area__emoji-picker-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.chat-area__emoji-picker-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.chat-area__emoji-picker-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 12px;
+  overflow-y: auto;
+  background: #2b2d31;
+}
+
+.chat-area__emoji-item {
+  background: none;
+  border: none;
+  font-size: 24px;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.chat-area__emoji-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.15);
+}
+
+
 
 /* ============================
    Member List
@@ -1163,7 +1412,7 @@ body {
   height: 64px;
   padding: 0 16px;
   border-bottom: 1px solid var(--bg-dark);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
@@ -1188,7 +1437,7 @@ body {
 }
 
 .member-list__header-icon:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-light);
 }
 
@@ -1566,8 +1815,13 @@ body {
 }
 
 @keyframes speaking-pulse {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
+  from {
+    opacity: 0.6;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .voice-participants__name {
@@ -1628,8 +1882,15 @@ body {
 }
 
 @keyframes modal-appear {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .modal__tabs {
@@ -2490,4 +2751,4 @@ body {
   margin-left: 6px;
   font-style: italic;
 }
-
+
