@@ -9,6 +9,7 @@ import ChannelSidebar from '../clan/ChannelSidebar';
 import ChatArea from '../chat/ChatArea';
 import CreateClanModal from '../clan/CreateClanModal';
 import VoiceChannel from '../voicechannel/VoiceChannel';
+import ScreenShareViewer from '../voicechannel/ScreenShareViewer';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
@@ -30,6 +31,8 @@ function MainLayout() {
   const [voicePresence, setVoicePresence] = useState({});
   // Set of online user IDs — populated by PresenceHub
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  // Ekran paylaşımı izleme: { participantIdentity, name, track }
+  const [watchingScreenShare, setWatchingScreenShare] = useState(null);
   // Refs for voice presence cleanup without stale closures
   const activeVoiceChannelRef = useRef(null);
   const voiceConnectedRef = useRef(false);
@@ -153,7 +156,17 @@ function MainLayout() {
 
   const handleVoiceStateChange = useCallback((state) => {
     setVoiceState(state);
+    // Ekran paylaşımı izleme: state null olduğunda (bağlantı kesildi) viewer'u kapat
+    if (!state) setWatchingScreenShare(null);
   }, []);
+
+  const handleWatchScreenShare = useCallback((identity) => {
+    if (!voiceState?.remoteScreenShares) return;
+    const share = voiceState.remoteScreenShares.find(
+      (s) => s.participantIdentity === identity
+    );
+    if (share) setWatchingScreenShare(share);
+  }, [voiceState]);
 
   const handleDisconnectVoice = useCallback(() => {
     // Report leaving to presence hub before clearing state
@@ -528,6 +541,7 @@ function MainLayout() {
         setInputVolume={setInputVolume}
         outputVolume={outputVolume}
         setOutputVolume={setOutputVolume}
+        onWatchScreenShare={handleWatchScreenShare}
       />
 
       <ChatArea
@@ -589,6 +603,14 @@ function MainLayout() {
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
+      )}
+
+      {/* Ekran Paylaşımı İzleme Penceresi */}
+      {watchingScreenShare && (
+        <ScreenShareViewer
+          share={watchingScreenShare}
+          onClose={() => setWatchingScreenShare(null)}
+        />
       )}
     </div>
   );

@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
+import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 
 function ChatArea({ clan, channel }) {
+
   const { user, token } = useAuth();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -12,11 +14,29 @@ function ChatArea({ clan, channel }) {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [sendError, setSendError] = useState(null);
+  // Context menu state: { x, y, messageId }
+  const [contextMenu, setContextMenu] = useState(null);
+  // Inline editing state
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
+  const editInputRef = useRef(null);
+  // GIF Picker
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearch, setGifSearch] = useState('');
+  const [gifs, setGifs] = useState([]);
+  const [gifLoading, setGifLoading] = useState(false);
+
+  // Emoji Picker
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const gifSearchTimerRef = useRef(null);
   const sendErrorTimerRef = useRef(null);
+
   const messagesEndRef = useRef(null);
   const observerTargetRef = useRef(null);
   const chatContainerRef = useRef(null);
   const prevChannelIdRef = useRef(null);
+
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
@@ -110,12 +130,25 @@ function ChatArea({ clan, channel }) {
       );
     };
 
+    const handleDeleted = (...args) => {
+      console.log('[SignalR] MessageDeleted raw args:', args);
+      const deletedId = typeof args[0] === 'object' && args[0] !== null
+        ? args[0].messageId || args[0].id || args[0].$oid
+        : args[0];
+
+      if (deletedId) {
+        setMessages((prev) => prev.filter((m) => m.messageId !== deletedId));
+      }
+    };
+
     SignalRService.on('ReceiveMessage', handleReceive);
     SignalRService.on('MessageUpdated', handleUpdated);
+    SignalRService.on('MessageDeleted', handleDeleted);
 
     return () => {
       SignalRService.off('ReceiveMessage', handleReceive);
       SignalRService.off('MessageUpdated', handleUpdated);
+      SignalRService.off('MessageDeleted', handleDeleted);
     };
   }, []);
 
@@ -287,7 +320,142 @@ function ChatArea({ clan, channel }) {
     loadMessages(channel.channelId, nextPage, false);
   };
 
+  const handleDeleteMessage = async (messageId) => {
+    setContextMenu(null);
+    if (!channel?.channelId) return;
+
+    if (!window.confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
+
+    try {
+      await SignalRService.deleteMessage(messageId, channel.channelId);
+      setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
+    } catch (err) {
+      console.error('Failed to delete message via SignalR:', err);
+      setSendError('Mesaj silinemedi.');
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    }
+  };
+
+  const handleEditMessage = (messageId) => {
+    setContextMenu(null);
+    const msg = messages.find((m) => m.messageId === messageId);
+    if (!msg) return;
+    setEditingMessageId(messageId);
+    setEditingContent(msg.content);
+    // input'a odaklan
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    const trimmed = editingContent.trim();
+    if (!trimmed || !editingMessageId) return;
+
+    const messageId = editingMessageId;
+    const oldContent = messages.find((m) => m.messageId === messageId)?.content;
+
+    // Optimistik güncelleme
+    setMessages((prev) =>
+      prev.map((m) => m.messageId === messageId ? { ...m, content: trimmed } : m)
+    );
+    handleCancelEdit();
+
+    try {
+      await SignalRService.updateMessage(messageId, trimmed);
+    } catch (err) {
+      console.error('Failed to update message via SignalR:', err);
+      // Geri al
+      setMessages((prev) =>
+        prev.map((m) => m.messageId === messageId ? { ...m, content: oldContent } : m)
+      );
+      setSendError('Mesaj düzenlenemedi.');
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    }
+  };
+
+  const handleContextMenu = (e, msg, isOwn) => {
+    if (!isOwn) return; // Sadece kendi mesajlarında context menu
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, messageId: msg.messageId });
+  };
+
+  // Context menu kapanması için global listener
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e) => { if (e.key === 'Escape') setContextMenu(null); };
+    window.addEventListener('click', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
+
+  // ── GIF Picker (Tenor — no API key sign-up required) ──────────────────
+  const fetchGifs = useCallback(async (query) => {
+    setGifLoading(true);
+    try {
+      const base = query
+        ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&limit=24`
+        : `https://tenor.googleapis.com/v2/featured?limit=24`;
+      const url = `${base}&key=${TENOR_API_KEY}&client_key=${TENOR_CLIENT_KEY}&media_filter=gif`;
+      const res = await fetch(url);
+      const json = await res.json();
+      setGifs(json.results || []);
+    } catch (err) {
+      console.error('[GIF] Tenor fetch failed:', err);
+    } finally {
+      setGifLoading(false);
+    }
+  }, []);
+
+  const handleGifSearch = (e) => {
+    const q = e.target.value;
+    setGifSearch(q);
+    clearTimeout(gifSearchTimerRef.current);
+    gifSearchTimerRef.current = setTimeout(() => fetchGifs(q), 400);
+  };
+
+  const handleToggleGifPicker = () => {
+    setShowGifPicker((prev) => {
+      if (!prev) {
+        fetchGifs('');
+        if (showEmojiPicker) setShowEmojiPicker(false);
+      }
+      return !prev;
+    });
+  };
+
+
+  const handleSelectGif = (gif) => {
+    const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || '';
+    if (!url) return;
+    setNewMessage((prev) => (prev ? `${prev} ${url}` : url));
+    setShowGifPicker(false);
+    setGifSearch('');
+    setGifs([]);
+  };
+
+  const handleToggleEmojiPicker = () => {
+    setShowEmojiPicker((prev) => !prev);
+    if (showGifPicker) setShowGifPicker(false);
+  };
+
+  const handleSelectEmoji = (emoji) => {
+    setNewMessage((prev) => prev + emoji);
+  };
+
+
   const handleSendMessage = async (e) => {
+
     e.preventDefault();
     if (!newMessage.trim() || !channel?.channelId) return;
 
@@ -345,9 +513,6 @@ function ChatArea({ clan, channel }) {
         if (lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)$/) || lowerUrl.includes('imgur.com')) {
           return (
             <div key={i} className="chat-area__media-preview">
-              <a href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
-                {url}
-              </a>
               <img src={url} alt="attachment" className="chat-area__preview-img" loading="lazy" />
             </div>
           );
@@ -357,10 +522,25 @@ function ChatArea({ clan, channel }) {
         if (lowerUrl.match(/\.(mp4|webm|ogg)$/)) {
           return (
             <div key={i} className="chat-area__media-preview">
-              <a href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
-                {url}
-              </a>
               <video src={url} controls className="chat-area__preview-video" preload="metadata" />
+            </div>
+          );
+        }
+
+        // YouTube önizleme
+        const youtubeMatch = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n]+)/);
+        if (youtubeMatch) {
+          const videoId = youtubeMatch[1];
+          return (
+            <div key={i} className="chat-area__media-preview">
+              <iframe
+                className="chat-area__preview-youtube"
+                src={`https://www.youtube.com/embed/${videoId}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </div>
           );
         }
@@ -463,13 +643,44 @@ function ChatArea({ clan, channel }) {
                       <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
                       <p className="chat-area__message-time">
                         {group.createdAt
-                          ? new Date(group.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          ? new Date(group.createdAt).toLocaleTimeString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                           : ''}
                       </p>
                     </div>
                     {group.messages.map((msg) => (
-                      <div key={msg.messageId} className="chat-area__message-text">
-                        {renderMessageContent(msg.content)}
+                      <div
+                        key={msg.messageId}
+                        className="chat-area__message-item"
+                        onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
+                      >
+                        {editingMessageId === msg.messageId ? (
+                          <form
+                            className="chat-area__edit-form"
+                            onSubmit={handleSubmitEdit}
+                          >
+                            <input
+                              ref={editInputRef}
+                              className="chat-area__edit-input"
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Escape') handleCancelEdit(); }}
+                            />
+                            <div className="chat-area__edit-actions">
+                              <span className="chat-area__edit-hint">Enter kaydet • Esc iptal</span>
+                              <button type="button" className="chat-area__edit-cancel-btn" onClick={handleCancelEdit}>
+                                <span className="material-symbols-outlined">close</span>
+                              </button>
+                              <button type="submit" className="chat-area__edit-save-btn" disabled={!editingContent.trim()}>
+                                <span className="material-symbols-outlined">check</span>
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="chat-area__message-text">
+                            {renderMessageContent(msg.content)}
+                            {msg._edited && <span className="chat-area__edited-tag">(düzenlendi)</span>}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -489,6 +700,31 @@ function ChatArea({ clan, channel }) {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Sağ tık Context Menu */}
+        {contextMenu && (
+          <div
+            className="chat-area__context-menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="chat-area__context-menu-item"
+              onClick={() => handleEditMessage(contextMenu.messageId)}
+            >
+              <span className="material-symbols-outlined">edit</span>
+              Düzenle
+            </button>
+            <div className="chat-area__context-menu-divider" />
+            <button
+              className="chat-area__context-menu-item chat-area__context-menu-item--danger"
+              onClick={() => handleDeleteMessage(contextMenu.messageId)}
+            >
+              <span className="material-symbols-outlined">delete</span>
+              Sil
+            </button>
+          </div>
+        )}
+
         {/* Hata bildirimi */}
         {sendError && (
           <div className="chat-area__send-error" role="alert">
@@ -505,10 +741,91 @@ function ChatArea({ clan, channel }) {
           </div>
         )}
 
-        {/* Message Input */}
+        {/* Message Input Wrapper (relative for anchoring) */}
         <div className="chat-area__input-wrapper">
+          {/* Emoji Picker "Kutucuk" */}
+          {showEmojiPicker && (
+            <div className="chat-area__emoji-picker">
+              <div className="chat-area__emoji-picker-header">
+                <span className="material-symbols-outlined chat-area__emoji-picker-icon">sentiment_satisfied</span>
+                <span className="chat-area__emoji-picker-title">Emoji Seç</span>
+                <button
+                  type="button"
+                  className="chat-area__emoji-picker-close"
+                  onClick={() => setShowEmojiPicker(false)}
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div className="chat-area__emoji-picker-grid">
+                {COMMON_EMOJIS.map((emoji, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="chat-area__emoji-item"
+                    onClick={() => handleSelectEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* GIF Picker "Kutucuk" */}
+          {showGifPicker && (
+            <div className="chat-area__gif-picker">
+              <div className="chat-area__gif-picker-header">
+                <span className="material-symbols-outlined chat-area__gif-picker-icon">gif_box</span>
+                <input
+                  className="chat-area__gif-picker-search"
+                  type="text"
+                  placeholder="GIF ara..."
+                  value={gifSearch}
+                  onChange={handleGifSearch}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="chat-area__gif-picker-close"
+                  onClick={() => setShowGifPicker(false)}
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div className="chat-area__gif-picker-grid">
+                {gifLoading ? (
+                  <div className="chat-area__gif-picker-loading">
+                    <div className="chat-area__loading-spinner chat-area__loading-spinner--small" />
+                  </div>
+                ) : gifs.length === 0 ? (
+                  <p className="chat-area__gif-picker-empty">GIF bulunamadı.</p>
+                ) : (
+                  gifs.map((gif) => (
+                    <button
+                      key={gif.id}
+                      type="button"
+                      className="chat-area__gif-item"
+                      onClick={() => handleSelectGif(gif)}
+                      title={gif.title}
+                    >
+                      <img
+                        src={gif.media_formats?.tinygif?.url || gif.media_formats?.gif?.url}
+                        alt={gif.title}
+                        loading="lazy"
+                      />
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="chat-area__gif-picker-footer">
+                Powered by Tenor
+              </div>
+            </div>
+          )}
+
           <form className="chat-area__input-bar" onSubmit={handleSendMessage}>
-            <button type="button" className="chat-area__input-action-btn">
+            <button type="button" className="chat-area__input-action-btn" title="Dosya Ekle">
               <span className="material-symbols-outlined">add_circle</span>
             </button>
             <input
@@ -519,18 +836,29 @@ function ChatArea({ clan, channel }) {
               onChange={(e) => setNewMessage(e.target.value)}
             />
             <div className="chat-area__input-actions">
-              <button type="button" className="chat-area__input-action-btn">
+              <button
+                type="button"
+                className={`chat-area__input-action-btn${showGifPicker ? ' chat-area__input-action-btn--active' : ''}`}
+                title="GIF"
+                onClick={handleToggleGifPicker}
+              >
                 <span className="material-symbols-outlined">gif_box</span>
               </button>
-              <button type="button" className="chat-area__input-action-btn">
+              <button
+                type="button"
+                className={`chat-area__input-action-btn${showEmojiPicker ? ' chat-area__input-action-btn--active' : ''}`}
+                title="Emoji"
+                onClick={handleToggleEmojiPicker}
+              >
                 <span className="material-symbols-outlined">sentiment_satisfied</span>
               </button>
-              <button type="button" className="chat-area__input-action-btn">
-                <span className="material-symbols-outlined">alternate_email</span>
+              <button type="submit" className="chat-area__input-action-btn" title="Gönder">
+                <span className="material-symbols-outlined">send</span>
               </button>
             </div>
           </form>
         </div>
+
       </div>
     </main>
   );
