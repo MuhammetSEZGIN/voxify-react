@@ -742,7 +742,7 @@ function ChatArea({ clan, channel }) {
         )}
 
         {/* Message Input Wrapper (relative for anchoring) */}
-        <div className="chat-area__input-wrapper" style={{ position: 'relative' }}>
+        <div className="chat-area__input-wrapper">
           {/* Emoji Picker "Kutucuk" */}
           {showEmojiPicker && (
             <div className="chat-area__emoji-picker">
