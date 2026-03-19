@@ -610,8 +610,6 @@ function MainLayout() {
         <ScreenShareViewer
           share={watchingScreenShare}
           onClose={() => setWatchingScreenShare(null)}
-          outputVolume={outputVolume}
-          setOutputVolume={setOutputVolume}
         />
       )}
     </div>

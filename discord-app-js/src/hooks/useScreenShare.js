@@ -41,13 +41,15 @@ export function useScreenShare() {
     const shares = [];
     for (const participant of participants) {
       if (participant === localParticipant) continue;
-      const pub = participant.getTrackPublication(Track.Source.ScreenShare);
-      if (pub && pub.track) {
+      const videoPub = participant.getTrackPublication(Track.Source.ScreenShare);
+      const audioPub = participant.getTrackPublication(Track.Source.ScreenShareAudio);
+      if (videoPub && videoPub.track) {
         shares.push({
           participantIdentity: participant.identity,
           name: participant.name || participant.identity,
-          track: pub.track,
-          publication: pub,
+          track: videoPub.track,
+          audioTrack: audioPub?.track || null,
+          publication: videoPub,
         });
       }
     }

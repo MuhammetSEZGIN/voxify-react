@@ -2820,6 +2820,29 @@ body {
   flex-shrink: 0;
 }
 
+.screenshare-status-bar__quality {
+  background: rgba(16, 25, 34, 0.4);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.screenshare-status-bar__quality:hover,
+.screenshare-status-bar__quality:focus {
+  border-color: #5865f2;
+  color: var(--text-light);
+}
+
+.screenshare-status-bar__quality option {
+  background: var(--surface-dark);
+  color: var(--text-light);
+}
+
 .screenshare-status-bar__btn {
   display: flex;
   align-items: center;

@@ -3,18 +3,19 @@ import React, { useEffect, useRef, useState } from 'react';
 /**
  * ScreenShareViewer
  * Seçilen katılımcının ekran yayınını tam ekran modal olarak gösterir.
- * LiveKit track'ını doğrudan video elementine bağlar.
+ * Video ve ses track'ları AYRI elementlere bağlanır — ses seviyesi diğer
+ * kullanıcıların sesini etkilemez.
  */
-function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
+function ScreenShareViewer({ share, onClose }) {
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
   const containerRef = useRef(null);
-  const [localVolume, setLocalVolume] = useState(
-    typeof outputVolume === 'number' ? outputVolume : 100
-  );
+  // Yayın sesi bağımsız — başlangıç 80% 
+  const [screenVolume, setScreenVolume] = useState(80);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
 
-  // Track'ı video elementine bağla
+  // Video track'ı video elementine bağla
   useEffect(() => {
     if (!share?.track || !videoRef.current) return;
 
@@ -22,33 +23,65 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
     const el = videoRef.current;
 
     try {
-      // LiveKit track'ı attach et
       if (track.attach) {
         track.attach(el);
       } else if (track.mediaStreamTrack) {
         el.srcObject = new MediaStream([track.mediaStreamTrack]);
       }
     } catch (err) {
-      console.error('[ScreenShareViewer] Track bağlanamadı:', err);
+      console.error('[ScreenShareViewer] Video track bağlanamadı:', err);
     }
 
     return () => {
       try {
-        if (track.detach) {
-          track.detach(el);
-        } else {
-          el.srcObject = null;
-        }
+        if (track.detach) track.detach(el);
+        else el.srcObject = null;
       } catch { /* ignore */ }
     };
   }, [share?.track]);
 
-  // Video elementinin ses seviyesini güncelle
+  // Audio track'ı AYRI bir audio elementine bağla (mikrofon sesinden bağımsız)
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.volume = localVolume / 100;
+    if (!audioRef.current) return;
+
+    const audioTrack = share?.audioTrack;
+    const el = audioRef.current;
+    el.volume = screenVolume / 100;
+
+    if (!audioTrack) {
+      el.srcObject = null;
+      return;
     }
-  }, [localVolume]);
+
+    try {
+      if (audioTrack.attach) {
+        audioTrack.attach(el);
+      } else if (audioTrack.mediaStreamTrack) {
+        el.srcObject = new MediaStream([audioTrack.mediaStreamTrack]);
+      }
+    } catch (err) {
+      console.error('[ScreenShareViewer] Audio track bağlanamadı:', err);
+    }
+
+    return () => {
+      try {
+        if (audioTrack.detach) audioTrack.detach(el);
+        else el.srcObject = null;
+      } catch { /* ignore */ }
+    };
+  }, [share?.audioTrack]);
+
+  // Yayın ses seviyesini yalnızca audio elementine uygula
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, screenVolume / 100));
+      audioRef.current.muted = screenVolume === 0;
+    }
+    // Video elementi her zaman mute — ses audio elementinden geliyor
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+    }
+  }, [screenVolume]);
 
   // Esc tuşu ve Fullscreen/PiP dinleyicileri
   useEffect(() => {
@@ -86,14 +119,8 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
 
   if (!share) return null;
 
-  const handleVolumeChange = (val) => {
-    setLocalVolume(val);
-    if (setOutputVolume) setOutputVolume(val);
-  };
-
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen().catch((err) => {
         console.error(`Fullscreen hatası: ${err.message}`);
@@ -105,7 +132,6 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
 
   const togglePiP = async () => {
     if (!videoRef.current) return;
-
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
@@ -119,7 +145,7 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
 
   return (
     <div className="screenshare-viewer" role="dialog" aria-modal="true">
-      {/* Arkaplan tıklamasını engelle — yanlışlıkla kapanmasın */}
+      {/* Arkaplan tıklaması kapatmasın */}
       <div className="screenshare-viewer__backdrop" onClick={onClose} />
 
       <div
@@ -142,18 +168,16 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
             <button
               className={`screenshare-viewer__action-btn ${isPiP ? 'screenshare-viewer__action-btn--active' : ''}`}
               onClick={togglePiP}
-              title={isPiP ? "Pencere Modundan Çık" : "Ayrı Pencere (PiP)"}
+              title={isPiP ? 'Pencere Modundan Çık' : 'Ayrı Pencere (PiP)'}
             >
-              <span className="material-symbols-outlined">
-                {isPiP ? 'picture_in_picture_alt' : 'picture_in_picture_alt'}
-              </span>
+              <span className="material-symbols-outlined">picture_in_picture_alt</span>
             </button>
 
             {/* Fullscreen Butonu */}
             <button
               className="screenshare-viewer__action-btn"
               onClick={toggleFullscreen}
-              title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran"}
+              title={isFullscreen ? 'Tam Ekrandan Çık' : 'Tam Ekran'}
             >
               <span className="material-symbols-outlined">
                 {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
@@ -172,37 +196,45 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
           </div>
         </div>
 
-        {/* Video */}
+        {/* Video — her zaman muted; ses audio ref'inden geliyor */}
         <div className="screenshare-viewer__video-wrap">
           <video
             ref={videoRef}
             className="screenshare-viewer__video"
             autoPlay
             playsInline
-            muted={localVolume === 0}
+            muted
           />
+          {/* Gizli audio elementi — yalnızca yayın sesini bağımsız çalar */}
+          <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
         </div>
 
         {/* Alt Kontrol Barı */}
         <div className="screenshare-viewer__controls">
-          {/* Ses Kontrolü */}
+          {/* Yayın Ses Kontrolü (mikrofon sesinden bağımsız!) */}
           <div className="screenshare-viewer__volume-group">
-            <span className="material-symbols-outlined screenshare-viewer__volume-icon">
-              {localVolume === 0 ? 'volume_off' : localVolume < 50 ? 'volume_down' : 'volume_up'}
-            </span>
+            <button
+              className="screenshare-viewer__volume-mute-btn"
+              title={screenVolume === 0 ? 'Sesi Aç' : 'Sesi Kapat'}
+              onClick={() => setScreenVolume((v) => (v === 0 ? 80 : 0))}
+            >
+              <span className="material-symbols-outlined screenshare-viewer__volume-icon">
+                {screenVolume === 0 ? 'volume_off' : screenVolume < 50 ? 'volume_down' : 'volume_up'}
+              </span>
+            </button>
             <input
               type="range"
               min="0"
               max="100"
-              value={localVolume}
-              onChange={(e) => handleVolumeChange(Number(e.target.value))}
+              value={screenVolume}
+              onChange={(e) => setScreenVolume(Number(e.target.value))}
               className="screenshare-viewer__volume-slider"
-              title={`Ses: ${localVolume}%`}
+              title={`Yayın Sesi: ${screenVolume}%`}
             />
-            <span className="screenshare-viewer__volume-label">{localVolume}%</span>
+            <span className="screenshare-viewer__volume-label">{screenVolume}%</span>
           </div>
 
-          {/* Bağlantıyı Kes */}
+          {/* Yayından Çık */}
           <button
             className="screenshare-viewer__disconnect-btn"
             onClick={onClose}
@@ -218,4 +250,3 @@ function ScreenShareViewer({ share, onClose, outputVolume, setOutputVolume }) {
 }
 
 export default ScreenShareViewer;
-
