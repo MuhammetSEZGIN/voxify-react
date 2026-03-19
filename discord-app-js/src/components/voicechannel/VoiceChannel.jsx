@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LiveKitRoom,
-  RoomAudioRenderer,
   useLocalParticipant,
   useParticipants,
   useRoomContext,
@@ -10,11 +9,12 @@ import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
 import { useScreenShare } from '../../hooks/useScreenShare';
+import VoiceAudioRenderer from './VoiceAudioRenderer';
 
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
+function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screenShareQuality }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
@@ -24,6 +24,36 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
 
   // Ekran paylaşımı hook'u
   const { isScreenSharing, remoteScreenShares, startScreenShare, stopScreenShare } = useScreenShare();
+
+  // Kalite bazlı ekran paylaşımı başlat
+  const startScreenShareWithQuality = useCallback(async (quality = 'medium') => {
+    if (!localParticipant) return;
+    const presets = {
+      low: { maxBitrate: 500_000, maxFramerate: 30, width: 1280, height: 720 },
+      medium: { maxBitrate: 1_500_000, maxFramerate: 60, width: 1920, height: 1080 },
+      high: { maxBitrate: 3_000_000, maxFramerate: 60, width: 2560, height: 1440 },
+    };
+    const enc = presets[quality] || presets.medium;
+    try {
+      await localParticipant.setScreenShareEnabled(true, {
+        audio: true,
+        selfBrowserSurface: 'include',
+        contentHint: quality === 'high' ? 'detail' : 'motion',
+        resolution: { width: enc.width, height: enc.height, frameRate: enc.maxFramerate },
+      });
+      // Yayın başladıktan sonra encoding parametrelerini güncelle
+      const pub = localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      if (pub?.videoTrack) {
+        pub.videoTrack.sender?.setParameters({
+          encodings: [{ maxBitrate: enc.maxBitrate, maxFramerate: enc.maxFramerate }],
+        }).catch(() => { });
+      }
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') {
+        console.error('[ScreenShare] Ekran paylaşımı başlatılamadı:', err);
+      }
+    }
+  }, [localParticipant]);
 
   // 1. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
   useEffect(() => {
@@ -112,7 +142,7 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
       disconnect,
       // Ekran paylaşımı durumu
       isScreenSharing,
-      startScreenShare,
+      startScreenShare: startScreenShareWithQuality,
       stopScreenShare,
       remoteScreenShares,
     });
@@ -124,7 +154,7 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
     onVoiceStateChange,
     localParticipant,
     isScreenSharing,
-    startScreenShare,
+    startScreenShareWithQuality,
     stopScreenShare,
     remoteScreenShares,
   ]);
@@ -211,8 +241,8 @@ const VoiceChannel = ({
       }}
       style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
     >
-      {/* Çıkış Ses Seviyesi (Hoparlör) Kontrolü */}
-      <RoomAudioRenderer volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1} />
+      {/* Sadece Mikrofon seslerini çalıyor; ekran paylaşımı sesi hariç */}
+      <VoiceAudioRenderer volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1} />
 
       {/* Köprüye tüm ayarları gönderiyoruz */}
       <VoiceRoomBridge

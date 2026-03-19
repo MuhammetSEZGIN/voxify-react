@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * ScreenShareStatusBar
@@ -6,9 +6,15 @@ import React from 'react';
  * ince ekran paylaşımı kontrol çubuğu.
  */
 function ScreenShareStatusBar({ activeVoiceChannel, voiceState, onWatchOwnShare }) {
+  const [quality, setQuality] = useState('medium');
+
   if (!activeVoiceChannel || !voiceState) return null;
 
   const { isScreenSharing, startScreenShare, stopScreenShare } = voiceState;
+
+  const handleStartShare = () => {
+    startScreenShare(quality);
+  };
 
   return (
     <div className="screenshare-status-bar">
@@ -27,6 +33,19 @@ function ScreenShareStatusBar({ activeVoiceChannel, voiceState, onWatchOwnShare 
       </div>
 
       <div className="screenshare-status-bar__actions">
+        {!isScreenSharing && (
+          <select
+            className="screenshare-status-bar__quality"
+            value={quality}
+            onChange={(e) => setQuality(e.target.value)}
+            title="Yayın Kalitesi"
+          >
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+          </select>
+        )}
+
         {isScreenSharing ? (
           <button
             className="screenshare-status-bar__btn screenshare-status-bar__btn--stop"
@@ -38,7 +57,7 @@ function ScreenShareStatusBar({ activeVoiceChannel, voiceState, onWatchOwnShare 
         ) : (
           <button
             className="screenshare-status-bar__btn screenshare-status-bar__btn--start"
-            onClick={startScreenShare}
+            onClick={handleStartShare}
             title="Ekranı Paylaş"
           >
             <span className="material-symbols-outlined">present_to_all</span>
