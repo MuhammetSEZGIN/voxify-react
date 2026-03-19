@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ScreenShareStatusBar from '../voicechannel/ScreenShareStatusBar';
 
 function ChannelSidebar({
   clan,
@@ -32,6 +33,7 @@ function ChannelSidebar({
   setSelectedInputDevice,
   selectedOutputDevice,
   setSelectedOutputDevice,
+  onWatchScreenShare,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -380,6 +382,20 @@ function ChannelSidebar({
                                 {p.isMuted && (
                                   <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
                                 )}
+                                {p.isScreenSharing && !p.isLocal && (
+                                  <button
+                                    className="voice-participants__share-btn"
+                                    title={`${p.name}'in ekranını izle`}
+                                    onClick={(e) => { e.stopPropagation(); onWatchScreenShare?.(p.identity); }}
+                                  >
+                                    <span className="material-symbols-outlined">present_to_all</span>
+                                  </button>
+                                )}
+                                {p.isScreenSharing && p.isLocal && (
+                                  <span className="material-symbols-outlined voice-participants__share-active-icon" title="Ekranını paylaşıyor">
+                                    present_to_all
+                                  </span>
+                                )}
                               </div>
                             ))
                             : participants.map((p) => (
@@ -427,6 +443,12 @@ function ChannelSidebar({
           )}
         </details>
       </div>
+
+      {/* Screen Share Status Bar - voice status panelinin ÜSTÜNDE */}
+      <ScreenShareStatusBar
+        activeVoiceChannel={activeVoiceChannel}
+        voiceState={voiceState}
+      />
 
       {/* Voice Connection Panel - Discord tarzı bağlantı durumu */}
       {activeVoiceChannel && voiceState && (

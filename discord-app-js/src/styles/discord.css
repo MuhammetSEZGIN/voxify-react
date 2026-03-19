@@ -2603,8 +2603,15 @@ body {
 }
 
 @keyframes context-menu-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .chat-area__context-menu-item {
@@ -2752,3 +2759,371 @@ body {
   font-style: italic;
 }
 
+
+/* ============================
+   Screen Share Status Bar
+   ============================ */
+.screenshare-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(88, 101, 242, 0.12);
+  border-top: 1px solid rgba(88, 101, 242, 0.25);
+  border-bottom: 1px solid rgba(88, 101, 242, 0.15);
+  flex-shrink: 0;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.screenshare-status-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.screenshare-status-bar__icon {
+  font-size: 18px;
+  color: #5865f2;
+  flex-shrink: 0;
+}
+
+.screenshare-status-bar__text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.screenshare-status-bar__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screenshare-status-bar__channel {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screenshare-status-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.screenshare-status-bar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.screenshare-status-bar__btn--start {
+  background: rgba(88, 101, 242, 0.2);
+  color: #5865f2;
+}
+
+.screenshare-status-bar__btn--start:hover {
+  background: #5865f2;
+  color: var(--white);
+}
+
+.screenshare-status-bar__btn--stop {
+  background: rgba(237, 66, 69, 0.2);
+  color: #ed4245;
+}
+
+.screenshare-status-bar__btn--stop:hover {
+  background: #ed4245;
+  color: var(--white);
+}
+
+.screenshare-status-bar__btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* ============================
+   Voice Participants — Share Icons
+   ============================ */
+.voice-participants__share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(88, 101, 242, 0.15);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #5865f2;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.voice-participants__share-btn:hover {
+  background: #5865f2;
+  color: var(--white);
+  transform: scale(1.1);
+}
+
+.voice-participants__share-btn .material-symbols-outlined {
+  font-size: 14px;
+}
+
+.voice-participants__share-active-icon {
+  font-size: 14px;
+  color: #5865f2;
+  margin-left: auto;
+  flex-shrink: 0;
+  animation: share-pulse 2s ease-in-out infinite;
+}
+
+@keyframes share-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================
+   Screen Share Viewer (Fullscreen Modal)
+   ============================ */
+.screenshare-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: viewer-fade-in 0.2s ease;
+}
+
+@keyframes viewer-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.screenshare-viewer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.screenshare-viewer__window {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 1400px;
+  height: 90vh;
+  background: var(--surface-dark);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(88, 101, 242, 0.3);
+  animation: viewer-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes viewer-slide-up {
+  from {
+    transform: translateY(24px) scale(0.97);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.screenshare-viewer__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(16, 25, 34, 0.8);
+  border-bottom: 1px solid var(--border-dark);
+  flex-shrink: 0;
+}
+
+.screenshare-viewer__topbar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.screenshare-viewer__topbar-icon {
+  font-size: 20px;
+  color: #5865f2;
+}
+
+.screenshare-viewer__topbar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.screenshare-viewer__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screenshare-viewer__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.screenshare-viewer__action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-light);
+}
+
+.screenshare-viewer__action-btn--active {
+  background: rgba(88, 101, 242, 0.2);
+  color: #5865f2;
+}
+
+.screenshare-viewer__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.screenshare-viewer__close-btn:hover {
+  background: rgba(237, 66, 69, 0.2);
+  color: #ed4245;
+}
+
+.screenshare-viewer__close-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+/* Fullscreen Modifiers */
+.screenshare-viewer__window--fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+}
+
+
+.screenshare-viewer__video-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.screenshare-viewer__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.screenshare-viewer__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(16, 25, 34, 0.8);
+  border-top: 1px solid var(--border-dark);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.screenshare-viewer__volume-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.screenshare-viewer__volume-icon {
+  font-size: 20px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.screenshare-viewer__volume-slider {
+  width: 120px;
+  accent-color: #5865f2;
+  cursor: pointer;
+}
+
+.screenshare-viewer__volume-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 32px;
+}
+
+.screenshare-viewer__disconnect-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(237, 66, 69, 0.15);
+  color: #ed4245;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.screenshare-viewer__disconnect-btn:hover {
+  background: #ed4245;
+  color: var(--white);
+}
+
+.screenshare-viewer__disconnect-btn .material-symbols-outlined {
+  font-size: 18px;
+}
