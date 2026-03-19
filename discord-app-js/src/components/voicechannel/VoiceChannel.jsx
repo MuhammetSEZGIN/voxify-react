@@ -9,9 +9,10 @@ import {
 import { Track } from 'livekit-client';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
+import { useScreenShare } from '../../hooks/useScreenShare';
 
 /**
- * ── MİKROFON VE KONTROL KÖPRÜSÜ ──
+ * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
 function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
@@ -20,6 +21,9 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
 
   const audioContextRef = useRef(null);
   const gainNodeRef = useRef(null);
+
+  // Ekran paylaşımı hook'u
+  const { isScreenSharing, remoteScreenShares, startScreenShare, stopScreenShare } = useScreenShare();
 
   // 1. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
   useEffect(() => {
@@ -94,6 +98,11 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
       isMuted: !p.isMicrophoneEnabled,
       isSpeaking: p.isSpeaking,
       isLocal: p === localParticipant,
+      // Ekran paylaşımı yapıyor mu?
+      isScreenSharing: (() => {
+        const pub = p.getTrackPublication(Track.Source.ScreenShare);
+        return !!(pub && pub.track);
+      })(),
     }));
 
     onVoiceStateChange({
@@ -101,8 +110,24 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume }) {
       participants: participantInfo,
       toggleMute,
       disconnect,
+      // Ekran paylaşımı durumu
+      isScreenSharing,
+      startScreenShare,
+      stopScreenShare,
+      remoteScreenShares,
     });
-  }, [isMicrophoneEnabled, participants, toggleMute, disconnect, onVoiceStateChange, localParticipant]);
+  }, [
+    isMicrophoneEnabled,
+    participants,
+    toggleMute,
+    disconnect,
+    onVoiceStateChange,
+    localParticipant,
+    isScreenSharing,
+    startScreenShare,
+    stopScreenShare,
+    remoteScreenShares,
+  ]);
 
   return null;
 }
@@ -160,10 +185,10 @@ const VoiceChannel = ({
     <LiveKitRoom
       video={false}
       audio={{
-        deviceId: inputDevice || undefined, // Sidebar'dan seçilen mikrofon
+        deviceId: inputDevice || undefined,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: false, // DİKKAT: Biz manuel ayarladığımız için bunu KAPATTIK!
+        autoGainControl: false,
       }}
       token={token}
       serverUrl={serverUrl}
@@ -175,7 +200,14 @@ const VoiceChannel = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: false
-        }
+        },
+        // Ekran paylaşımı için video codec desteği
+        publishDefaults: {
+          screenShareEncoding: {
+            maxBitrate: 3_000_000,
+            maxFramerate: 15,
+          },
+        },
       }}
       style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
     >
