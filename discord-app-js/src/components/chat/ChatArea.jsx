@@ -76,48 +76,62 @@ function ChatArea({ clan, channel }) {
     loadMessages(newId, 1, true);
   }, [channel?.channelId]);
 
-  // SignalR'dan gelen mesajları dinle
-  useEffect(() => {
-    const handleReceive = (...args) => {
-      console.log('[SignalR] ReceiveMessage raw args:', args);
-      let normalized;
-      if (args.length === 1 && typeof args[0] === 'object') {
-        // Tek parametre: MessageDto nesnesi
-        normalized = normalizeMessage(args[0]);
-      } else if (args.length >= 4) {
-        // Çok parametreli: channelId, senderId, userName, message
-        normalized = {
-          messageId: crypto.randomUUID(),
-          channelId: args[0],
-          senderId: args[1],
-          userName: args[2],
-          content: args[3],
-          createdAt: new Date().toISOString(),
-          avatarUrl: null,
-        };
-      } else {
-        console.warn('[SignalR] Beklenmeyen ReceiveMessage formatı:', args);
-        return;
-      }
-      console.log('[SignalR] Normalized message:', normalized);
+    // SignalR'dan gelen mesajları dinle
+    useEffect(() => {
+        const handleReceive = (...args) => {
+            console.log('[SignalR] ReceiveMessage raw args:', args);
+            let normalized;
+            if (args.length === 1 && typeof args[0] === 'object') {
+                // Tek parametre: MessageDto nesnesi
+                normalized = normalizeMessage(args[0]);
+            } else if (args.length >= 4) {
+                // Çok parametreli: channelId, senderId, userName, message
+                normalized = {
+                    messageId: crypto.randomUUID(),
+                    channelId: args[0],
+                    senderId: args[1],
+                    userName: args[2],
+                    content: args[3],
+                    createdAt: new Date().toISOString(),
+                    avatarUrl: null,
+                };
+            } else {
+                console.warn('[SignalR] Beklenmeyen ReceiveMessage formatı:', args);
+                return;
+            }
+            console.log('[SignalR] Normalized message:', normalized);
 
-      setMessages((prev) => {
-        // Optimistik mesajı bul ve gerçek mesajla değiştir
-        const optimisticIdx = prev.findIndex(
-          (m) => m._optimistic && m.content === normalized.content
-        );
-        if (optimisticIdx !== -1) {
-          const updated = [...prev];
-          updated[optimisticIdx] = normalized;
-          return updated;
-        }
-        // Aynı messageId ile tekrar ekleme
-        if (prev.some((m) => m.messageId === normalized.messageId)) {
-          return prev;
-        }
-        return [...prev, normalized];
-      });
-    };
+            // Bildirim sesi çal (Eğer mesaj bizden değilse)
+            const currentId = user?.id || user?.sub || '';
+            if (normalized.senderId !== currentId) {
+                try {
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {
+                        // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
+                    });
+                } catch (err) {
+                    console.warn('Bildirim sesi çalınamadı:', err);
+                }
+            }
+
+            setMessages((prev) => {
+                // Optimistik mesajı bul ve gerçek mesajla değiştir
+                const optimisticIdx = prev.findIndex(
+                    (m) => m._optimistic && m.content === normalized.content
+                );
+                if (optimisticIdx !== -1) {
+                    const updated = [...prev];
+                    updated[optimisticIdx] = normalized;
+                    return updated;
+                }
+                // Aynı messageId ile tekrar ekleme
+                if (prev.some((m) => m.messageId === normalized.messageId)) {
+                    return prev;
+                }
+                return [...prev, normalized];
+            });
+        };
 
     const handleUpdated = (...args) => {
       console.log('[SignalR] MessageUpdated raw args:', args);

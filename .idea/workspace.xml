@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="0df1c038-86ac-4e12-a7d4-d32e9489b9cb" name="Changes" comment="add tauri plugin-autostart and plugin-shell libs">
+      <change afterPath="$PROJECT_DIR$/discord-app-js/src-tauri/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/discord-app-js/src/components/layout/TitleBar.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/discord-app-js/src/styles/titlebar.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discord-app-js/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/discord-app-js/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discord-app-js/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/discord-app-js/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discord-app-js/src/components/chat/ChatArea.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/discord-app-js/src/components/chat/ChatArea.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discord-app-js/src/styles/auth.css" beforeDir="false" afterPath="$PROJECT_DIR$/discord-app-js/src/styles/auth.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discord-app-js/src/styles/discord.css" beforeDir="false" afterPath="$PROJECT_DIR$/discord-app-js/src/styles/discord.css" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="codex" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;TarikOztoprak&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/MuhammetSEZGIN/voxify-react.git&quot;,
+    &quot;accountId&quot;: &quot;d77f45a6-94c2-4e3c-bab7-16cf36a427fd&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="3BE3ZEvRjYOYSlhrBNCADX8px5P" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="voxify-react" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="voxify-react" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="0df1c038-86ac-4e12-a7d4-d32e9489b9cb" name="Changes" comment="" />
+      <created>1774040456192</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1774040456192</updated>
+    </task>
+    <task id="LOCAL-00001" summary="add tauri plugin-autostart and plugin-shell libs">
+      <option name="closed" value="true" />
+      <created>1775385975986</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1775385975986</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="codex" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="add tauri plugin-autostart and plugin-shell libs" />
+    <option name="LAST_COMMIT_MESSAGE" value="add tauri plugin-autostart and plugin-shell libs" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

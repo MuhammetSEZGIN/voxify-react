@@ -1,0 +1,86 @@
+.titlebar {
+  height: 32px;
+  background: var(--bg-dark, #101922);
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+.titlebar-drag-region {
+  flex-grow: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+}
+
+.titlebar-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.titlebar-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 2px rgba(43, 140, 238, 0.5));
+}
+
+.titlebar-title-text {
+  color: var(--text-muted, #828890);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 46px;
+  height: 100%;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  color: var(--text-muted, #828890);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: default;
+}
+
+.titlebar-button:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-light, #E1E1E6);
+}
+
+.titlebar-button.close:hover {
+  background-color: #e81123;
+  color: #ffffff;
+}
+
+.titlebar-button svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Give padding to the main container so it's not hidden behind titlebar */
+.app-container {
+  padding-top: 32px;
+  height: 100vh;
+  background: var(--bg-dark);
+}

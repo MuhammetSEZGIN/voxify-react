@@ -25,5 +25,4 @@ dist-ssr
 
 .env
 .env.local
-
-src-tauri
+../voxify-music-bot
