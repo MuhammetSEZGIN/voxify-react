@@ -73,7 +73,7 @@ function MainLayout() {
     const fetchClans = async () => {
       try {
         setLoadingClans(true);
-        const data = await ClanService.getClansByUserId(user?.id || user?.sub || '');
+        const data = await ClanService.getMyClans();
         console.log('Fetched clans:', data);
         setClans(data || []);
       } catch (error) {
@@ -387,18 +387,18 @@ function MainLayout() {
     }
   };
 
-  const handleUpdateVoiceChannel = async ({ voiceChannelId, name }) => {
+  const handleUpdateVoiceChannel = async ({ voiceChannelId, clanId, name }) => {
     try {
-      const updated = await ChannelService.updateVoiceChannel({ voiceChannelId, name });
+      const updated = await ChannelService.updateVoiceChannel({ voiceChannelId, clanId, name });
       setVoiceChannels((prev) => prev.map((vc) => vc.voiceChannelId === voiceChannelId ? { ...vc, name: updated.name ?? name } : vc));
     } catch (error) {
       console.error('Failed to update voice channel', error);
     }
   };
 
-  const handleDeleteVoiceChannel = async (voiceChannelId) => {
+  const handleDeleteVoiceChannel = async (voiceChannelId, clanId) => {
     try {
-      await ChannelService.deleteVoiceChannel(voiceChannelId);
+      await ChannelService.deleteVoiceChannel(voiceChannelId, clanId || selectedClan?.clanId);
       setVoiceChannels((prev) => prev.filter((vc) => vc.voiceChannelId !== voiceChannelId));
       if (activeVoiceChannel?.voiceChannelId === voiceChannelId) {
         handleDisconnectVoice();
@@ -408,18 +408,18 @@ function MainLayout() {
     }
   };
 
-  const handleUpdateChannel = async ({ channelId, name }) => {
+  const handleUpdateChannel = async ({ channelId, clanId, name }) => {
     try {
-      const updated = await ChannelService.updateChannel({ channelId, name });
+      const updated = await ChannelService.updateChannel({ channelId, clanId, name });
       setChannels((prev) => prev.map((ch) => ch.channelId === channelId ? { ...ch, name: updated.name ?? name } : ch));
     } catch (error) {
       console.error('Failed to update channel', error);
     }
   };
 
-  const handleDeleteChannel = async (channelId) => {
+  const handleDeleteChannel = async (channelId, clanId) => {
     try {
-      await ChannelService.deleteChannel(channelId);
+      await ChannelService.deleteChannel(channelId, clanId);
       setChannels((prev) => prev.filter((ch) => ch.channelId !== channelId));
       if (selectedChannel?.channelId === channelId) {
         setSelectedChannel(null);
@@ -438,7 +438,7 @@ function MainLayout() {
     if (!selectedClan || !user) return;
     const userId = user.id || user.sub || '';
     try {
-      await ClanMembershipService.removeUserFromClan(selectedClan.clanId, userId);
+      await ClanMembershipService.leaveClan(selectedClan.clanId);
       setClans((prev) => prev.filter((c) => c.clanId !== selectedClan.clanId));
       setSelectedClan(null);
       setSelectedChannel(null);
@@ -475,9 +475,9 @@ function MainLayout() {
     }
   };
 
-  const handleUpdateMemberRole = async (membershipId, roleName) => {
+  const handleUpdateMemberRole = async (membershipId, roleName, clanId = selectedClan?.clanId) => {
     try {
-      await ClanMembershipService.updateMemberRole(membershipId, roleName);
+      await ClanMembershipService.updateMemberRole(membershipId, roleName, clanId);
       // Membership listesini yenile
       const data = await ClanService.getClanById(selectedClan.clanId);
       setMemberships(data.clanMemberships || []);
@@ -566,7 +566,7 @@ function MainLayout() {
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateClan}
           onJoin={async () => {
-            const data = await ClanService.getClansByUserId(user?.id || user?.sub || '');
+            const data = await ClanService.getMyClans();
             setClans(data || []);
           }}
         />

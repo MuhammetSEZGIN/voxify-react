@@ -167,14 +167,18 @@ function ChannelSidebar({
 
   const handleSaveEdit = (channel) => {
     if (editName.trim() && editName !== channel.name) {
-      onUpdateChannel(channel.channelId, editName.trim());
+      onUpdateChannel({
+        channelId: channel.channelId,
+        clanId: channel.clanId || clan?.clanId,
+        name: editName.trim(),
+      });
     }
     setEditingChannel(null);
   };
 
-  const handleDeleteChannel = (channelId, e) => {
+  const handleDeleteChannel = (channelId, clanId, e) => {
     e.stopPropagation();
-    onDeleteChannel(channelId);
+    onDeleteChannel(channelId, clanId);
   };
 
   const handleStartEditVoice = (vc, e) => {
@@ -185,14 +189,18 @@ function ChannelSidebar({
 
   const handleSaveEditVoice = (vc) => {
     if (editName.trim() && editName !== vc.name) {
-      onUpdateVoiceChannel({ voiceChannelId: vc.voiceChannelId, name: editName.trim() });
+      onUpdateVoiceChannel({
+        voiceChannelId: vc.voiceChannelId,
+        clanId: vc.clanId || clan?.clanId,
+        name: editName.trim(),
+      });
     }
     setEditingVoiceChannel(null);
   };
 
-  const handleDeleteVoiceChannel = (voiceChannelId, e) => {
+  const handleDeleteVoiceChannel = (voiceChannelId, clanId, e) => {
     e.stopPropagation();
-    onDeleteVoiceChannel(voiceChannelId);
+    onDeleteVoiceChannel(voiceChannelId, clanId || clan?.clanId);
   };
 
   const handleToggleDeafen = () => {
@@ -274,7 +282,7 @@ function ChannelSidebar({
                       <button onClick={(e) => handleStartEdit(ch, e)} title="Edit">
                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
                       </button>
-                      <button onClick={(e) => handleDeleteChannel(ch.channelId, e)} title="Delete">
+                      <button onClick={(e) => handleDeleteChannel(ch.channelId, ch.clanId, e)} title="Delete">
                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
                       </button>
                     </div>
@@ -350,7 +358,7 @@ function ChannelSidebar({
                           <button onClick={(e) => handleStartEditVoice(vc, e)} title="Edit">
                             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
                           </button>
-                          <button onClick={(e) => handleDeleteVoiceChannel(vc.voiceChannelId, e)} title="Delete">
+                          <button onClick={(e) => handleDeleteVoiceChannel(vc.voiceChannelId, vc.clanId, e)} title="Delete">
                             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
                           </button>
                         </div>

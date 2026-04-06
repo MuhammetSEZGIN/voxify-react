@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import ClanMembershipService from '../../services/ClanMembershipService';
-
-const ROLE_ORDER = { owner: 0, admin: 1, moderator: 2, member: 3 };
-const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', moderator: 'Moderator', member: 'Member' };
-const ROLE_COLORS = { owner: '#e2b714', admin: '#e74c3c', moderator: '#2ecc71', member: '' };
+import {
+  CLAN_ROLE_ORDER,
+  CLAN_ROLE_LABELS,
+  CLAN_ROLE_COLORS,
+  normalizeClanRole,
+} from '../../utils/constants';
 
 function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   const [search, setSearch] = useState('');
@@ -16,7 +18,7 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
 
   const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
   const getUserId = (m) => m.userId || m.user?.id || m.id || '';
-  const getRole = (m) => (m.role || 'member').toLowerCase();
+  const getRole = (m) => normalizeClanRole(m.role);
 
   const filtered = members.filter((m) =>
     getName(m).toLowerCase().includes(search.toLowerCase())
@@ -32,7 +34,7 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
 
   // Sort roles by hierarchy
   const sortedRoles = Object.keys(grouped).sort(
-    (a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99)
+    (a, b) => (CLAN_ROLE_ORDER[a] ?? 99) - (CLAN_ROLE_ORDER[b] ?? 99)
   );
 
   // Within each role, online first
@@ -112,8 +114,8 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
       <div className="member-list__body">
         {sortedRoles.map((role) => (
           <div key={role} className="member-list__section">
-            <p className="member-list__section-title" style={ROLE_COLORS[role] ? { color: ROLE_COLORS[role] } : undefined}>
-              {ROLE_LABELS[role] || role} — {grouped[role].length}
+            <p className="member-list__section-title" style={CLAN_ROLE_COLORS[role] ? { color: CLAN_ROLE_COLORS[role] } : undefined}>
+              {CLAN_ROLE_LABELS[role] || role} — {grouped[role].length}
             </p>
             <ul className="member-list__list">
               {grouped[role].map((member) => {
@@ -131,9 +133,9 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
                       <div className={`member-list__status-dot ${isOnline ? 'member-list__status-dot--online' : 'member-list__status-dot--offline'}`} />
                     </div>
                     <span className="member-list__name">{getName(member)}</span>
-                    {ROLE_COLORS[role] && (
-                      <span className="member-list__role-badge" style={{ color: ROLE_COLORS[role], borderColor: ROLE_COLORS[role] }}>
-                        {ROLE_LABELS[role]}
+                    {CLAN_ROLE_COLORS[role] && (
+                      <span className="member-list__role-badge" style={{ color: CLAN_ROLE_COLORS[role], borderColor: CLAN_ROLE_COLORS[role] }}>
+                        {CLAN_ROLE_LABELS[role]}
                       </span>
                     )}
                   </li>

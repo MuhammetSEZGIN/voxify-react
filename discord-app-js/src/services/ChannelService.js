@@ -9,7 +9,7 @@ import api from "./api";
 
 const getChannelsByClanId = async (clanId) => {
   try {
-    const response = await api.get(`/channel/clan/${clanId}`);
+    const response = await api.get(`/channel/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channels", error.response?.data || error.message);
@@ -21,9 +21,9 @@ const getChannelsByClanId = async (clanId) => {
  * Get a specific channel
  * GET /channel/{channelId}
  */
-const getChannelById = async (channelId) => {
+const getChannelById = async (channelId, clanId) => {
   try {
-    const response = await api.get(`/channel/${channelId}`);
+    const response = await api.get(`/channel/${channelId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channel", error.response?.data || error.message);
@@ -37,7 +37,7 @@ const getChannelById = async (channelId) => {
  */
 const createChannel = async (data) => {
   try {
-    const response = await api.post("/channel", data);
+    const response = await api.post("/channel/clanId/" + data.clanId, data);
     return response.data;
   } catch (error) {
     console.error("Error creating channel", error.response?.data || error.message);
@@ -51,7 +51,7 @@ const createChannel = async (data) => {
  */
 const updateChannel = async (data) => {
   try {
-    const response = await api.put("/channel", data);
+    const response = await api.put("/channel/clanId/" + data.clanId, data);
     return response.data;
   } catch (error) {
     console.error("Error updating channel", error.response?.data || error.message);
@@ -61,11 +61,11 @@ const updateChannel = async (data) => {
 
 /**
  * Delete a channel
- * DELETE /channel/{channelId}
+ * DELETE /channel/{channelId}/clanId/{clanId}
  */
-const deleteChannel = async (channelId) => {
+const deleteChannel = async (channelId, clanId) => {
   try {
-    const response = await api.delete(`/channel/${channelId}`);
+    const response = await api.delete(`/channel/${channelId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting channel", error.response?.data || error.message);
@@ -75,11 +75,11 @@ const deleteChannel = async (channelId) => {
 
 /**
  * Get voice channels by clan ID
- * GET /voiceChannel/clan/{clanId}
+ * GET /voiceChannel/clanId/{clanId}
  */
 const getVoiceChannelsByClanId = async (clanId) => {
   try {
-    const response = await api.get(`/voiceChannel/clan/${clanId}`);
+    const response = await api.get(`/voiceChannel/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching voice channels", error.response?.data || error.message);
@@ -93,7 +93,7 @@ const getVoiceChannelsByClanId = async (clanId) => {
  */
 const createVoiceChannel = async (data) => {
   try {
-    const response = await api.post("/voiceChannel", data);
+    const response = await api.post("/voiceChannel/clanId/" + data.clanId, data);
     return response.data;
   } catch (error) {
     console.error("Error creating voice channel", error.response?.data || error.message);
@@ -107,7 +107,7 @@ const createVoiceChannel = async (data) => {
  */
 const updateVoiceChannel = async (data) => {
   try {
-    const response = await api.put("/voiceChannel", data);
+    const response = await api.put("/voiceChannel/clanId/" + data.clanId, data);
     return response.data;
   } catch (error) {
     console.error("Error updating voice channel", error.response?.data || error.message);
@@ -117,11 +117,11 @@ const updateVoiceChannel = async (data) => {
 
 /**
  * Delete a voice channel
- * DELETE /voiceChannel/{voiceChannelId}
+ * DELETE /voiceChannel/{voiceChannelId}/clanId/{clanId}
  */
-const deleteVoiceChannel = async (voiceChannelId) => {
+const deleteVoiceChannel = async (voiceChannelId, clanId) => {
   try {
-    const response = await api.delete(`/voiceChannel/${voiceChannelId}`);
+    const response = await api.delete(`/voiceChannel/channel/${voiceChannelId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting voice channel", error.response?.data || error.message);

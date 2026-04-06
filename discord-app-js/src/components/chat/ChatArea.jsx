@@ -281,7 +281,7 @@ function ChatArea({ clan, channel }) {
 
     try {
       console.log(`Loading messages for channel: ${channelId}, page: ${pageNum}`);
-      const data = await MessageService.getMessagesByChannelId(channelId, pageNum, 50);
+      const data = await MessageService.getMessagesByChannelId(channelId, clan?.clanId, pageNum, 50);
       const rawMessages = extractMessages(data);
 
       // Assume no more messages if we get less than requested or 0
@@ -336,15 +336,15 @@ function ChatArea({ clan, channel }) {
 
   const handleDeleteMessage = async (messageId) => {
     setContextMenu(null);
-    if (!channel?.channelId) return;
+    if (!channel?.channelId || !clan?.clanId) return;
 
     if (!window.confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
 
     try {
-      await SignalRService.deleteMessage(messageId, channel.channelId);
+      await MessageService.deleteMessage(messageId, clan.clanId);
       setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
     } catch (err) {
-      console.error('Failed to delete message via SignalR:', err);
+      console.error('Failed to delete message via MessageService:', err);
       setSendError('Mesaj silinemedi.');
       clearTimeout(sendErrorTimerRef.current);
       sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
@@ -369,7 +369,7 @@ function ChatArea({ clan, channel }) {
   const handleSubmitEdit = async (e) => {
     e.preventDefault();
     const trimmed = editingContent.trim();
-    if (!trimmed || !editingMessageId) return;
+    if (!trimmed || !editingMessageId || !clan?.clanId) return;
 
     const messageId = editingMessageId;
     const oldContent = messages.find((m) => m.messageId === messageId)?.content;
@@ -381,9 +381,13 @@ function ChatArea({ clan, channel }) {
     handleCancelEdit();
 
     try {
-      await SignalRService.updateMessage(messageId, trimmed);
+      await MessageService.editMessage({
+        messageId,
+        clanId: clan.clanId,
+        content: trimmed,
+      });
     } catch (err) {
-      console.error('Failed to update message via SignalR:', err);
+      console.error('Failed to update message via MessageService:', err);
       // Geri al
       setMessages((prev) =>
         prev.map((m) => m.messageId === messageId ? { ...m, content: oldContent } : m)

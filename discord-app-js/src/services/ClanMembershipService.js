@@ -11,7 +11,7 @@ const deleteMembership = async (id) => {
 };
 
 const getClanMembers = async (clanId) => {
-  const response = await api.get(`/clanMembership/clan/${clanId}`);
+  const response = await api.get(`/clanMembership/clanId/${clanId}`);
   return response.data;
 };
 
@@ -21,12 +21,16 @@ const getUserMemberships = async (userId) => {
 };
 
 const removeUserFromClan = async (clanId, userId) => {
-  const response = await api.delete(`/clanMembership/${clanId}/user/${userId}`);
+  const response = await api.delete(`/clanMembership/member/${userId}/clanId/${clanId}`);
+  return response.data;
+};
+const leaveClan = async (clanId) => {
+  const response = await api.delete(`/clanMembership/user/clanId/${clanId}`);
   return response.data;
 };
 
 const createInvitation = async (clanId) => {
-  const response = await api.post(`/clanMembership/${clanId}/invitations`);
+  const response = await api.post(`/clanMembership/invitations/clanId/${clanId}`);
   return response.data;
 };
 
@@ -35,8 +39,8 @@ const joinClan = async ({ inviteCode, userId }) => {
   return response.data;
 };
 
-const updateMemberRole = async (membershipId, roleName) => {
-  const response = await api.put(`/role/${membershipId}`, { membershipId, roleName });
+const updateMemberRole = async (membershipId, roleName, clanId) => {
+  const response = await api.put(`/role/clanId/${clanId}`, { membershipId, roleName });
   return response.data;
 };
 

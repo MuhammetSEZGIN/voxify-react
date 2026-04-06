@@ -7,9 +7,9 @@ import api from "./api.js";
  * @param {number} page
  * @param {number} limit
  */
-const getMessagesByChannelId = async (channelId, page = 1, limit = 50) => {
+const getMessagesByChannelId = async (channelId, clanId, page = 1, limit = 50) => {
   try {
-    const response = await api.get(`/message`, { params: { channelId, page, limit } });
+    const response = await api.get(`/message/channelId/${channelId}/clanId/${clanId}`, { params: { page, limit } });
     return response.data;
   } catch (error) {
     console.error("Error fetching messages", error.response?.data || error.message);
@@ -17,27 +17,14 @@ const getMessagesByChannelId = async (channelId, page = 1, limit = 50) => {
   }
 };
 
-/**
- * Send a message to a channel
- * POST /message
- */
-const sendMessage = async (data) => {
-  try {
-    const response = await api.post("/message", data);
-    return response.data;
-  } catch (error) {
-    console.error("Error sending message", error.response?.data || error.message);
-    throw error;
-  }
-};
 
 /**
  * Delete a message
  * DELETE /message/{messageId}
  */
-const deleteMessage = async (messageId) => {
+const deleteMessage = async (messageId, clanId) => {
   try {
-    const response = await api.delete(`/message/${messageId}`);
+    const response = await api.delete(`/message/${messageId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting message", error.response?.data || error.message);
@@ -51,7 +38,7 @@ const deleteMessage = async (messageId) => {
  */
 const editMessage = async (data) => {
   try {
-    const response = await api.put("/message", data);
+    const response = await api.put(`/message/clanId/${data.clanId}`, data);
     return response.data;
   } catch (error) {
     console.error("Error editing message", error.response?.data || error.message);
@@ -61,7 +48,6 @@ const editMessage = async (data) => {
 
 const MessageService = {
   getMessagesByChannelId,
-  sendMessage,
   deleteMessage,
   editMessage,
 };

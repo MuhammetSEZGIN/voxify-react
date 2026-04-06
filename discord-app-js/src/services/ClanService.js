@@ -6,7 +6,7 @@ import api from "./api";
  */
 const getMyClans = async () => {
   try {
-    const response = await api.get("/clan");
+    const response = await api.get("/clan/user");
     return response.data;
   } catch (error) {
     console.error("Error fetching clans", error.response?.data || error.message);
@@ -14,19 +14,7 @@ const getMyClans = async () => {
   }
 };
 
-/**
- * Get clans by user ID
- * GET /clan/user/{userId}
- */
-const getClansByUserId = async (userId) => {
-  try {
-    const response = await api.get(`/clan/user/${userId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching clans by user", error.response?.data || error.message);
-    throw error;
-  }
-};
+
 
 /**
  * Get a specific clan by ID
@@ -34,7 +22,7 @@ const getClansByUserId = async (userId) => {
  */
 const getClanById = async (clanId) => {
   try {
-    const response = await api.get(`/clan/${clanId}`);
+    const response = await api.get(`/clan/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching clan", error.response?.data || error.message);
@@ -62,7 +50,7 @@ const createClan = async (data) => {
  */
 const updateClan = async (data) => {
   try {
-    const response = await api.put("/clan", data);
+    const response = await api.put(`/clan/clanId/${data.clanId}`, data);
     return response.data;
   } catch (error) {
     console.error("Error updating clan", error.response?.data || error.message);
@@ -76,7 +64,7 @@ const updateClan = async (data) => {
  */
 const deleteClan = async (clanId) => {
   try {
-    const response = await api.delete(`/clan/${clanId}`);
+    const response = await api.delete(`/clan/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting clan", error.response?.data || error.message);
@@ -90,7 +78,7 @@ const deleteClan = async (clanId) => {
  */
 const createInvitation = async (clanId) => {
   try {
-    const response = await api.post(`/clanMembership/${clanId}/invitations`);
+    const response = await api.post(`/clanMembership/invitations/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error creating invitation", error.response?.data || error.message);
@@ -118,7 +106,7 @@ const joinClan = async (data) => {
  */
 const getClanMembers = async (clanId) => {
   try {
-    const response = await api.get(`/clanMembership/clan/${clanId}`);
+    const response = await api.get(`/clanMembership/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching clan members", error.response?.data || error.message);
@@ -128,7 +116,6 @@ const getClanMembers = async (clanId) => {
 
 const ClanService = {
   getMyClans,
-  getClansByUserId,
   getClanById,
   createClan,
   updateClan,

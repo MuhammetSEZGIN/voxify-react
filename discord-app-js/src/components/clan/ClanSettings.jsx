@@ -1,4 +1,10 @@
 import React, { useState } from 'react';
+import {
+  CLAN_ROLES,
+  CLAN_ASSIGNABLE_ROLES,
+  CLAN_ROLE_LABELS,
+  normalizeClanRole,
+} from '../../utils/constants';
 
 function ClanSettings({
   clan,
@@ -17,7 +23,8 @@ function ClanSettings({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const isOwner = userRole === 'owner';
+  const currentUserRole = normalizeClanRole(userRole);
+  const isOwner = currentUserRole === CLAN_ROLES.OWNER;
   const currentUserId = user?.id || user?.sub || '';
 
   const handleSaveGeneral = async () => {
@@ -28,6 +35,7 @@ function ClanSettings({
         clanId: clan.clanId,
         name: clanName.trim(),
         imagePath: clan.imagePath || null,
+        description: clanDescription.trim(),
       });
     } finally {
       setSaving(false);
@@ -40,7 +48,7 @@ function ClanSettings({
   };
 
   const handleRoleChange = async (membershipId, newRole) => {
-    await onUpdateMemberRole(membershipId, newRole);
+    await onUpdateMemberRole(membershipId, newRole, clan.clanId);
   };
 
   const handleKick = async (memberId) => {
@@ -140,10 +148,13 @@ function ClanSettings({
                   members.map((member) => {
                     const memberId = getMemberId(member);
                     const membershipId = getMembershipId(member);
-                    const memberRole = (member.role || 'member').toLowerCase();
+                    const memberRole = normalizeClanRole(member.role);
                     const isSelf = memberId === currentUserId;
-                    const canEditRole = isOwner && !isSelf && memberRole !== 'owner';
-                    const canKick = (isOwner || (userRole === 'admin' && memberRole === 'member')) && !isSelf && memberRole !== 'owner';
+                    const canEditRole = isOwner && !isSelf && memberRole !== CLAN_ROLES.OWNER;
+                    const canKick =
+                      (isOwner || (currentUserRole === CLAN_ROLES.ADMIN && memberRole === CLAN_ROLES.MEMBER)) &&
+                      !isSelf &&
+                      memberRole !== CLAN_ROLES.OWNER;
 
                     return (
                       <div key={memberId || membershipId} className="clan-settings__member-item">
@@ -156,7 +167,7 @@ function ClanSettings({
                               {getMemberName(member)}
                               {isSelf && <span className="clan-settings__member-you"> (Sen)</span>}
                             </p>
-                            <p className="clan-settings__member-role-label">{memberRole}</p>
+                            <p className="clan-settings__member-role-label">{CLAN_ROLE_LABELS[memberRole] || memberRole}</p>
                           </div>
                         </div>
                         <div className="clan-settings__member-actions">
@@ -166,9 +177,11 @@ function ClanSettings({
                               value={memberRole}
                               onChange={(e) => handleRoleChange(membershipId, e.target.value)}
                             >
-                              <option value="member">Member</option>
-                              <option value="moderator">Moderator</option>
-                              <option value="admin">Admin</option>
+                              {CLAN_ASSIGNABLE_ROLES.map((role) => (
+                                <option key={role} value={role}>
+                                  {CLAN_ROLE_LABELS[role] || role}
+                                </option>
+                              ))}
                             </select>
                           )}
                           {canKick && (

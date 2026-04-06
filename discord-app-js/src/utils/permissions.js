@@ -3,7 +3,7 @@
  * Backend token'a "clanRoles" claim'i olarak aşağıdaki yapıda koymalı:
  * {
  *   "clanRoles": {
- *     "<clanId>": "owner" | "admin" | "moderator" | "member"
+ *     "<clanId>": "owner" | "admin" | "member"
  *   }
  * }
  */
@@ -11,7 +11,6 @@
 const ROLE_HIERARCHY = {
   owner: 4,
   admin: 3,
-  moderator: 2,
   member: 1,
 };
 
@@ -19,7 +18,7 @@ const ROLE_HIERARCHY = {
  * Kullanıcının belirli bir klandaki rolünü döndürür.
  * @param {Object|null} user - decoded JWT user object
  * @param {string} clanId
- * @returns {string} role - "owner" | "admin" | "moderator" | "member" | "none"
+ * @returns {string} role - "owner" | "admin" | "member" | "none"
  */
 export function getClanRole(user, clanId) {
   if (!user || !clanId) return 'none';
@@ -31,7 +30,7 @@ export function getClanRole(user, clanId) {
  * Kullanıcının belirli bir klanda en az verilen role sahip olup olmadığını kontrol eder.
  * @param {Object|null} user
  * @param {string} clanId
- * @param {string} requiredRole - "owner" | "admin" | "moderator" | "member"
+ * @param {string} requiredRole - "owner" | "admin" | "member"
  * @returns {boolean}
  */
 export function hasMinRole(user, clanId, requiredRole) {
@@ -43,7 +42,7 @@ export function hasMinRole(user, clanId, requiredRole) {
 
 /**
  * Kullanıcının bir mesajı silebilip silemeyeceğini kontrol eder.
- * Kendi mesajını herkes silebilir; başkasının mesajını moderator+ silebilir.
+ * Kendi mesajını herkes silebilir; başkasının mesajını admin+ silebilir.
  * @param {Object|null} user
  * @param {string} clanId
  * @param {string} messageAuthorId
@@ -53,7 +52,7 @@ export function canDeleteMessage(user, clanId, messageAuthorId) {
   if (!user) return false;
   const userId = user.id || user.sub || user.userId;
   if (userId === messageAuthorId) return true;
-  return hasMinRole(user, clanId, 'moderator');
+  return hasMinRole(user, clanId, 'admin');
 }
 
 /**
