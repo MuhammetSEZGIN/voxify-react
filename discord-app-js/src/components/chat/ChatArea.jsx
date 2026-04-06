@@ -3,6 +3,8 @@ import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
+import ImgBBService from '../../services/ImgBBService';
+
 
 function ChatArea({ clan, channel }) {
 
@@ -29,7 +31,12 @@ function ChatArea({ clan, channel }) {
   // Emoji Picker
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
+  // File Upload
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const gifSearchTimerRef = useRef(null);
+
   const sendErrorTimerRef = useRef(null);
 
   const messagesEndRef = useRef(null);
@@ -471,6 +478,42 @@ function ChatArea({ clan, channel }) {
     setNewMessage((prev) => prev + emoji);
   };
 
+  const handleFileUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Sadece görsellere izin ver
+    if (!file.type.startsWith('image/')) {
+        alert('Lütfen sadece resim dosyası seçin.');
+        return;
+    }
+
+    setIsUploading(true);
+    try {
+        const publicUrl = await ImgBBService.uploadImage(file);
+        
+        // Yüklenen dosyanın URL'sini hemen sohbete gönder
+        const senderId = user?.id || user?.sub || '';
+        const userName = user?.userName || user?.username || user?.name || 'Unknown';
+        
+        await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, publicUrl);
+        
+        // Inputu temizle
+        e.target.value = '';
+    } catch (err) {
+        console.error('Dosya yüklenemedi:', err);
+        setSendError('Görsel yüklenirken bir hata oluştu: ' + err.message);
+        clearTimeout(sendErrorTimerRef.current);
+        sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
 
   const handleSendMessage = async (e) => {
 
@@ -843,9 +886,27 @@ function ChatArea({ clan, channel }) {
           )}
 
           <form className="chat-area__input-bar" onSubmit={handleSendMessage}>
-            <button type="button" className="chat-area__input-action-btn" title="Dosya Ekle">
-              <span className="material-symbols-outlined">add_circle</span>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+            <button
+                type="button"
+                className="chat-area__input-action-btn"
+                title="Dosya Ekle"
+                onClick={handleFileUploadClick}
+                disabled={isUploading}
+            >
+                {isUploading ? (
+                    <div className="chat-area__loading-spinner chat-area__loading-spinner--small" style={{ width: '20px', height: '20px' }} />
+                ) : (
+                    <span className="material-symbols-outlined">add_circle</span>
+                )}
             </button>
+
             <input
               className="chat-area__input"
               type="text"
