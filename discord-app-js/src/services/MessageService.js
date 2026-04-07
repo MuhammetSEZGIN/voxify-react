@@ -34,11 +34,12 @@ const deleteMessage = async (messageId, clanId) => {
 
 /**
  * Edit a message
- * PUT /message
+ * PUT /message/{messageId}/clanId/{clanId}
+ * Body: { content: string }
  */
 const editMessage = async (data) => {
   try {
-    const response = await api.put(`/message/clanId/${data.clanId}`, data);
+    const response = await api.put(`/message/${data.messageId}/clanId/${data.clanId}`,   data.content);
     return response.data;
   } catch (error) {
     console.error("Error editing message", error.response?.data || error.message);

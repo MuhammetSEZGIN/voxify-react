@@ -34,6 +34,8 @@ function ChannelSidebar({
   selectedOutputDevice,
   setSelectedOutputDevice,
   onWatchScreenShare,
+  isMicMuted,
+  onToggleMic,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -517,13 +519,12 @@ function ChannelSidebar({
             {/* Microphone button + settings */}
             <div className="channel-sidebar__audio-control" ref={micSettingsRef}>
               <button
-                className={`channel-sidebar__user-action-btn ${voiceState?.isMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
-                title={voiceState ? (voiceState.isMuted ? 'Mikrofonu Aç' : 'Sustur') : 'Mikrofon'}
-                onClick={() => voiceState?.toggleMute?.()}
-                disabled={!voiceState}
+                className={`channel-sidebar__user-action-btn ${isMicMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
+                title={isMicMuted ? 'Mikrofonu Aç' : 'Sustur'}
+                onClick={onToggleMic}
               >
                 <span className="material-symbols-outlined">
-                  {voiceState?.isMuted ? 'mic_off' : 'mic'}
+                  {isMicMuted ? 'mic_off' : 'mic'}
                 </span>
               </button>
               <button

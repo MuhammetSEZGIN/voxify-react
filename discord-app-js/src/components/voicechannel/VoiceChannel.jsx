@@ -14,7 +14,7 @@ import VoiceAudioRenderer from './VoiceAudioRenderer';
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screenShareQuality }) {
+function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screenShareQuality, isMicMuted }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
@@ -54,6 +54,15 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screen
       }
     }
   }, [localParticipant]);
+
+  // Global Mute durumunu LiveKit'e senkronize et
+  useEffect(() => {
+    if (localParticipant) {
+      if (isMicrophoneEnabled === isMicMuted) {
+        localParticipant.setMicrophoneEnabled(!isMicMuted);
+      }
+    }
+  }, [localParticipant, isMicMuted, isMicrophoneEnabled]);
 
   // 1. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
   useEffect(() => {
@@ -136,7 +145,7 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screen
     }));
 
     onVoiceStateChange({
-      isMuted: !isMicrophoneEnabled,
+      isMuted: isMicMuted,
       participants: participantInfo,
       toggleMute,
       disconnect,
@@ -167,7 +176,7 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screen
  */
 const VoiceChannel = ({
   roomId, userId, userName, onLeaveRoom, onVoiceStateChange,
-  inputDevice, outputDevice, inputVolume, outputVolume
+  inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted
 }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -214,12 +223,13 @@ const VoiceChannel = ({
   return (
     <LiveKitRoom
       video={false}
-      audio={{
+      audio={!isMicMuted ? {
         deviceId: inputDevice || undefined,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: false,
-      }}
+        suppressLocalAudioPlayback: true,
+      } : false}
       token={token}
       serverUrl={serverUrl}
       connect={true}
@@ -229,7 +239,8 @@ const VoiceChannel = ({
           deviceId: inputDevice || undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false
+          autoGainControl: false,
+          suppressLocalAudioPlayback: true
         },
         // Ekran paylaşımı için video codec desteği
         publishDefaults: {
@@ -249,6 +260,7 @@ const VoiceChannel = ({
         onVoiceStateChange={onVoiceStateChange}
         outputDevice={outputDevice}
         inputVolume={inputVolume}
+        isMicMuted={isMicMuted}
       />
     </LiveKitRoom>
   );

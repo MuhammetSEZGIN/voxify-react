@@ -48,6 +48,7 @@ function MainLayout() {
   // Global Audio Settings
   const [inputVolume, setInputVolume] = useState(100);
   const [outputVolume, setOutputVolume] = useState(100);
+  const [isMicMuted, setIsMicMuted] = useState(false);
 
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
@@ -151,7 +152,12 @@ function MainLayout() {
   };
 
   const handleSelectVoiceChannel = (channel) => {
-    setActiveVoiceChannel(channel);
+    if (activeVoiceChannelRef.current && activeVoiceChannelRef.current.voiceChannelId !== channel.voiceChannelId) {
+      handleDisconnectVoice();
+    }
+    if (!activeVoiceChannelRef.current || activeVoiceChannelRef.current.voiceChannelId !== channel.voiceChannelId) {
+      setActiveVoiceChannel(channel);
+    }
   };
 
   const handleVoiceStateChange = useCallback((state) => {
@@ -542,6 +548,8 @@ function MainLayout() {
         outputVolume={outputVolume}
         setOutputVolume={setOutputVolume}
         onWatchScreenShare={handleWatchScreenShare}
+        isMicMuted={isMicMuted}
+        onToggleMic={() => setIsMicMuted(prev => !prev)}
       />
 
       <ChatArea
@@ -551,6 +559,7 @@ function MainLayout() {
 
       {activeVoiceChannel && (
         <VoiceChannel
+          key={activeVoiceChannel?.voiceChannelId}
           roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
           userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
           userName={user?.userName || user?.name || user?.email || 'User'}
@@ -558,6 +567,7 @@ function MainLayout() {
           onVoiceStateChange={handleVoiceStateChange}
           inputVolume={inputVolume}
           outputVolume={outputVolume}
+          isMicMuted={isMicMuted}
         />
       )}
 
