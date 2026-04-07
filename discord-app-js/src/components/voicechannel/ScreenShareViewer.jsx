@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
  * Video ve ses track'ları AYRI elementlere bağlanır — ses seviyesi diğer
  * kullanıcıların sesini etkilemez.
  */
-function ScreenShareViewer({ share, onClose }) {
+function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const containerRef = useRef(null);
@@ -233,6 +233,17 @@ function ScreenShareViewer({ share, onClose }) {
             />
             <span className="screenshare-viewer__volume-label">{screenVolume}%</span>
           </div>
+
+          {/* Mikrofon Aç/Kapa */}
+          <button
+            className={`screenshare-viewer__mic-btn ${isMicMuted ? 'screenshare-viewer__mic-btn--muted' : ''}`}
+            onClick={() => onToggleMic?.()}
+            title={isMicMuted ? 'Mikrofonu Aç' : 'Mikrofonu Kapat'}
+          >
+            <span className="material-symbols-outlined">
+              {isMicMuted ? 'mic_off' : 'mic'}
+            </span>
+          </button>
 
           {/* Yayından Çık */}
           <button

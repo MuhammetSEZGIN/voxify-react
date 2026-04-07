@@ -176,7 +176,8 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screen
  */
 const VoiceChannel = ({
   roomId, userId, userName, onLeaveRoom, onVoiceStateChange,
-  inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted
+  inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted,
+  userVolumes,
 }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -253,7 +254,10 @@ const VoiceChannel = ({
       style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
     >
       {/* Sadece Mikrofon seslerini çalıyor; ekran paylaşımı sesi hariç */}
-      <VoiceAudioRenderer volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1} />
+      <VoiceAudioRenderer
+        volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1}
+        userVolumes={userVolumes || {}}
+      />
 
       {/* Köprüye tüm ayarları gönderiyoruz */}
       <VoiceRoomBridge

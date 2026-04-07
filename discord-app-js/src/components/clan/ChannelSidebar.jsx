@@ -36,6 +36,7 @@ function ChannelSidebar({
   onWatchScreenShare,
   isMicMuted,
   onToggleMic,
+  onParticipantContextMenu,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -383,6 +384,12 @@ function ChannelSidebar({
                               <div
                                 key={p.identity}
                                 className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}
+                                onContextMenu={(e) => {
+                                  if (!p.isLocal) {
+                                    onParticipantContextMenu?.(e, p);
+                                  }
+                                }}
+                                style={{ cursor: p.isLocal ? 'default' : 'context-menu' }}
                               >
                                 <div className="voice-participants__avatar">
                                   <span>{(p.name || '?').charAt(0).toUpperCase()}</span>

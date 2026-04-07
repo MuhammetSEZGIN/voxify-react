@@ -7,8 +7,11 @@ import { Track } from 'livekit-client';
  * RoomAudioRenderer'ın yerine geçer — ekran paylaşımı (ScreenShare) audio track'larını
  * HARIÇ tutar. Bu sayede yayın sesi sadece ScreenShareViewer'da bağımsız olarak
  * kontrol edilebilir; genel outputVolume ayarı sadece mikrofonları etkiler.
+ *
+ * Artık kullanıcı bazlı ses seviyesi desteği var:
+ *   userVolumes: { [identity]: number (0-200) }
  */
-function VoiceAudioRenderer({ volume = 1 }) {
+function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   // Her katılımcının mikrofon track'ı için audio elementi: identity -> HTMLAudioElement
@@ -53,8 +56,9 @@ function VoiceAudioRenderer({ volume = 1 }) {
         }
       }
 
-      // Ses seviyesini uygula
-      audioEl.volume = Math.max(0, Math.min(1, volume));
+      // Kullanıcı bazlı ses seviyesi: userVolumes[identity] / 100 ile genel volume çarpılır
+      const userVol = typeof userVolumes[key] === 'number' ? userVolumes[key] / 100 : 1;
+      audioEl.volume = Math.max(0, Math.min(1, volume * userVol));
     }
 
     // Artık odada olmayan katılımcıların elementlerini temizle
@@ -66,14 +70,15 @@ function VoiceAudioRenderer({ volume = 1 }) {
         delete audioElemsRef.current[key];
       }
     }
-  }, [participants, localParticipant, volume]);
+  }, [participants, localParticipant, volume, userVolumes]);
 
   // Ses seviyesi değişince mevcut elementleri güncelle
   useEffect(() => {
-    for (const el of Object.values(audioElemsRef.current)) {
-      el.volume = Math.max(0, Math.min(1, volume));
+    for (const [key, el] of Object.entries(audioElemsRef.current)) {
+      const userVol = typeof userVolumes[key] === 'number' ? userVolumes[key] / 100 : 1;
+      el.volume = Math.max(0, Math.min(1, volume * userVol));
     }
-  }, [volume]);
+  }, [volume, userVolumes]);
 
   // Unmount'ta temizle
   useEffect(() => {

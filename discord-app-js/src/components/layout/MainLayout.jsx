@@ -10,6 +10,7 @@ import ChatArea from '../chat/ChatArea';
 import CreateClanModal from '../clan/CreateClanModal';
 import VoiceChannel from '../voicechannel/VoiceChannel';
 import ScreenShareViewer from '../voicechannel/ScreenShareViewer';
+import UserVolumeContextMenu from '../voicechannel/UserVolumeContextMenu';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
@@ -49,6 +50,11 @@ function MainLayout() {
   const [inputVolume, setInputVolume] = useState(100);
   const [outputVolume, setOutputVolume] = useState(100);
   const [isMicMuted, setIsMicMuted] = useState(false);
+
+  // Per-user volume overrides: { [identity]: number (0-200) }
+  const [userVolumes, setUserVolumes] = useState({});
+  // Context menu state for right-click user volume
+  const [volumeCtxMenu, setVolumeCtxMenu] = useState({ visible: false, x: 0, y: 0, participant: null });
 
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
@@ -173,6 +179,26 @@ function MainLayout() {
     );
     if (share) setWatchingScreenShare(share);
   }, [voiceState]);
+
+  // Right-click handler for voice participant volume adjustment
+  const handleParticipantContextMenu = useCallback((e, participant) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setVolumeCtxMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      participant,
+    });
+  }, []);
+
+  const handleUserVolumeChange = useCallback((identity, volume) => {
+    setUserVolumes(prev => ({ ...prev, [identity]: volume }));
+  }, []);
+
+  const handleCloseVolumeCtx = useCallback(() => {
+    setVolumeCtxMenu(prev => ({ ...prev, visible: false }));
+  }, []);
 
   const handleDisconnectVoice = useCallback(() => {
     // Report leaving to presence hub before clearing state
@@ -550,6 +576,7 @@ function MainLayout() {
         onWatchScreenShare={handleWatchScreenShare}
         isMicMuted={isMicMuted}
         onToggleMic={() => setIsMicMuted(prev => !prev)}
+        onParticipantContextMenu={handleParticipantContextMenu}
       />
 
       <ChatArea
@@ -568,6 +595,7 @@ function MainLayout() {
           inputVolume={inputVolume}
           outputVolume={outputVolume}
           isMicMuted={isMicMuted}
+          userVolumes={userVolumes}
         />
       )}
 
@@ -620,8 +648,21 @@ function MainLayout() {
         <ScreenShareViewer
           share={watchingScreenShare}
           onClose={() => setWatchingScreenShare(null)}
+          isMicMuted={isMicMuted}
+          onToggleMic={() => setIsMicMuted(prev => !prev)}
         />
       )}
+
+      {/* Kullanıcı Sesi Ayar Menüsü */}
+      <UserVolumeContextMenu
+        visible={volumeCtxMenu.visible}
+        x={volumeCtxMenu.x}
+        y={volumeCtxMenu.y}
+        participant={volumeCtxMenu.participant}
+        currentVolume={volumeCtxMenu.participant ? (userVolumes[volumeCtxMenu.participant.identity] ?? 100) : 100}
+        onVolumeChange={handleUserVolumeChange}
+        onClose={handleCloseVolumeCtx}
+      />
     </div>
   );
 }

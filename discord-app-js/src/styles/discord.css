@@ -3150,3 +3150,192 @@ body {
 .screenshare-viewer__disconnect-btn .material-symbols-outlined {
   font-size: 18px;
 }
+
+/* ============================
+   User Volume Context Menu
+   ============================ */
+.user-volume-ctx {
+  position: fixed;
+  z-index: 9999;
+  min-width: 220px;
+  max-width: 280px;
+  background: rgba(18, 24, 32, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: user-volume-ctx-appear 0.12s ease-out;
+}
+
+@keyframes user-volume-ctx-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.user-volume-ctx__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+}
+
+.user-volume-ctx__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.user-volume-ctx__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-volume-ctx__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+.user-volume-ctx__section {
+  padding: 6px 8px;
+}
+
+.user-volume-ctx__section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.user-volume-ctx__slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-volume-ctx__slider {
+  flex: 1;
+  height: 4px;
+  accent-color: #5865f2;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+.user-volume-ctx__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #5865f2;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s;
+}
+
+.user-volume-ctx__slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.user-volume-ctx__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #5865f2;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.user-volume-ctx__value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: right;
+}
+
+.user-volume-ctx__reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.user-volume-ctx__reset-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-light);
+}
+
+/* ============================
+   ScreenShare Viewer — Mic Toggle
+   ============================ */
+.screenshare-viewer__mic-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-light);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.screenshare-viewer__mic-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.screenshare-viewer__mic-btn--muted {
+  background: rgba(237, 66, 69, 0.2);
+  color: #ed4245;
+}
+
+.screenshare-viewer__mic-btn--muted:hover {
+  background: rgba(237, 66, 69, 0.35);
+}
+
+.screenshare-viewer__mic-btn .material-symbols-outlined {
+  font-size: 20px;
+}

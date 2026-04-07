@@ -4,6 +4,7 @@ import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
+import WelcomePage from '../../pages/WelcomePage';
 
 
 function ChatArea({ clan, channel }) {
@@ -617,17 +618,9 @@ function ChatArea({ clan, channel }) {
     });
   };
 
-  // No clan selected
+  // No clan selected — show welcome/download page
   if (!clan) {
-    return (
-      <main className="chat-area">
-        <div className="chat-area__welcome">
-          <span className="material-symbols-outlined chat-area__welcome-icon">shield</span>
-          <h2 className="chat-area__welcome-title">Welcome to Voxify</h2>
-          <p className="chat-area__welcome-subtitle">Select a clan to get started</p>
-        </div>
-      </main>
-    );
+    return <WelcomePage />;
   }
 
   // No channel selected
