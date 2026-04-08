@@ -2684,6 +2684,9 @@ body {
   border-radius: 4px;
   transition: background 0.1s;
   cursor: context-menu;
+  text-wrap: inherit;
+  font-family: inherit;
+
 }
 
 .chat-area__message-item:hover {

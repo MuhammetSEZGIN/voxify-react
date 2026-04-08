@@ -461,13 +461,44 @@ function ChatArea({ clan, channel }) {
   };
 
 
-  const handleSelectGif = (gif) => {
+  const handleSelectGif = async (gif) => {
     const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || '';
     if (!url) return;
-    setNewMessage((prev) => (prev ? `${prev} ${url}` : url));
+
     setShowGifPicker(false);
     setGifSearch('');
     setGifs([]);
+
+    if (!channel?.channelId) return;
+
+    const senderId = user?.id || user?.sub || '';
+    const userName = user?.userName || user?.username || user?.name || 'Unknown';
+
+    const optimisticMsg = {
+      messageId: `temp-gif-${Date.now()}`,
+      content: url,
+      userName,
+      senderId,
+      avatarUrl: user?.avatarUrl || null,
+      createdAt: new Date().toISOString(),
+      channelId: channel.channelId,
+      _optimistic: true,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, url);
+    } catch (err) {
+      console.error('Failed to send GIF via SignalR:', err);
+      setMessages((prev) => prev.filter((m) => m.messageId !== optimisticMsg.messageId));
+      const msg = err?.message?.includes('SignalR baÄŸlantÄ±sÄ± yok')
+        ? 'Sunucuya baÄŸlanÄ±lamÄ±yor. LÃ¼tfen internet baÄŸlantÄ±nÄ±zÄ± kontrol edin.'
+        : 'GIF gÃ¶nderilemedi. LÃ¼tfen tekrar deneyin.';
+      setSendError(msg);
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    }
   };
 
   const handleToggleEmojiPicker = () => {
@@ -693,7 +724,7 @@ function ChatArea({ clan, channel }) {
                       </p>
                     </div>
                     {group.messages.map((msg) => (
-                      <div
+                      <pre 
                         key={msg.messageId}
                         className="chat-area__message-item"
                         onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
@@ -726,7 +757,7 @@ function ChatArea({ clan, channel }) {
                             {msg._edited && <span className="chat-area__edited-tag">(düzenlendi)</span>}
                           </div>
                         )}
-                      </div>
+                      </pre>
                     ))}
                   </div>
                   {isOwn && (
