@@ -1135,11 +1135,11 @@ body {
 
 .chat-area__input-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   background: var(--surface-dark);
   border-radius: 8px;
-  padding: 0 8px;
+  padding: 8px;
 }
 
 .chat-area__input {
@@ -1148,9 +1148,13 @@ body {
   background: transparent;
   color: var(--text-light);
   font-size: 16px;
-  padding: 12px 0;
+  padding: 8px 0;
   outline: none;
   font-family: inherit;
+  resize: none;
+  overflow: hidden;
+  min-height: 24px;
+  line-height: 1.5;
 }
 
 .chat-area__input::placeholder {
@@ -1161,6 +1165,13 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
+}
+
+.chat-area__compose-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-right: 6px;
 }
 
 .chat-area__input-action-btn {
@@ -2680,13 +2691,11 @@ body {
 }
 
 .chat-area__message-item {
+  white-space: pre-wrap;
   padding: 2px 4px;
   border-radius: 4px;
   transition: background 0.1s;
   cursor: context-menu;
-  text-wrap: inherit;
-  font-family: inherit;
-
 }
 
 .chat-area__message-item:hover {

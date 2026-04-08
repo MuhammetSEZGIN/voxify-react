@@ -39,6 +39,7 @@ function ChatArea({ clan, channel }) {
   const gifSearchTimerRef = useRef(null);
 
   const sendErrorTimerRef = useRef(null);
+  const composerRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const observerTargetRef = useRef(null);
@@ -589,6 +590,21 @@ function ChatArea({ clan, channel }) {
     }
   };
 
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    composer.style.height = '0px';
+    composer.style.height = `${composer.scrollHeight}px`;
+  }, [newMessage]);
+
+  const handleComposerKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
+    }
+  };
+
   // Yardımcı fonksiyon: Mesaj içeriğindeki linkleri ve medyayı render et
   const renderMessageContent = (content) => {
     if (!content) return null;
@@ -724,7 +740,7 @@ function ChatArea({ clan, channel }) {
                       </p>
                     </div>
                     {group.messages.map((msg) => (
-                      <pre 
+                      <div 
                         key={msg.messageId}
                         className="chat-area__message-item"
                         onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
@@ -757,7 +773,7 @@ function ChatArea({ clan, channel }) {
                             {msg._edited && <span className="chat-area__edited-tag">(düzenlendi)</span>}
                           </div>
                         )}
-                      </pre>
+                      </div>
                     ))}
                   </div>
                   {isOwn && (
@@ -922,12 +938,14 @@ function ChatArea({ clan, channel }) {
                 )}
             </button>
 
-            <input
+            <textarea
+              ref={composerRef}
               className="chat-area__input"
-              type="text"
               placeholder={`Message #${channel.name}`}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              rows={1}
             />
             <div className="chat-area__input-actions">
               <button
