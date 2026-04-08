@@ -13,7 +13,6 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   const [inviteCode, setInviteCode] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-
   if (!clanId || !members) return null;
 
   const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
@@ -23,7 +22,6 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   const filtered = members.filter((m) =>
     getName(m).toLowerCase().includes(search.toLowerCase())
   );
-
   // Group by role, then sort within each group by online status
   const grouped = {};
   for (const m of filtered) {
@@ -70,16 +68,19 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
     setCopied(false);
   };
 
+  const renderToggleButton = () => (
+    <button
+      className={`member-list__toggle-btn ${visible ? 'member-list__toggle-btn--header' : 'member-list__toggle-btn--collapsed'}`}
+      onClick={() => setVisible((prev) => !prev)}
+      title={visible ? 'Hide Members' : 'Show Members'}
+      type="button"
+    >
+      <span className="material-symbols-outlined">group</span>
+    </button>
+  );
+
   if (!visible) {
-    return (
-      <button
-        className="member-list__show-btn"
-        onClick={() => setVisible(true)}
-        title="Show Members"
-      >
-        <span className="material-symbols-outlined">group</span>
-      </button>
-    );
+    return renderToggleButton();
   }
 
   return (
@@ -87,13 +88,7 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
       {/* Header */}
       <div className="member-list__header">
         <h2 className="member-list__title">Clan Members</h2>
-        <button
-          className="member-list__header-icon"
-          onClick={() => setVisible(false)}
-          title="Hide Members"
-        >
-          <span className="material-symbols-outlined">group</span>
-        </button>
+        {renderToggleButton()}
       </div>
 
       {/* Search */}

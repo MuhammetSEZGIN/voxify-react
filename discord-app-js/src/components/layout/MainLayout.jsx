@@ -15,6 +15,7 @@ import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
 import * as PresenceService from '../../services/PresenceService';
+import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
 
 function MainLayout() {
   const { user, logout } = useAuth();
@@ -74,6 +75,18 @@ function MainLayout() {
     clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
+
+  const playVoiceJoinNotification = useCallback(() => {
+    try {
+      const audio = new Audio(VOICE_JOIN_NOTIFICATION_SOUND);
+      audio.volume = Math.max(0, Math.min(outputVolume / 100, 1));
+      audio.play().catch(() => {
+        // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
+      });
+    } catch (error) {
+      console.warn('[Voice] join notification could not play', error);
+    }
+  }, [outputVolume]);
 
   // Klanları yükle
   useEffect(() => {
@@ -259,6 +272,12 @@ function MainLayout() {
         if (existing.find((u) => u.userId === userId)) return prev;
         return { ...prev, [voiceChannelId]: [...existing, { userId, userName }] };
       });
+
+      const currentUserId = user?.id || user?.sub || user?.userId || '';
+      const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
+      if (userId !== currentUserId && activeChannelId && activeChannelId === voiceChannelId) {
+        playVoiceJoinNotification();
+      }
     };
 
     const handleUserLeft = ({ voiceChannelId, userId }) => {

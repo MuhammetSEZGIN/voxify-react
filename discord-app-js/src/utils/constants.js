@@ -1,6 +1,6 @@
 export const TENOR_API_KEY = import.meta.env.VITE_TENOR_API_KEY;
 export const TENOR_CLIENT_KEY = import.meta.env.VITE_TENOR_CLIENT_KEY;
-
+export const VOICE_JOIN_NOTIFICATION_SOUND = "/mixkit-select-click-1109.wav";
 export const CLAN_ROLES = Object.freeze({
     OWNER: 'OWNER',
     ADMIN: 'ADMIN',

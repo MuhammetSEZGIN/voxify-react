@@ -646,15 +646,6 @@ function ChatArea({ clan, channel }) {
           <div className="chat-area__header-divider" />
           <p className="chat-area__header-topic">{channel.description || `Welcome to #${channel.name}`}</p>
         </div>
-        <div className="chat-area__header-actions">
-          <button className="chat-area__header-btn" title="Pinned Messages">
-            <span className="material-symbols-outlined">push_pin</span>
-          </button>
-          <button className="chat-area__header-btn" title="Search">
-            <span className="material-symbols-outlined">search</span>
-          </button>
-
-        </div>
       </header>
 
       {/* Messages */}
