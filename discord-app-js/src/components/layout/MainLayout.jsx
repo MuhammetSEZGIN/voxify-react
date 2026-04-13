@@ -76,7 +76,7 @@ function MainLayout() {
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  const playVoiceJoinNotification = useCallback(() => {
+  const playVoicePresenceNotification = useCallback(() => {
     try {
       const audio = new Audio(VOICE_JOIN_NOTIFICATION_SOUND);
       audio.volume = Math.max(0, Math.min(outputVolume / 100, 1));
@@ -84,7 +84,7 @@ function MainLayout() {
         // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
       });
     } catch (error) {
-      console.warn('[Voice] join notification could not play', error);
+      console.warn('[Voice] presence notification could not play', error);
     }
   }, [outputVolume]);
 
@@ -119,11 +119,21 @@ function MainLayout() {
   useEffect(() => {
     if (urlChannelId && channels.length > 0) {
       const channel = channels.find((c) => c.channelId === urlChannelId);
-      if (channel) setSelectedChannel(channel);
-    } else {
-      setSelectedChannel(null);
+      if (channel) {
+        setSelectedChannel(channel);
+        return;
+      }
     }
-  }, [urlChannelId, channels]);
+
+    if (selectedClan && channels.length > 0) {
+      const firstChannel = channels[0];
+      setSelectedChannel(firstChannel);
+      navigate(`/app/clans/${selectedClan.clanId}/channels/${firstChannel.channelId}`);
+      return;
+    }
+
+    setSelectedChannel(null);
+  }, [urlChannelId, channels, navigate, selectedClan]);
 
   // Seçilen klanın kanallarını yükle
   useEffect(() => {
@@ -218,6 +228,7 @@ function MainLayout() {
     const channel = activeVoiceChannelRef.current;
     if (channel && user) {
       const userId = user.id || user.sub || '';
+      playVoicePresenceNotification();
       PresenceService.leaveVoiceChannel()
         .catch((err) => console.error('[Presence] leave voice failed', err));
       // Remove from local presence state immediately — server removes caller from the group
@@ -233,7 +244,7 @@ function MainLayout() {
     voiceConnectedRef.current = false;
     setActiveVoiceChannel(null);
     setVoiceState(null);
-  }, [user]);
+  }, [playVoicePresenceNotification, user]);
 
   // Keep ref in sync so handleDisconnectVoice always sees the latest channel
   useEffect(() => {
@@ -251,12 +262,16 @@ function MainLayout() {
         selectedClan.clanId,
         activeVoiceChannel.voiceChannelId,
         userName
-      ).catch((err) => console.error('[Presence] join voice failed', err));
+      )
+        .then(() => {
+          playVoicePresenceNotification();
+        })
+        .catch((err) => console.error('[Presence] join voice failed', err));
     }
     if (!voiceState) {
       voiceConnectedRef.current = false;
     }
-  }, [voiceState]);
+  }, [voiceState, activeVoiceChannel, selectedClan, user, playVoicePresenceNotification]);
 
   // Connect to PresenceHub once and manage subscriptions across clan changes
   useEffect(() => {
@@ -276,7 +291,7 @@ function MainLayout() {
       const currentUserId = user?.id || user?.sub || user?.userId || '';
       const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
       if (userId !== currentUserId && activeChannelId && activeChannelId === voiceChannelId) {
-        playVoiceJoinNotification();
+        playVoicePresenceNotification();
       }
     };
 
@@ -285,6 +300,11 @@ function MainLayout() {
         ...prev,
         [voiceChannelId]: (prev[voiceChannelId] || []).filter((u) => u.userId !== userId),
       }));
+
+      const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
+      if (activeChannelId && activeChannelId === voiceChannelId) {
+        playVoicePresenceNotification();
+      }
     };
 
     const handleSnapshot = ({ participants }) => {

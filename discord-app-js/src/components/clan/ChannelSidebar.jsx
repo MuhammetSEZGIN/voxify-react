@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ScreenShareStatusBar from '../voicechannel/ScreenShareStatusBar';
+import { getMessageNotificationsMuted, setMessageNotificationsMuted } from '../../utils/messageNotifications';
 
 function ChannelSidebar({
   clan,
@@ -54,6 +55,7 @@ function ChannelSidebar({
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [messageNotificationsMuted, setMessageNotificationsMutedState] = useState(getMessageNotificationsMuted);
   const micSettingsRef = useRef(null);
   const headphoneSettingsRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -72,6 +74,10 @@ function ChannelSidebar({
 
   useEffect(() => {
     loadDevices();
+  }, []);
+
+  useEffect(() => {
+    setMessageNotificationsMutedState(getMessageNotificationsMuted());
   }, []);
 
   // Close menus on outside click
@@ -619,6 +625,18 @@ function ChannelSidebar({
                     onChange={(e) => setOutputVolume(Number(e.target.value))}
                     className="audio-settings-menu__slider"
                   />
+                  <label className="audio-settings-menu__label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={!messageNotificationsMuted}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setMessageNotificationsMuted(!enabled);
+                        setMessageNotificationsMutedState(!enabled);
+                      }}
+                    />
+                    Mesaj bildirimleri
+                  </label>
                 </div>
               )}
             </div>

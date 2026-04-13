@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
+import useDesktopMessageNotifications from '../../hooks/useDesktopMessageNotifications';
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
@@ -45,7 +46,8 @@ function ChatArea({ clan, channel }) {
   const observerTargetRef = useRef(null);
   const chatContainerRef = useRef(null);
   const prevChannelIdRef = useRef(null);
-
+  const { showDesktopNotification } = useDesktopMessageNotifications(channel?.name);
+  
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
@@ -87,7 +89,7 @@ function ChatArea({ clan, channel }) {
 
     // SignalR'dan gelen mesajları dinle
     useEffect(() => {
-        const handleReceive = (...args) => {
+        const handleReceive = async (...args) => {
             console.log('[SignalR] ReceiveMessage raw args:', args);
             let normalized;
             if (args.length === 1 && typeof args[0] === 'object') {
@@ -122,6 +124,12 @@ function ChatArea({ clan, channel }) {
                 } catch (err) {
                     console.warn('Bildirim sesi çalınamadı:', err);
                 }
+            }
+
+            if (normalized.senderId !== currentId) {
+                showDesktopNotification(normalized).catch((error) => {
+                    console.warn('[ChatArea] Desktop notification failed:', error);
+                });
             }
 
             setMessages((prev) => {
@@ -173,7 +181,8 @@ function ChatArea({ clan, channel }) {
       SignalRService.off('MessageUpdated', handleUpdated);
       SignalRService.off('MessageDeleted', handleDeleted);
     };
-  }, []);
+  }, [showDesktopNotification, user]);
+
 
   // Intersection Observer for pagination
   useEffect(() => {
