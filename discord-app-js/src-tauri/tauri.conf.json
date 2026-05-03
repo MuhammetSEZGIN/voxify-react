@@ -26,6 +26,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "BURAYA_AÇIK_ANAHTAR_GELECEK",
+      "endpoints": [
+        "https://voxify.com.tr/update/{{target}}/{{current_version}}"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -6,6 +6,7 @@ import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import MainLayout from "./components/layout/MainLayout";
 import TitleBar from "./components/layout/TitleBar";
+import UpdaterOverlay from "./components/UpdaterOverlay";
 import { setAutostart } from "./utils/autostart";
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
 
   return (
     <>
+      <UpdaterOverlay />
      <TitleBar />
       <div className="app-container">
         <Routes>
