@@ -1,0 +1,124 @@
+.update-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 340px;
+  background: var(--surface-dark-alt);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  animation: update-slide-in 0.25s ease;
+}
+
+@keyframes update-slide-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.update-notification__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(43, 140, 238, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.update-notification__icon .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.update-notification__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update-notification__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  line-height: 1.3;
+}
+
+.update-notification__notes {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: pre-line;
+  line-height: 1.5;
+  max-height: 72px;
+  overflow-y: auto;
+}
+
+.update-notification__progress-bar {
+  height: 4px;
+  background: var(--border-dark);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.update-notification__progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.update-notification__actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.update-notification__btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.update-notification__btn:hover {
+  opacity: 0.85;
+}
+
+.update-notification__btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.update-notification__btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.update-notification__btn--ghost:hover {
+  color: var(--text-light);
+}
+
+.update-notification__downloading {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.update-notification__error {
+  font-size: 11px;
+  color: var(--red);
+  word-break: break-word;
+}

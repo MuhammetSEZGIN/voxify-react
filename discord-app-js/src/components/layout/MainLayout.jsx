@@ -51,6 +51,8 @@ function MainLayout() {
   const [inputVolume, setInputVolume] = useState(100);
   const [outputVolume, setOutputVolume] = useState(100);
   const [isMicMuted, setIsMicMuted] = useState(false);
+  const [selectedInputDevice, setSelectedInputDevice] = useState('');
+  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
 
   // Per-user volume overrides: { [identity]: number (0-200) }
   const [userVolumes, setUserVolumes] = useState({});
@@ -612,6 +614,10 @@ function MainLayout() {
         setInputVolume={setInputVolume}
         outputVolume={outputVolume}
         setOutputVolume={setOutputVolume}
+        selectedInputDevice={selectedInputDevice}
+        setSelectedInputDevice={setSelectedInputDevice}
+        selectedOutputDevice={selectedOutputDevice}
+        setSelectedOutputDevice={setSelectedOutputDevice}
         onWatchScreenShare={handleWatchScreenShare}
         isMicMuted={isMicMuted}
         onToggleMic={() => setIsMicMuted(prev => !prev)}
@@ -631,6 +637,8 @@ function MainLayout() {
           userName={user?.userName || user?.name || user?.email || 'User'}
           onLeaveRoom={handleDisconnectVoice}
           onVoiceStateChange={handleVoiceStateChange}
+          inputDevice={selectedInputDevice}
+          outputDevice={selectedOutputDevice}
           inputVolume={inputVolume}
           outputVolume={outputVolume}
           isMicMuted={isMicMuted}

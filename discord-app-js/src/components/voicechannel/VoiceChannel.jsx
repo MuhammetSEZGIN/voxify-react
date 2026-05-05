@@ -14,7 +14,7 @@ import VoiceAudioRenderer from './VoiceAudioRenderer';
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screenShareQuality, isMicMuted }) {
+function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, screenShareQuality, isMicMuted }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
@@ -64,13 +64,20 @@ function VoiceRoomBridge({ onVoiceStateChange, outputDevice, inputVolume, screen
     }
   }, [localParticipant, isMicMuted, isMicrophoneEnabled]);
 
-  // 1. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
+  // 1. GİRİŞ CİHAZI (MİKROFON) DEĞİŞİMİ
   useEffect(() => {
-    if (outputDevice && room.state === 'connected') {
-      room.switchActiveDevice('audiooutput', outputDevice).catch(err => {
-        console.warn("Çıkış cihazı değiştirilemedi:", err);
-      });
-    }
+    if (!inputDevice || room.state !== 'connected') return;
+    room.switchActiveDevice('audioinput', inputDevice).catch(err => {
+      console.warn("Giriş cihazı değiştirilemedi:", err);
+    });
+  }, [inputDevice, room]);
+
+  // 2. ÇIKIŞ CİHAZI (HOPARLÖR) DEĞİŞİMİ
+  useEffect(() => {
+    if (!outputDevice || room.state !== 'connected') return;
+    room.switchActiveDevice('audiooutput', outputDevice).catch(err => {
+      console.warn("Çıkış cihazı değiştirilemedi:", err);
+    });
   }, [outputDevice, room]);
 
   // 2. GİRİŞ SESİ (INPUT VOLUME) KONTROLÜ - WEB AUDIO API (GAIN NODE)
@@ -262,6 +269,7 @@ const VoiceChannel = ({
       {/* Köprüye tüm ayarları gönderiyoruz */}
       <VoiceRoomBridge
         onVoiceStateChange={onVoiceStateChange}
+        inputDevice={inputDevice}
         outputDevice={outputDevice}
         inputVolume={inputVolume}
         isMicMuted={isMicMuted}
