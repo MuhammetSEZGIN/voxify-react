@@ -38,6 +38,8 @@ function ChannelSidebar({
   isMicMuted,
   onToggleMic,
   onParticipantContextMenu,
+  noiseSuppressionEnabled,
+  setNoiseSuppressionEnabled,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -580,6 +582,14 @@ function ChannelSidebar({
                     onChange={(e) => setInputVolume(Number(e.target.value))}
                     className="audio-settings-menu__slider"
                   />
+                  <label className="audio-settings-menu__label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={noiseSuppressionEnabled ?? true}
+                      onChange={(e) => setNoiseSuppressionEnabled?.(e.target.checked)}
+                    />
+                    AI Gürültü İzolasyonu
+                  </label>
                 </div>
               )}
             </div>

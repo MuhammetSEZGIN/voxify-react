@@ -239,6 +239,11 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.59.0.tgz"
   integrity sha512-2HRCml6OztYXyJXAvdDXPKcawukWY2GpR5/nxKp4iBgiO3wcoEGkAaqctIbZcNB6KlUQBIqt8VYkNSj2397EfA==
 
+"@sapphi-red/web-noise-suppressor@^0.3.5":
+  version "0.3.5"
+  resolved "https://registry.npmjs.org/@sapphi-red/web-noise-suppressor/-/web-noise-suppressor-0.3.5.tgz"
+  integrity sha512-jh3+V9yM+zxLriQexoGm0GatoPaJWjs6ypFIbFYwQp+AoUb55eUXrjKtKQyuC5zShzzeAQUl0M5JzqB7SSrsRA==
+
 "@swc/core-win32-x64-msvc@1.14.0":
   version "1.14.0"
   resolved "https://registry.npmjs.org/@swc/core-win32-x64-msvc/-/core-win32-x64-msvc-1.14.0.tgz"

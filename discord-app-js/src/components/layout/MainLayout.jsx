@@ -53,6 +53,7 @@ function MainLayout() {
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [selectedInputDevice, setSelectedInputDevice] = useState('');
   const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
+  const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(true);
 
   // Per-user volume overrides: { [identity]: number (0-200) }
   const [userVolumes, setUserVolumes] = useState({});
@@ -654,6 +655,8 @@ function MainLayout() {
         isMicMuted={isMicMuted}
         onToggleMic={() => setIsMicMuted(prev => !prev)}
         onParticipantContextMenu={handleParticipantContextMenu}
+        noiseSuppressionEnabled={noiseSuppressionEnabled}
+        setNoiseSuppressionEnabled={setNoiseSuppressionEnabled}
       />
 
       <ChatArea
@@ -675,8 +678,7 @@ function MainLayout() {
           outputVolume={outputVolume}
           isMicMuted={isMicMuted}
           userVolumes={userVolumes}
-          inputDevice={selectedInputDevice}
-          outputDevice={selectedOutputDevice}
+          noiseSuppressionEnabled={noiseSuppressionEnabled}
         />
       )}
 

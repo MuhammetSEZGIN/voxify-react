@@ -94,6 +94,10 @@ body {
   width: 100%;
 }
 
+.server-list__clan-item {
+  width: 100%;
+}
+
 .server-list__indicator {
   position: absolute;
   left: -12px;
@@ -161,6 +165,7 @@ body {
 }
 
 .server-list__clan-btn {
+  display: block;
   position: relative;
   aspect-ratio: 1;
   width: 100%;

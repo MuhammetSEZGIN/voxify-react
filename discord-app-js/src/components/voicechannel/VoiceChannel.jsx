@@ -11,16 +11,73 @@ import VoiceService from '../../services/VoiceService';
 import { useScreenShare } from '../../hooks/useScreenShare';
 import VoiceAudioRenderer from './VoiceAudioRenderer';
 
+import rnnoiseWasmPath from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
+import rnnoiseSimdWasmPath from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
+import rnnoiseWorkletPath from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url';
+
+// WASM ikili önbelleği — processor yeniden başlatılırken tekrar indirilmez
+let _cachedWasmBinary = null;
+async function getRnnoiseWasm() {
+  if (!_cachedWasmBinary) {
+    const { loadRnnoise } = await import('@sapphi-red/web-noise-suppressor');
+    _cachedWasmBinary = await loadRnnoise({ url: rnnoiseWasmPath, simdUrl: rnnoiseSimdWasmPath });
+  }
+  return _cachedWasmBinary;
+}
+
+class RnnoiseAudioProcessor {
+  name = 'rnnoise';
+  processedTrack = undefined;
+  #gainNode = null;
+  #gainValue;
+
+  constructor(gainValue = 1) {
+    this.#gainValue = gainValue;
+  }
+
+  async init({ track, audioContext }) {
+    const wasmBinary = await getRnnoiseWasm();
+    const { RnnoiseWorkletNode } = await import('@sapphi-red/web-noise-suppressor');
+    await audioContext.audioWorklet.addModule(rnnoiseWorkletPath);
+
+    const source = audioContext.createMediaStreamSource(new MediaStream([track]));
+    const rnnoiseNode = new RnnoiseWorkletNode(audioContext, { wasmBinary, maxChannels: 1 });
+    this.#gainNode = audioContext.createGain();
+    this.#gainNode.gain.value = this.#gainValue;
+    const destination = audioContext.createMediaStreamDestination();
+
+    source.connect(rnnoiseNode);
+    rnnoiseNode.connect(this.#gainNode);
+    this.#gainNode.connect(destination);
+
+    this.processedTrack = destination.stream.getAudioTracks()[0];
+  }
+
+  async restart(options) {
+    this.#gainNode = null;
+    await this.init(options);
+  }
+
+  async destroy() {
+    this.#gainNode = null;
+  }
+
+  setGain(value) {
+    this.#gainValue = value;
+    if (this.#gainNode) this.#gainNode.gain.value = value;
+  }
+}
+
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, screenShareQuality, isMicMuted }) {
+function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, screenShareQuality, isMicMuted, noiseSuppressionEnabled }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
 
-  const audioContextRef = useRef(null);
-  const gainNodeRef = useRef(null);
+  const processorRef = useRef(null);
+  const setupTokenRef = useRef(null);
 
   // Ekran paylaşımı hook'u
   const { isScreenSharing, remoteScreenShares, startScreenShare, stopScreenShare } = useScreenShare();
@@ -41,7 +98,6 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
         contentHint: quality === 'high' ? 'detail' : 'motion',
         resolution: { width: enc.width, height: enc.height, frameRate: enc.maxFramerate },
       });
-      // Yayın başladıktan sonra encoding parametrelerini güncelle
       const pub = localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.videoTrack) {
         pub.videoTrack.sender?.setParameters({
@@ -80,52 +136,61 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     });
   }, [outputDevice, room]);
 
-  // 2. GİRİŞ SESİ (INPUT VOLUME) KONTROLÜ - WEB AUDIO API (GAIN NODE)
+  // 3. GİRİŞ SESİ + RNNoise PROCESSOR KONTROLÜ
   useEffect(() => {
     if (!localParticipant) return;
-
-    // Aktif mikrofon yayınını bul
     const trackPub = localParticipant.getTrackPublication(Track.Source.Microphone);
     const audioTrack = trackPub?.track;
+    if (!audioTrack) return;
 
-    if (audioTrack && audioTrack.sender && audioTrack.mediaStreamTrack) {
-      // Eğer filtre (GainNode) henüz kurulmadıysa kur
-      if (!gainNodeRef.current) {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext();
-          audioContextRef.current = ctx;
+    const currentType = processorRef.current?.name ?? null;
+    const desiredType = noiseSuppressionEnabled ? 'rnnoise' : null;
 
-          // Mikrofonun ham sesini al
-          const source = ctx.createMediaStreamSource(new MediaStream([audioTrack.mediaStreamTrack]));
-
-          // Ses filtresini (GainNode) oluştur
-          const gainNode = ctx.createGain();
-          gainNodeRef.current = gainNode;
-
-          // Çıkış noktası oluştur
-          const destination = ctx.createMediaStreamDestination();
-
-          // Birleştir: Ham Ses -> Filtre -> Çıkış
-          source.connect(gainNode);
-          gainNode.connect(destination);
-
-          // LiveKit'in sunucuya yolladığı ham sesi, bizim filtrelenmiş sesimizle değiştir!
-          const processedTrack = destination.stream.getAudioTracks()[0];
-          audioTrack.sender.replaceTrack(processedTrack);
-
-        } catch (error) {
-          console.error("Giriş sesi filtresi oluşturulamadı:", error);
-        }
-      }
-
-      // Sürgüden gelen 0-100 değerini sese dönüştür
-      // 50 = Normal Ses (1x), 100 = İki Katı Ses (2x), 0 = Sessiz (0x)
-      if (gainNodeRef.current) {
-        gainNodeRef.current.gain.value = inputVolume / 50;
-      }
+    if (currentType === desiredType) {
+      // Processor tipi değişmedi, sadece gain güncelle
+      processorRef.current?.setGain(inputVolume / 50);
+      return;
     }
-  }, [localParticipant, inputVolume, isMicrophoneEnabled]);
+
+    // Processor tipi değişti: eski durdur, yeni kur
+    const token = Symbol();
+    setupTokenRef.current = token;
+
+    const setup = async () => {
+      try {
+        if (processorRef.current) {
+          await audioTrack.stopProcessor().catch(() => {});
+          processorRef.current = null;
+        }
+
+        if (!noiseSuppressionEnabled) return; // processor yok, ham WebRTC track devrede
+
+        const processor = new RnnoiseAudioProcessor(inputVolume / 50);
+        await audioTrack.setProcessor(processor);
+
+        // Race condition: setup sırasında toggle tekrar değiştiyse iptal et
+        if (setupTokenRef.current !== token) {
+          await audioTrack.stopProcessor().catch(() => {});
+          return;
+        }
+        processorRef.current = processor;
+      } catch (err) {
+        console.error('RNNoise processor başlatılamadı:', err);
+        processorRef.current = null;
+      }
+    };
+
+    setup();
+  }, [localParticipant, inputVolume, isMicrophoneEnabled, noiseSuppressionEnabled]);
+
+  // Unmount'ta aktif processor'ı durdur
+  useEffect(() => {
+    return () => {
+      const trackPub = localParticipant?.getTrackPublication(Track.Source.Microphone);
+      trackPub?.track?.stopProcessor().catch(() => {});
+      processorRef.current = null;
+    };
+  }, [localParticipant]);
 
   const toggleMute = useCallback(() => {
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
@@ -144,7 +209,6 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
       isMuted: !p.isMicrophoneEnabled,
       isSpeaking: p.isSpeaking,
       isLocal: p === localParticipant,
-      // Ekran paylaşımı yapıyor mu?
       isScreenSharing: (() => {
         const pub = p.getTrackPublication(Track.Source.ScreenShare);
         return !!(pub && pub.track);
@@ -156,7 +220,6 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
       participants: participantInfo,
       toggleMute,
       disconnect,
-      // Ekran paylaşımı durumu
       isScreenSharing,
       startScreenShare: startScreenShareWithQuality,
       stopScreenShare,
@@ -184,7 +247,7 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
 const VoiceChannel = ({
   roomId, userId, userName, onLeaveRoom, onVoiceStateChange,
   inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted,
-  userVolumes,
+  userVolumes, noiseSuppressionEnabled,
 }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -250,7 +313,6 @@ const VoiceChannel = ({
           autoGainControl: false,
           suppressLocalAudioPlayback: true
         },
-        // Ekran paylaşımı için video codec desteği
         publishDefaults: {
           screenShareEncoding: {
             maxBitrate: 3_000_000,
@@ -260,19 +322,18 @@ const VoiceChannel = ({
       }}
       style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
     >
-      {/* Sadece Mikrofon seslerini çalıyor; ekran paylaşımı sesi hariç */}
       <VoiceAudioRenderer
         volume={typeof outputVolume === 'number' ? outputVolume / 100 : 1}
         userVolumes={userVolumes || {}}
       />
 
-      {/* Köprüye tüm ayarları gönderiyoruz */}
       <VoiceRoomBridge
         onVoiceStateChange={onVoiceStateChange}
         inputDevice={inputDevice}
         outputDevice={outputDevice}
         inputVolume={inputVolume}
         isMicMuted={isMicMuted}
+        noiseSuppressionEnabled={noiseSuppressionEnabled}
       />
     </LiveKitRoom>
   );

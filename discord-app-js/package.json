@@ -16,6 +16,7 @@
     "@livekit/components-react": "^2.9.20",
     "@livekit/components-styles": "^1.2.0",
     "@microsoft/signalr": "^10.0.0",
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "@tauri-apps/api": "2.11",
     "@tauri-apps/cli": "2.11",
     "@tauri-apps/plugin-autostart": "^2.5.1",

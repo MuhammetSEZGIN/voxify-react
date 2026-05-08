@@ -8,20 +8,21 @@ import { Track } from 'livekit-client';
  * HARIÇ tutar. Bu sayede yayın sesi sadece ScreenShareViewer'da bağımsız olarak
  * kontrol edilebilir; genel outputVolume ayarı sadece mikrofonları etkiler.
  *
- * Artık kullanıcı bazlı ses seviyesi desteği var:
- *   userVolumes: { [identity]: number (0-200) }
+ * Kullanıcı bazlı ses seviyesi desteği: userVolumes: { [identity]: number (0-200) }
+ * %100 üstü değerler Web Audio API GainNode ile gerçek amplifikasyon sağlar.
  */
 function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
-  // Her katılımcının mikrofon track'ı için audio elementi: identity -> HTMLAudioElement
   const audioElemsRef = useRef({});
+  const audioCtxsRef = useRef({});
+  const gainNodesRef = useRef({});
+  const compressorsRef = useRef({});
 
   useEffect(() => {
     const activeKeys = new Set();
 
     for (const participant of participants) {
-      // Yerel katılımcının kendi sesini çalma
       if (participant === localParticipant) continue;
 
       const micPub = participant.getTrackPublication(Track.Source.Microphone);
@@ -31,12 +32,10 @@ function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
       const key = participant.identity;
       activeKeys.add(key);
 
-      // Daha önce oluşturulmamışsa yeni audio elementi yarat
       if (!audioElemsRef.current[key]) {
         const audio = document.createElement('audio');
         audio.autoplay = true;
         audio.playsInline = true;
-        // DOM'a eklemeden de çalışır ama bazı tarayıcılar için ekliyoruz
         audio.style.display = 'none';
         document.body.appendChild(audio);
         audioElemsRef.current[key] = audio;
@@ -44,7 +43,6 @@ function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
 
       const audioEl = audioElemsRef.current[key];
 
-      // Track'ı bağla (zaten bağlıysa atla)
       if (micTrack.attach) {
         try {
           micTrack.attach(audioEl);
@@ -56,14 +54,46 @@ function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
         }
       }
 
-      // Kullanıcı bazlı ses seviyesi: userVolumes[identity] / 100 ile genel volume çarpılır
+      // createMediaElementSource yalnızca bir kez çağrılabilir per-element; guard ile korunuyor
+      if (!audioCtxsRef.current[key]) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const source = ctx.createMediaElementSource(audioEl);
+        const gainNode = ctx.createGain();
+        const compressor = ctx.createDynamicsCompressor();
+        // Limiter preset — yüksek oran, düşük eşik: clipping olmadan amplifikasyon
+        compressor.threshold.value = -3;
+        compressor.knee.value = 3;
+        compressor.ratio.value = 20;
+        compressor.attack.value = 0.001;
+        compressor.release.value = 0.1;
+
+        source.connect(gainNode);
+        gainNode.connect(compressor);
+        compressor.connect(ctx.destination);
+
+        audioCtxsRef.current[key] = ctx;
+        gainNodesRef.current[key] = gainNode;
+        compressorsRef.current[key] = compressor;
+      }
+
       const userVol = typeof userVolumes[key] === 'number' ? userVolumes[key] / 100 : 1;
-      audioEl.volume = Math.max(0, Math.min(1, volume * userVol));
+      gainNodesRef.current[key].gain.value = Math.max(0, volume * userVol);
     }
 
     // Artık odada olmayan katılımcıların elementlerini temizle
     for (const key of Object.keys(audioElemsRef.current)) {
       if (!activeKeys.has(key)) {
+        // AudioContext önce kapatılmalı, sonra element kaldırılmalı
+        if (audioCtxsRef.current[key]) {
+          audioCtxsRef.current[key].close();
+          delete audioCtxsRef.current[key];
+        }
+        delete gainNodesRef.current[key];
+        delete compressorsRef.current[key];
+
         const el = audioElemsRef.current[key];
         try { el.srcObject = null; } catch { /* ignore */ }
         el.remove();
@@ -72,17 +102,25 @@ function VoiceAudioRenderer({ volume = 1, userVolumes = {} }) {
     }
   }, [participants, localParticipant, volume, userVolumes]);
 
-  // Ses seviyesi değişince mevcut elementleri güncelle
+  // Ses seviyesi değişince mevcut gain node'ları güncelle
   useEffect(() => {
-    for (const [key, el] of Object.entries(audioElemsRef.current)) {
+    for (const [key] of Object.entries(audioElemsRef.current)) {
+      if (!gainNodesRef.current[key]) continue;
       const userVol = typeof userVolumes[key] === 'number' ? userVolumes[key] / 100 : 1;
-      el.volume = Math.max(0, Math.min(1, volume * userVol));
+      gainNodesRef.current[key].gain.value = Math.max(0, volume * userVol);
     }
   }, [volume, userVolumes]);
 
   // Unmount'ta temizle
   useEffect(() => {
     return () => {
+      for (const ctx of Object.values(audioCtxsRef.current)) {
+        ctx.close();
+      }
+      audioCtxsRef.current = {};
+      gainNodesRef.current = {};
+      compressorsRef.current = {};
+
       for (const el of Object.values(audioElemsRef.current)) {
         try { el.srcObject = null; } catch { /* ignore */ }
         el.remove();
