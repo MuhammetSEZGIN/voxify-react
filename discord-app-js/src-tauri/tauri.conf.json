@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Voxify",
-  "version": "1.2.2",
+  "version": "1.3.1",
   "identifier": "com.voxify.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -31,11 +31,11 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEzNzM2ODNFM0NBQzY1RUIKUldUclphdzhQbWh6RTdpRDZzSlFwRy83UkRjMllXcys0N3RVTk5sUE1ZUkN0UDdMdU9ZMzFlRTIK",
       "endpoints": [
-        "http://localhost:5005/update/{{target}}-{{arch}}/{{current_version}}"
-      ],
-      "dangerousInsecureTransportProtocol": true
+        "https://voxify.com.tr/update/{{target}}-{{arch}}/{{current_version}}"
+      ]
     }
   },
+
   "bundle": {
     "active": true,
     "targets": "all",
