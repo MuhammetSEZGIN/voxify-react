@@ -110,7 +110,7 @@ function UserVolumeContextMenu({ visible, x, y, participant, currentVolume, onVo
           <input
             type="range"
             min="0"
-            max="200"
+            max="100"
             value={localVolume}
             onChange={handleChange}
             className="user-volume-ctx__slider"

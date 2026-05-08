@@ -55,7 +55,7 @@ function MainLayout() {
   const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
   const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(true);
 
-  // Per-user volume overrides: { [identity]: number (0-200) }
+  // Per-user volume overrides: { [identity]: number (0-100) }
   const [userVolumes, setUserVolumes] = useState({});
   // Context menu state for right-click user volume
   const [volumeCtxMenu, setVolumeCtxMenu] = useState({ visible: false, x: 0, y: 0, participant: null });
