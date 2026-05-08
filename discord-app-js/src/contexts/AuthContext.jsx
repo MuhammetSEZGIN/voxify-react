@@ -1,13 +1,43 @@
 import React, { createContext, useMemo, useState, useEffect, useCallback } from "react";
+import { LazyStore } from "@tauri-apps/plugin-store";
 import AuthService from "../services/AuthService";
 
 const AuthContext = createContext(null);
+
+// AppData/Roaming/com.voxify.desktop/auth.json — installer tarafından silinmez
+const authStore = new LazyStore("auth.json", { autoSave: true });
+
+// Hem store hem localStorage'a yaz (servisler localStorage'dan okur)
+async function persistSet(key, value) {
+  try {
+    const serialized = typeof value === "string" ? value : JSON.stringify(value);
+    localStorage.setItem(key, serialized);
+    await authStore.set(key, value);
+  } catch { /* ignore */ }
+}
+
+async function persistRemove(key) {
+  try {
+    localStorage.removeItem(key);
+    await authStore.delete(key);
+  } catch { /* ignore */ }
+}
+
+// Store'dan oku; boşsa localStorage'a bak (update sonrası kurtarma)
+async function persistGet(key) {
+  try {
+    const storeVal = await authStore.get(key);
+    if (storeVal !== null && storeVal !== undefined) return storeVal;
+  } catch { /* ignore */ }
+  // Store boş — localStorage'dan oku (ilk migration veya kurtarma)
+  const lsVal = localStorage.getItem(key);
+  return lsVal ?? null;
+}
 
 function decodeJwt(token) {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, "=");
     return JSON.parse(atob(padded));
@@ -16,26 +46,19 @@ function decodeJwt(token) {
   }
 }
 
-/**
- * .NET JWT claim adlarını kullanıcı dostu alan adlarına eşle.
- */
 function mapClaimsToUser(decoded) {
   if (!decoded) return null;
 
   const claimMap = {
-    // userName
     'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name': 'userName',
     'unique_name': 'userName',
     'name': 'userName',
     'preferred_username': 'userName',
-    // id
     'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier': 'id',
     'nameid': 'id',
     'sub': 'id',
-    // email
     'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress': 'email',
     'email': 'email',
-    // role
     'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'role',
     'role': 'role',
   };
@@ -43,108 +66,91 @@ function mapClaimsToUser(decoded) {
   const user = {};
   for (const [key, value] of Object.entries(decoded)) {
     const mapped = claimMap[key];
-    if (mapped) {
-      user[mapped] = value;
-    } else {
-      // Bilinmeyen claim'leri de koru
-      user[key] = value;
-    }
+    if (mapped) user[mapped] = value;
+    else user[key] = value;
   }
 
-  // Fallback: userName yoksa email veya id kullan
-  if (!user.userName) {
-    user.userName = user.email || user.id || 'User';
-  }
-
+  if (!user.userName) user.userName = user.email || user.id || 'User';
   return user;
 }
 
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Uygulama başlangıcında token geçerliliğini kontrol et ve gerekirse refresh dene
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = localStorage.getItem("token");
-      const storedRefreshToken = localStorage.getItem("refreshToken");
-      const storedUser = localStorage.getItem("user");
+      const storedToken = await persistGet("token");
+      const storedRefreshToken = await persistGet("refreshToken");
+      const rawUser = await persistGet("user");
+      const storedUser = typeof rawUser === "string"
+        ? (() => { try { return JSON.parse(rawUser); } catch { return null; } })()
+        : rawUser;
 
       if (!storedToken) {
         setLoading(false);
         return;
       }
 
-      // Token'ı decode et ve expire kontrolü yap
+      // Store'da varsa localStorage'ı da güncelle (update sonrası kurtarma)
+      if (!localStorage.getItem("token")) {
+        localStorage.setItem("token", storedToken);
+        if (storedRefreshToken) localStorage.setItem("refreshToken", storedRefreshToken);
+        if (storedUser) localStorage.setItem("user", JSON.stringify(storedUser));
+        console.info("[Auth] Restored auth data from store to localStorage");
+      }
+
       const decoded = decodeJwt(storedToken);
       const now = Math.floor(Date.now() / 1000);
       const isExpired = decoded?.exp && decoded.exp < now;
 
       if (isExpired && storedRefreshToken) {
-        // Token expired — refresh dene
         try {
-          const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-          const userId = parsedUser?.id || decoded?.sub || decoded?.nameid || '';
+          const userId = storedUser?.id || decoded?.sub || decoded?.nameid || '';
           const data = await AuthService.refreshToken(userId, storedRefreshToken);
           const newToken = data.accessToken || data.token;
           const newRefreshToken = data.refreshToken;
 
-          localStorage.setItem("token", newToken);
-          if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
-
+          await persistSet("token", newToken);
+          if (newRefreshToken) await persistSet("refreshToken", newRefreshToken);
           setToken(newToken);
 
-          // Yeni token'dan user bilgisini güncelle
           const newDecoded = decodeJwt(newToken);
           const refreshedUser = mapClaimsToUser(newDecoded);
-          if (parsedUser?.id) refreshedUser.id = parsedUser.id;
-          if (parsedUser?.sessionId) refreshedUser.sessionId = parsedUser.sessionId;
+          if (storedUser?.id) refreshedUser.id = storedUser.id;
+          if (storedUser?.sessionId) refreshedUser.sessionId = storedUser.sessionId;
           setUser(refreshedUser);
-          localStorage.setItem("user", JSON.stringify(refreshedUser));
-
+          await persistSet("user", refreshedUser);
           console.info("[Auth] Token refreshed successfully");
         } catch (error) {
           console.error("[Auth] Token refresh failed, logging out:", error);
-          localStorage.removeItem("token");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("user");
+          await persistRemove("token");
+          await persistRemove("refreshToken");
+          await persistRemove("user");
           setToken(null);
           setUser(null);
         }
       } else if (isExpired) {
-        // Token expired ve refresh token yok — logout
         console.warn("[Auth] Token expired, no refresh token available");
-        localStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
+        await persistRemove("token");
+        await persistRemove("refreshToken");
+        await persistRemove("user");
         setToken(null);
         setUser(null);
       } else {
-        // Token hala geçerli — user bilgisini güncelle
-        if (!user) {
-          const derivedUser = decoded?.user
-            ? mapClaimsToUser(decoded.user)
-            : mapClaimsToUser(decoded);
-          if (derivedUser) {
-            setUser(derivedUser);
-            localStorage.setItem("user", JSON.stringify(derivedUser));
-          }
-        }
+        setToken(storedToken);
+        const resolvedUser = storedUser
+          ?? mapClaimsToUser(decoded?.user ? decoded.user : decoded);
+        setUser(resolvedUser);
+        if (resolvedUser && !storedUser) await persistSet("user", resolvedUser);
       }
 
       setLoading(false);
     };
 
     initAuth();
-  }, []); // Sadece mount'ta çalışır
+  }, []);
 
   const login = useCallback(async (userName, password) => {
     try {
@@ -154,20 +160,15 @@ function AuthProvider({ children }) {
       const rtkn = data.refreshToken;
 
       setToken(tkn);
-      localStorage.setItem("token", tkn);
-      if (rtkn) localStorage.setItem("refreshToken", rtkn);
+      await persistSet("token", tkn);
+      if (rtkn) await persistSet("refreshToken", rtkn);
 
       const decoded = decodeJwt(tkn);
-      const nextUser = data.user
-        ? mapClaimsToUser(data.user)
-        : mapClaimsToUser(decoded);
+      const nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
       if (nextUser && data.userID) nextUser.id = data.userID;
       if (nextUser && data.sessionId) nextUser.sessionId = data.sessionId;
       setUser(nextUser);
-      if (nextUser) {
-        localStorage.setItem("user", JSON.stringify(nextUser));
-      }
-
+      if (nextUser) await persistSet("user", nextUser);
     } catch (error) {
       console.error("Login error", error);
       throw error;
@@ -181,53 +182,38 @@ function AuthProvider({ children }) {
       const rtkn = data.refreshToken;
 
       setToken(tkn);
-      localStorage.setItem("token", tkn);
-      if (rtkn) localStorage.setItem("refreshToken", rtkn);
+      await persistSet("token", tkn);
+      if (rtkn) await persistSet("refreshToken", rtkn);
 
       const rawUser = data.user ?? decodeJwt(data.token)?.user ?? decodeJwt(data.token);
       const nextUser = mapClaimsToUser(rawUser);
       setUser(nextUser);
-      if (nextUser) {
-        localStorage.setItem("user", JSON.stringify(nextUser));
-      }
+      if (nextUser) await persistSet("user", nextUser);
     } catch (error) {
       console.error("Registration error", error);
       throw error;
     }
   }, []);
+
   const logout = useCallback(async () => {
     try {
-      if (user?.sessionId) {
-        await AuthService.logoutSession(user.sessionId);
-      }
+      if (user?.sessionId) await AuthService.logoutSession(user.sessionId);
     } catch (error) {
       console.error("Logout session error", error);
     }
-    // Her durumda temizle
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
+    await persistRemove("token");
+    await persistRemove("refreshToken");
+    await persistRemove("user");
     setUser(null);
     setToken(null);
   }, [user?.sessionId]);
 
-  // Global olarak erişilecek değerler
   const value = useMemo(
-    () => ({
-      user,
-      token,
-      isAuthenticated: !!token,
-      loading,
-      login,
-      register,
-      logout,
-    }),
+    () => ({ user, token, isAuthenticated: !!token, loading, login, register, logout }),
     [user, token, loading, login, register, logout]
   );
-  // uygulamanın yüklenmesi tamamlanmadan çocuk bileşenleri render etme
+
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 }
 
 export { AuthProvider, AuthContext };
-
-

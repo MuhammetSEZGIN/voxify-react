@@ -15,6 +15,15 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "updater:default",
-    "process:default"
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "process:default",
+    "process:allow-restart",
+    "store:default",
+    "store:allow-load",
+    "store:allow-get",
+    "store:allow-set",
+    "store:allow-delete",
+    "store:allow-save"
   ]
 }

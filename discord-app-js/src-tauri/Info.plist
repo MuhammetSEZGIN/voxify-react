@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Voice chat icin mikrofon erisimi gerekir.</string>
+  <string>Voice chat için mikrofon erişimi gerekir.</string>
 </dict>
 </plist>

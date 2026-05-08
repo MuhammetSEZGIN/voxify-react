@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
+import useDesktopMessageNotifications from '../../hooks/useDesktopMessageNotifications';
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
@@ -39,12 +40,14 @@ function ChatArea({ clan, channel }) {
   const gifSearchTimerRef = useRef(null);
 
   const sendErrorTimerRef = useRef(null);
+  const composerRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const observerTargetRef = useRef(null);
   const chatContainerRef = useRef(null);
   const prevChannelIdRef = useRef(null);
-
+  const { showDesktopNotification } = useDesktopMessageNotifications(channel?.name);
+  
 
   // OS bildirim izni iste
   useEffect(() => {
@@ -93,7 +96,7 @@ function ChatArea({ clan, channel }) {
 
     // SignalR'dan gelen mesajları dinle
     useEffect(() => {
-        const handleReceive = (...args) => {
+        const handleReceive = async (...args) => {
             console.log('[SignalR] ReceiveMessage raw args:', args);
             let normalized;
             if (args.length === 1 && typeof args[0] === 'object') {
@@ -138,6 +141,12 @@ function ChatArea({ clan, channel }) {
                         silent: true,
                     });
                 }
+            }
+
+            if (normalized.senderId !== currentId) {
+                showDesktopNotification(normalized).catch((error) => {
+                    console.warn('[ChatArea] Desktop notification failed:', error);
+                });
             }
 
             setMessages((prev) => {
@@ -189,7 +198,8 @@ function ChatArea({ clan, channel }) {
       SignalRService.off('MessageUpdated', handleUpdated);
       SignalRService.off('MessageDeleted', handleDeleted);
     };
-  }, []);
+  }, [showDesktopNotification, user]);
+
 
   // Intersection Observer for pagination
   useEffect(() => {
@@ -478,13 +488,44 @@ function ChatArea({ clan, channel }) {
   };
 
 
-  const handleSelectGif = (gif) => {
+  const handleSelectGif = async (gif) => {
     const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || '';
     if (!url) return;
-    setNewMessage((prev) => (prev ? `${prev} ${url}` : url));
+
     setShowGifPicker(false);
     setGifSearch('');
     setGifs([]);
+
+    if (!channel?.channelId) return;
+
+    const senderId = user?.id || user?.sub || '';
+    const userName = user?.userName || user?.username || user?.name || 'Unknown';
+
+    const optimisticMsg = {
+      messageId: `temp-gif-${Date.now()}`,
+      content: url,
+      userName,
+      senderId,
+      avatarUrl: user?.avatarUrl || null,
+      createdAt: new Date().toISOString(),
+      channelId: channel.channelId,
+      _optimistic: true,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, url);
+    } catch (err) {
+      console.error('Failed to send GIF via SignalR:', err);
+      setMessages((prev) => prev.filter((m) => m.messageId !== optimisticMsg.messageId));
+      const msg = err?.message?.includes('SignalR baÄŸlantÄ±sÄ± yok')
+        ? 'Sunucuya baÄŸlanÄ±lamÄ±yor. LÃ¼tfen internet baÄŸlantÄ±nÄ±zÄ± kontrol edin.'
+        : 'GIF gÃ¶nderilemedi. LÃ¼tfen tekrar deneyin.';
+      setSendError(msg);
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    }
   };
 
   const handleToggleEmojiPicker = () => {
@@ -572,6 +613,21 @@ function ChatArea({ clan, channel }) {
       setSendError(msg);
       clearTimeout(sendErrorTimerRef.current);
       sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    }
+  };
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    composer.style.height = '0px';
+    composer.style.height = `${composer.scrollHeight}px`;
+  }, [newMessage]);
+
+  const handleComposerKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
     }
   };
 
@@ -663,15 +719,6 @@ function ChatArea({ clan, channel }) {
           <div className="chat-area__header-divider" />
           <p className="chat-area__header-topic">{channel.description || `Welcome to #${channel.name}`}</p>
         </div>
-        <div className="chat-area__header-actions">
-          <button className="chat-area__header-btn" title="Pinned Messages">
-            <span className="material-symbols-outlined">push_pin</span>
-          </button>
-          <button className="chat-area__header-btn" title="Search">
-            <span className="material-symbols-outlined">search</span>
-          </button>
-
-        </div>
       </header>
 
       {/* Messages */}
@@ -719,7 +766,7 @@ function ChatArea({ clan, channel }) {
                       </p>
                     </div>
                     {group.messages.map((msg) => (
-                      <div
+                      <div 
                         key={msg.messageId}
                         className="chat-area__message-item"
                         onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
@@ -917,12 +964,14 @@ function ChatArea({ clan, channel }) {
                 )}
             </button>
 
-            <input
+            <textarea
+              ref={composerRef}
               className="chat-area__input"
-              type="text"
               placeholder={`Message #${channel.name}`}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              rows={1}
             />
             <div className="chat-area__input-actions">
               <button

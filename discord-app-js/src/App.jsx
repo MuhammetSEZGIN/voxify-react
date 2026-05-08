@@ -6,11 +6,13 @@ import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import MainLayout from "./components/layout/MainLayout";
 import TitleBar from "./components/layout/TitleBar";
-import UpdaterOverlay from "./components/UpdaterOverlay";
+import UpdateNotification from "./components/layout/UpdateNotification";
+import { useUpdater } from "./hooks/useUpdater";
 import { setAutostart } from "./utils/autostart";
 
 function App() {
   const { isAuthenticated } = useAuth();
+  const { updateInfo, status, progress, errorMsg, installUpdate, dismiss } = useUpdater();
 
   useEffect(() => {
     // Uygulama her açıldığında başlangıca ekle (Kullanıcı isterse bunu ayarlardan kapatabilir)
@@ -19,8 +21,15 @@ function App() {
 
   return (
     <>
-      <UpdaterOverlay />
      <TitleBar />
+      <UpdateNotification
+        updateInfo={updateInfo}
+        status={status}
+        progress={progress}
+        errorMsg={errorMsg}
+        onInstall={installUpdate}
+        onDismiss={dismiss}
+      />
       <div className="app-container">
         <Routes>
           <Route

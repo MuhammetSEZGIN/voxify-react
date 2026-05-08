@@ -7,10 +7,10 @@
   resolved "https://registry.npmjs.org/@bufbuild/protobuf/-/protobuf-1.10.1.tgz"
   integrity sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ==
 
-"@esbuild/darwin-arm64@0.27.7":
+"@esbuild/win32-x64@0.27.7":
   version "0.27.7"
-  resolved "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.27.7.tgz"
-  integrity sha512-5lckdqeuBPlKUwvoCXIgI2D9/ABmPq3Rdp7IfL70393YgaASt7tbju3Ac+ePVi3KDH6N2RqePfHnXkaDtY9fkw==
+  resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.27.7.tgz"
+  integrity sha512-56hiAJPhwQ1R4i+21FVF7V8kSD5zZTdHcVuRFMW0hn753vVfQN8xlx4uOPT4xoGH0Z/oVATuR82AiqSTDIpaHg==
 
 "@eslint-community/eslint-utils@^4.2.0":
   version "4.9.0"
@@ -229,15 +229,20 @@
   resolved "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.0-beta.43.tgz"
   integrity sha512-5Uxg7fQUCmfhax7FJke2+8B6cqgeUJUD9o2uXIKXhD+mG0mL6NObmVoi9wXEU1tY89mZKgAYA6fTbftx3q2ZPQ==
 
-"@rollup/rollup-darwin-arm64@4.59.0":
+"@rollup/rollup-win32-x64-gnu@4.59.0":
   version "4.59.0"
-  resolved "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.59.0.tgz"
-  integrity sha512-W2Psnbh1J8ZJw0xKAd8zdNgF9HRLkdWwwdWqubSVk0pUuQkoHnv7rx4GiF9rT4t5DIZGAsConRE3AxCdJ4m8rg==
+  resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-gnu/-/rollup-win32-x64-gnu-4.59.0.tgz"
+  integrity sha512-laBkYlSS1n2L8fSo1thDNGrCTQMmxjYY5G0WFWjFFYZkKPjsMBsgJfGf4TLxXrF6RyhI60L8TMOjBMvXiTcxeA==
 
-"@swc/core-darwin-arm64@1.14.0":
+"@rollup/rollup-win32-x64-msvc@4.59.0":
+  version "4.59.0"
+  resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.59.0.tgz"
+  integrity sha512-2HRCml6OztYXyJXAvdDXPKcawukWY2GpR5/nxKp4iBgiO3wcoEGkAaqctIbZcNB6KlUQBIqt8VYkNSj2397EfA==
+
+"@swc/core-win32-x64-msvc@1.14.0":
   version "1.14.0"
-  resolved "https://registry.npmjs.org/@swc/core-darwin-arm64/-/core-darwin-arm64-1.14.0.tgz"
-  integrity sha512-uHPC8rlCt04nvYNczWzKVdgnRhxCa3ndKTBBbBpResOZsRmiwRAvByIGh599j+Oo6Z5eyTPrgY+XfJzVmXnN7Q==
+  resolved "https://registry.npmjs.org/@swc/core-win32-x64-msvc/-/core-win32-x64-msvc-1.14.0.tgz"
+  integrity sha512-nm+JajGrTqUA6sEHdghDlHMNfH1WKSiuvljhdmBACW4ta4LC3gKurX2qZuiBARvPkephW9V/i5S8QPY1PzFEqg==
 
 "@swc/core@^1.13.5":
   version "1.14.0"
@@ -270,32 +275,32 @@
   dependencies:
     "@swc/counter" "^0.1.3"
 
-"@tauri-apps/api@^2.10.1", "@tauri-apps/api@^2.8.0":
-  version "2.10.1"
-  resolved "https://registry.npmjs.org/@tauri-apps/api/-/api-2.10.1.tgz"
-  integrity sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==
+"@tauri-apps/api@^2.10.1", "@tauri-apps/api@^2.11.0", "@tauri-apps/api@^2.8.0", "@tauri-apps/api@2.11":
+  version "2.11.0"
+  resolved "https://registry.npmjs.org/@tauri-apps/api/-/api-2.11.0.tgz"
+  integrity sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==
 
-"@tauri-apps/cli-darwin-arm64@2.10.1":
-  version "2.10.1"
-  resolved "https://registry.npmjs.org/@tauri-apps/cli-darwin-arm64/-/cli-darwin-arm64-2.10.1.tgz"
-  integrity sha512-Z2OjCXiZ+fbYZy7PmP3WRnOpM9+Fy+oonKDEmUE6MwN4IGaYqgceTjwHucc/kEEYZos5GICve35f7ZiizgqEnQ==
+"@tauri-apps/cli-win32-x64-msvc@2.11.1":
+  version "2.11.1"
+  resolved "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-2.11.1.tgz"
+  integrity sha512-b3ORhIAKgp9ZYY+zBt7b7r0kLU2kjvyGF0+MS2SBym3emsweGPybEqocJcmtMuxyBhkOKHP4CiuEJEDuAlTx6A==
 
-"@tauri-apps/cli@^2.10.1":
-  version "2.10.1"
-  resolved "https://registry.npmjs.org/@tauri-apps/cli/-/cli-2.10.1.tgz"
-  integrity sha512-jQNGF/5quwORdZSSLtTluyKQ+o6SMa/AUICfhf4egCGFdMHqWssApVgYSbg+jmrZoc8e1DscNvjTnXtlHLS11g==
+"@tauri-apps/cli@2.11":
+  version "2.11.1"
+  resolved "https://registry.npmjs.org/@tauri-apps/cli/-/cli-2.11.1.tgz"
+  integrity sha512-rpEbaJ/HzNb6fwsquwoAbq29/Vt4gADhS423A8fdkwL4edJ0wZmoB8ar7O6JPDL834MUKOCm/rrJ7c9oAaEaYQ==
   optionalDependencies:
-    "@tauri-apps/cli-darwin-arm64" "2.10.1"
-    "@tauri-apps/cli-darwin-x64" "2.10.1"
-    "@tauri-apps/cli-linux-arm-gnueabihf" "2.10.1"
-    "@tauri-apps/cli-linux-arm64-gnu" "2.10.1"
-    "@tauri-apps/cli-linux-arm64-musl" "2.10.1"
-    "@tauri-apps/cli-linux-riscv64-gnu" "2.10.1"
-    "@tauri-apps/cli-linux-x64-gnu" "2.10.1"
-    "@tauri-apps/cli-linux-x64-musl" "2.10.1"
-    "@tauri-apps/cli-win32-arm64-msvc" "2.10.1"
-    "@tauri-apps/cli-win32-ia32-msvc" "2.10.1"
-    "@tauri-apps/cli-win32-x64-msvc" "2.10.1"
+    "@tauri-apps/cli-darwin-arm64" "2.11.1"
+    "@tauri-apps/cli-darwin-x64" "2.11.1"
+    "@tauri-apps/cli-linux-arm-gnueabihf" "2.11.1"
+    "@tauri-apps/cli-linux-arm64-gnu" "2.11.1"
+    "@tauri-apps/cli-linux-arm64-musl" "2.11.1"
+    "@tauri-apps/cli-linux-riscv64-gnu" "2.11.1"
+    "@tauri-apps/cli-linux-x64-gnu" "2.11.1"
+    "@tauri-apps/cli-linux-x64-musl" "2.11.1"
+    "@tauri-apps/cli-win32-arm64-msvc" "2.11.1"
+    "@tauri-apps/cli-win32-ia32-msvc" "2.11.1"
+    "@tauri-apps/cli-win32-x64-msvc" "2.11.1"
 
 "@tauri-apps/plugin-autostart@^2.5.1":
   version "2.5.1"
@@ -304,7 +309,7 @@
   dependencies:
     "@tauri-apps/api" "^2.8.0"
 
-"@tauri-apps/plugin-process@^2":
+"@tauri-apps/plugin-process@^2.3.1":
   version "2.3.1"
   resolved "https://registry.npmjs.org/@tauri-apps/plugin-process/-/plugin-process-2.3.1.tgz"
   integrity sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==
@@ -318,7 +323,14 @@
   dependencies:
     "@tauri-apps/api" "^2.10.1"
 
-"@tauri-apps/plugin-updater@^2":
+"@tauri-apps/plugin-store@^2.4.3":
+  version "2.4.3"
+  resolved "https://registry.npmjs.org/@tauri-apps/plugin-store/-/plugin-store-2.4.3.tgz"
+  integrity sha512-9LWPj9yMphRi9czEtUv87XHbl1b6xgd9EXpPrUnq6nG7+nbtoF84d4Kwz9xhAv/Hf30sr58pq7EOlyI936y8qw==
+  dependencies:
+    "@tauri-apps/api" "^2.11.0"
+
+"@tauri-apps/plugin-updater@^2.10.1":
   version "2.10.1"
   resolved "https://registry.npmjs.org/@tauri-apps/plugin-updater/-/plugin-updater-2.10.1.tgz"
   integrity sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==
@@ -415,13 +427,13 @@ asynckit@^0.4.0:
   integrity sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==
 
 axios@^1.13.1:
-  version "1.13.5"
-  resolved "https://registry.npmjs.org/axios/-/axios-1.13.5.tgz"
-  integrity sha512-cz4ur7Vb0xS4/KUN0tPWe44eqxrIu31me+fbang3ijiNscE129POzipJJA6zniq2C/Z6sJCjMimjS8Lc/GAs8Q==
+  version "1.16.0"
+  resolved "https://registry.npmjs.org/axios/-/axios-1.16.0.tgz"
+  integrity sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==
   dependencies:
-    follow-redirects "^1.15.11"
+    follow-redirects "^1.16.0"
     form-data "^4.0.5"
-    proxy-from-env "^1.1.0"
+    proxy-from-env "^2.1.0"
 
 balanced-match@^1.0.0:
   version "1.0.2"
@@ -798,10 +810,10 @@ flatted@^3.2.9:
   resolved "https://registry.npmjs.org/flatted/-/flatted-3.4.2.tgz"
   integrity sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==
 
-follow-redirects@^1.15.11:
-  version "1.15.11"
-  resolved "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.11.tgz"
-  integrity sha512-deG2P0JfjrTxl50XGCDyfI97ZGVCxIpfKYmfyrQ54n5FO/0gfIES8C/Psl6kWVDolizcaaxZJnTS0QSMxvnsBQ==
+follow-redirects@^1.16.0:
+  version "1.16.0"
+  resolved "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.0.tgz"
+  integrity sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==
 
 form-data@^4.0.5:
   version "4.0.5"
@@ -813,11 +825,6 @@ form-data@^4.0.5:
     es-set-tostringtag "^2.1.0"
     hasown "^2.0.2"
     mime-types "^2.1.12"
-
-fsevents@~2.3.2, fsevents@~2.3.3:
-  version "2.3.3"
-  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
-  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
 
 function-bind@^1.1.2:
   version "1.1.2"
@@ -1188,9 +1195,9 @@ picocolors@^1.1.1:
   integrity sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==
 
 postcss@^8.5.6:
-  version "8.5.6"
-  resolved "https://registry.npmjs.org/postcss/-/postcss-8.5.6.tgz"
-  integrity sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==
+  version "8.5.14"
+  resolved "https://registry.npmjs.org/postcss/-/postcss-8.5.14.tgz"
+  integrity sha512-SoSL4+OSEtR99LHFZQiJLkT59C5B1amGO1NzTwj7TT1qCUgUO6hxOvzkOYxD+vMrXBM3XJIKzokoERdqQq/Zmg==
   dependencies:
     nanoid "^3.3.11"
     picocolors "^1.1.1"
@@ -1201,10 +1208,10 @@ prelude-ls@^1.2.1:
   resolved "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.2.1.tgz"
   integrity sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==
 
-proxy-from-env@^1.1.0:
-  version "1.1.0"
-  resolved "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.1.0.tgz"
-  integrity sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==
+proxy-from-env@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-2.1.0.tgz"
+  integrity sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==
 
 psl@^1.1.33:
   version "1.15.0"
@@ -1524,9 +1531,9 @@ usehooks-ts@3.1.1:
     lodash.debounce "^4.0.8"
 
 "vite@^4 || ^5 || ^6 || ^7", "vite@^6.0.0 || ^7.0.0 || ^8.0.0", vite@^7.1.7:
-  version "7.3.2"
-  resolved "https://registry.npmjs.org/vite/-/vite-7.3.2.tgz"
-  integrity sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg==
+  version "7.3.3"
+  resolved "https://registry.npmjs.org/vite/-/vite-7.3.3.tgz"
+  integrity sha512-/4XH147Ui7OGTjg3HbdWe5arnZQSbfuRzdr9Ec7TQi5I7R+ir0Rlc9GIvD4v0XZurELqA035KVXJXpR61xhiTA==
   dependencies:
     esbuild "^0.27.0"
     fdir "^6.5.0"
