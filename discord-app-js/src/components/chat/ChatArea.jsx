@@ -49,6 +49,13 @@ function ChatArea({ clan, channel }) {
   const { showDesktopNotification } = useDesktopMessageNotifications(channel?.name);
   
 
+  // OS bildirim izni iste
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
     if (!token) return;
@@ -112,17 +119,27 @@ function ChatArea({ clan, channel }) {
             }
             console.log('[SignalR] Normalized message:', normalized);
 
-            // Bildirim sesi çal (Eğer mesaj bizden değilse)
+            // Bildirim sesi çal ve OS bildirimi gönder (Eğer mesaj bizden değilse)
             const currentId = user?.id || user?.sub || '';
             if (normalized.senderId !== currentId) {
                 try {
                     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
                     audio.volume = 0.5;
-                    audio.play().catch(() => {
-                        // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
-                    });
+                    audio.play().catch(() => {});
                 } catch (err) {
                     console.warn('Bildirim sesi çalınamadı:', err);
+                }
+
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const senderName = normalized.userName || 'Birisi';
+                    const body = normalized.content?.length > 100
+                        ? normalized.content.slice(0, 97) + '...'
+                        : normalized.content || '';
+                    new Notification(senderName, {
+                        body,
+                        tag: `msg-${normalized.channelId}`,
+                        silent: true,
+                    });
                 }
             }
 

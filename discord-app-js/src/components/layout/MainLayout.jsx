@@ -97,7 +97,26 @@ function MainLayout() {
         setLoadingClans(true);
         const data = await ClanService.getMyClans();
         console.log('Fetched clans:', data);
-        setClans(data || []);
+
+        // Kaydedilmiş klan sırasını uygula
+        let ordered = data || [];
+        try {
+          const savedOrder = JSON.parse(localStorage.getItem('clanOrder') || '[]');
+          if (savedOrder.length > 0) {
+            ordered = [...ordered].sort((a, b) => {
+              const ai = savedOrder.indexOf(a.clanId);
+              const bi = savedOrder.indexOf(b.clanId);
+              return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+            });
+          }
+        } catch { /* localStorage okuma hatası */ }
+
+        setClans(ordered);
+
+        // URL'de klan seçili değilse ilk klanı otomatik seç
+        if (!urlClanId && ordered.length > 0) {
+          setSelectedClan(ordered[0]);
+        }
       } catch (error) {
         console.error('Failed to fetch clans', error);
       } finally {
@@ -154,6 +173,13 @@ function MainLayout() {
         setChannels(data.channels || []);
         setVoiceChannels(data.voiceChannels || []);
         setMemberships(data.clanMemberships || []);
+
+        // URL'de kanal seçili değilse ilk metin kanalını otomatik seç
+        if (!urlChannelId && data.channels?.length > 0) {
+          const first = data.channels[0];
+          setSelectedChannel(first);
+          navigate(`/app/clans/${selectedClan.clanId}/channels/${first.channelId}`);
+        }
       } catch (error) {
         console.error('Failed to fetch channels', error);
       }
@@ -503,6 +529,11 @@ function MainLayout() {
     }
   };
 
+  const handleReorderClans = useCallback((reorderedClans) => {
+    setClans(reorderedClans);
+    localStorage.setItem('clanOrder', JSON.stringify(reorderedClans.map((c) => c.clanId)));
+  }, []);
+
   const handleLogout = () => {
     logout();
   };
@@ -584,6 +615,7 @@ function MainLayout() {
         selectedClanId={selectedClan?.clanId}
         onSelectClan={handleSelectClan}
         onCreateClan={() => setShowCreateModal(true)}
+        onReorder={handleReorderClans}
       />
 
       <ChannelSidebar
@@ -643,6 +675,8 @@ function MainLayout() {
           outputVolume={outputVolume}
           isMicMuted={isMicMuted}
           userVolumes={userVolumes}
+          inputDevice={selectedInputDevice}
+          outputDevice={selectedOutputDevice}
         />
       )}
 
