@@ -63,6 +63,7 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
         return (
           <div
             key={clan.clanId}
+            className="server-list__clan-item"
             draggable
             onDragStart={(e) => handleDragStart(e, clan.clanId)}
             onDragOver={(e) => handleDragOver(e, clan.clanId)}
