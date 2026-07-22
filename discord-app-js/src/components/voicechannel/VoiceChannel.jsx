@@ -93,7 +93,11 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     const enc = presets[quality] || presets.medium;
     try {
       await localParticipant.setScreenShareEnabled(true, {
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+        },
         selfBrowserSurface: 'include',
         contentHint: quality === 'high' ? 'detail' : 'motion',
         resolution: { width: enc.width, height: enc.height, frameRate: enc.maxFramerate },

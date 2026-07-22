@@ -36,13 +36,28 @@ const VoiceService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Bağlantı hatası: ${response.status} ${response.statusText}`);
+        throw new Error(`Ses kanalına bağlanılamadı (${response.status}). Lütfen tekrar deneyin.`);
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
-      throw error;
+      console.error('[VoiceService] joinRoom hatası:', error);
+
+      if (error instanceof TypeError) {
+        // "Failed to fetch" gibi ham network hataları burada yakalanır
+        throw new Error('Ses sunucusuna ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      }
+
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+
+      if (error.message?.startsWith('Ses kanalına bağlanılamadı')) {
+        throw error;
+      }
+
+      throw new Error('Ses kanalına bağlanırken beklenmeyen bir hata oluştu.');
     }
   }
 };

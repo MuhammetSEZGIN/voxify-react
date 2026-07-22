@@ -83,7 +83,9 @@ export async function startConnection(token) {
       pendingListeners.forEach(({ event, callback }) => {
         connection.on(event, callback);
       });
-      // Kuyruğu temizleme — off ile eşleştirme gerekebilir
+      // Kuyruğu temizle: connection.on() zaten kaydetti, tekrar eklenmemeli
+      // (stopConnection + startConnection döngüsünde çift tetiklenmeyi önler).
+      pendingListeners.length = 0;
 
       return connection;
     } catch (error) {

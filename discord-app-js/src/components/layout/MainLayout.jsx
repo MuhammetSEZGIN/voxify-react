@@ -71,6 +71,13 @@ function MainLayout() {
     return membership?.role?.toLowerCase() || 'member';
   }, [selectedClan, memeberShips, user]);
 
+  // Klan ID'lerinin stabil bir anahtarı — sıralama/oluşturma/silme işlemlerinde
+  // `clans` referansı değişse bile içerik aynıysa presence effect'i tetiklememeli.
+  const clanIdsKey = useMemo(
+    () => clans.map((c) => c.clanId).join(','),
+    [clans]
+  );
+
   const canManage = userRole === 'owner' || userRole === 'admin';
 
   const showToast = useCallback((message, type = 'info') => {
@@ -304,7 +311,7 @@ function MainLayout() {
 
   // Connect to PresenceHub once and manage subscriptions across clan changes
   useEffect(() => {
-    if (!clans.length || loadingClans) return;
+    if (!clanIdsKey || loadingClans) return;
 
     const token = localStorage.getItem('token');
     const clanIds = clans.map((c) => c.clanId);
@@ -437,7 +444,10 @@ function MainLayout() {
       setVoicePresence({});
       setOnlineUserIds(new Set());
     };
-  }, [clans, loadingClans]);
+    // clans içeriği aynı kalırken referansı değişmesi bu effect'i tetiklememeli;
+    // bu yüzden clans yerine stabil clanIdsKey kullanılıyor (bkz. güncelleme planı #6).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clanIdsKey, loadingClans]);
 
   // When the selected clan changes, fetch voice channel participants & online members
   useEffect(() => {

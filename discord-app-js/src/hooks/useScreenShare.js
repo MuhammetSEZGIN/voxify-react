@@ -60,7 +60,11 @@ export function useScreenShare() {
     if (!localParticipant) return;
     try {
       await localParticipant.setScreenShareEnabled(true, {
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+        },
         selfBrowserSurface: 'include',
       });
     } catch (err) {

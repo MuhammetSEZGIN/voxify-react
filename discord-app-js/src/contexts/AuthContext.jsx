@@ -9,18 +9,24 @@ const authStore = new LazyStore("auth.json", { autoSave: true });
 
 // Hem store hem localStorage'a yaz (servisler localStorage'dan okur)
 async function persistSet(key, value) {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  localStorage.setItem(key, serialized);
   try {
-    const serialized = typeof value === "string" ? value : JSON.stringify(value);
-    localStorage.setItem(key, serialized);
     await authStore.set(key, value);
-  } catch { /* ignore */ }
+  } catch (error) {
+    // localStorage yazımı başarılı oldu ama Tauri store diskte diverge etti —
+    // bir sonraki restart'ta persistGet localStorage'a düşer, ama en azından loglanmalı.
+    console.error(`[Auth] authStore.set("${key}") başarısız, localStorage ile senkron değil:`, error);
+  }
 }
 
 async function persistRemove(key) {
+  localStorage.removeItem(key);
   try {
-    localStorage.removeItem(key);
     await authStore.delete(key);
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Auth] authStore.delete("${key}") başarısız, localStorage ile senkron değil:`, error);
+  }
 }
 
 // Store'dan oku; boşsa localStorage'a bak (update sonrası kurtarma)
