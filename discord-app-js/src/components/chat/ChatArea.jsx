@@ -515,7 +515,7 @@ function ChatArea({ clan, channel }) {
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, url);
+      await SignalRService.sendMessage(channel.channelId, clan?.clanId, url);
     } catch (err) {
       console.error('Failed to send GIF via SignalR:', err);
       setMessages((prev) => prev.filter((m) => m.messageId !== optimisticMsg.messageId));
@@ -559,7 +559,7 @@ function ChatArea({ clan, channel }) {
         const senderId = user?.id || user?.sub || '';
         const userName = user?.userName || user?.username || user?.name || 'Unknown';
         
-        await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, publicUrl);
+        await SignalRService.sendMessage(channel.channelId, clan?.clanId, publicUrl);
         
         // Inputu temizle
         e.target.value = '';
@@ -600,7 +600,7 @@ function ChatArea({ clan, channel }) {
     setNewMessage('');
 
     try {
-      await SignalRService.sendMessage(channel.channelId, clan?.clanId, senderId, userName, content);
+      await SignalRService.sendMessage(channel.channelId, clan?.clanId, content);
     } catch (err) {
       console.error('Failed to send message via SignalR:', err);
       // Optimistik mesajı kaldır ve input'a geri koy

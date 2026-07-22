@@ -12,6 +12,7 @@ function ChannelSidebar({
   onSelectVoiceChannel,
   user,
   onLogout,
+  onOpenAccountSettings,
   onCreateChannel,
   onCreateVoiceChannel,
   onUpdateChannel,
@@ -133,6 +134,10 @@ function ChannelSidebar({
 
               {showUserMenu && (
                 <div className="channel-sidebar__user-dropdown">
+                  <button className="channel-sidebar__user-dropdown-item" onClick={onOpenAccountSettings}>
+                    <span className="material-symbols-outlined">person</span>
+                    Profil ve Ayarlar
+                  </button>
                   <button className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
                     <span className="material-symbols-outlined">logout</span>
                     Çıkış Yap

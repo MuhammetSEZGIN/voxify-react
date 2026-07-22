@@ -2,7 +2,7 @@
  * SignalR bağlantı servisi - MessageHub entegrasyonu.
  *
  * Backend Hub metotları:
- *   - SendMessage(channelId, senderId, userName, message)
+ *   - SendMessage(channelId, clanId, message) — senderId/userName JWT'den (Context.UserIdentifier) türetilir
  *   - UpdateMessage(messageId, newContent)
  *   - JoinChannel(channelId)
  *   - LeaveChannel(channelId)
@@ -151,13 +151,12 @@ export async function leaveChannel(channelId) {
 
 /**
  * Mesaj gönder (Hub üzerinden).
+ * senderId/userName artık backend'de JWT'den türetiliyor, client'tan alınmıyor.
  * @param {string} channelId
  * @param {string} clanId
- * @param {string} senderId
- * @param {string} userName
  * @param {string} message
  */
-export async function sendMessage(channelId, clanId, senderId, userName, message) {
+export async function sendMessage(channelId, clanId, message) {
   // Bağlantı kuruluyorsa bekle
   if (connectionPromise) {
     await connectionPromise;
@@ -165,7 +164,7 @@ export async function sendMessage(channelId, clanId, senderId, userName, message
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     throw new Error('SignalR bağlantısı yok');
   }
-  await connection.invoke('SendMessage', channelId, clanId, senderId, userName, message);
+  await connection.invoke('SendMessage', channelId, clanId, message);
 }
 
 /**

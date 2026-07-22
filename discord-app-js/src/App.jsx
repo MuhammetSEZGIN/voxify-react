@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ConfirmEmailPage from "./pages/ConfirmEmailPage";
 import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import MainLayout from "./components/layout/MainLayout";
@@ -44,6 +45,7 @@ function App() {
             path="/register"
             element={isAuthenticated ? <Navigate to="/app" replace /> : <RegisterPage />}
           />
+          <Route path="/confirm-email" element={<ConfirmEmailPage />} />
           <Route
             path="/app"
             element={

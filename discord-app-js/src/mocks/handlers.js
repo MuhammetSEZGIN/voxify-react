@@ -170,5 +170,168 @@ export const handlers = [
     });
   }),
 
- 
+  // ===== Şifre değiştirme / e-posta doğrulama =====
+  http.post(`${API_URL}/identity/user/change-password`, async ({ request }) => {
+    const { currentPassword, newPassword } = await request.json();
+
+    if (!currentPassword || !newPassword) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Mevcut ve yeni şifre gereklidir' },
+        { status: 400 }
+      );
+    }
+    if (currentPassword !== 'password123') {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Mevcut şifre yanlış' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'Şifre başarıyla değiştirildi',
+      data: { message: 'Şifre başarıyla değiştirildi' },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/auth/resend-confirmation-email`, async ({ request }) => {
+    const { userId } = await request.json();
+
+    if (!userId) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'userId gereklidir' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'Doğrulama e-postası gönderildi',
+      data: { message: 'Doğrulama e-postası gönderildi' },
+    });
+  }),
+
+  http.get(`${API_URL}/identity/auth/confirm-email`, ({ request }) => {
+    const url = new URL(request.url);
+    const token = url.searchParams.get('token');
+    const userId = url.searchParams.get('userId');
+
+    if (!token || !userId) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Doğrulama bağlantısı eksik bilgi içeriyor' },
+        { status: 400 }
+      );
+    }
+    if (token === 'invalid-token') {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Doğrulama bağlantısının süresi dolmuş veya geçersiz' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'E-posta başarıyla doğrulandı',
+      data: { message: 'E-posta başarıyla doğrulandı', emailConfirmed: true },
+    });
+  }),
+
+  // ===== Kullanıcı profili =====
+  http.get(`${API_URL}/identity/user/me`, ({ request }) => {
+    const token = request.headers.get('Authorization');
+    if (!token) {
+      return HttpResponse.json({ isSuccessfull: false, message: 'Yetkisiz' }, { status: 401 });
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: {
+        id: 'user-001',
+        userName: 'testuser',
+        email: 'test@example.com',
+        emailConfirmed: false,
+        avatarUrl: null,
+        bio: '',
+      },
+    });
+  }),
+
+  http.put(`${API_URL}/identity/user`, async ({ request }) => {
+    const updates = await request.json();
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: {
+        id: 'user-001',
+        userName: updates.userName ?? 'testuser',
+        email: 'test@example.com',
+        emailConfirmed: false,
+        avatarUrl: updates.avatarUrl ?? null,
+        bio: updates.bio ?? '',
+      },
+    });
+  }),
+
+  // ===== Kullanıcı arama (arkadaş ekleme akışında da kullanılır) =====
+  http.get(`${API_URL}/identity/user/search`, ({ request }) => {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+
+    const allUsers = [
+      { id: 'user-001', userName: 'testuser', avatarUrl: null },
+      { id: 'user-002', userName: 'user2', avatarUrl: null },
+      { id: 'user-003', userName: 'gamer_ali', avatarUrl: null },
+    ];
+
+    const results = q
+      ? allUsers.filter((u) => u.userName.toLowerCase().includes(q))
+      : [];
+
+    return HttpResponse.json({ isSuccessfull: true, data: results });
+  }),
+
+  // ===== Arkadaşlık =====
+  http.get(`${API_URL}/identity/friendship`, () => {
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: [
+        { id: 'user-002', userName: 'user2', avatarUrl: null },
+      ],
+    });
+  }),
+
+  http.get(`${API_URL}/identity/friendship/requests`, () => {
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: {
+        incoming: [
+          { id: 'req-001', requesterId: 'user-003', requesterUserName: 'gamer_ali', requesterAvatarUrl: null, createdAt: new Date().toISOString() },
+        ],
+        outgoing: [],
+      },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests`, async ({ request }) => {
+    const { addresseeId } = await request.json();
+    if (!addresseeId) {
+      return HttpResponse.json({ isSuccessfull: false, message: 'addresseeId gereklidir' }, { status: 400 });
+    }
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: { id: `req-${Date.now()}`, addresseeId, status: 'Pending' },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests/:id/accept`, ({ params }) => {
+    return HttpResponse.json({ isSuccessfull: true, data: { id: params.id, status: 'Accepted' } });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests/:id/reject`, ({ params }) => {
+    return HttpResponse.json({ isSuccessfull: true, data: { id: params.id, status: 'Rejected' } });
+  }),
+
+  http.delete(`${API_URL}/identity/friendship/:friendUserId`, ({ params }) => {
+    return HttpResponse.json({ isSuccessfull: true, data: { removed: params.friendUserId } });
+  }),
 ];

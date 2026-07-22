@@ -14,11 +14,15 @@ import UserVolumeContextMenu from '../voicechannel/UserVolumeContextMenu';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
+import AccountSettings from '../account/AccountSettings';
+import FriendsPanel from '../friends/FriendsPanel';
+import DmChatArea from '../friends/DmChatArea';
+import DmService from '../../services/DmService';
 import * as PresenceService from '../../services/PresenceService';
 import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
 
 function MainLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const { clanId: urlClanId, channelId: urlChannelId } = useParams();
 
@@ -44,6 +48,11 @@ function MainLayout() {
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showClanSettings, setShowClanSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [accountSettingsTab, setAccountSettingsTab] = useState('profile');
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
+  const [activeDmConversation, setActiveDmConversation] = useState(null);
+  const [dmError, setDmError] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -208,7 +217,22 @@ function MainLayout() {
     setSelectedChannel(null);
     setChannels([]);
     setVoiceChannels([]);
+    setActiveDmConversation(null);
     navigate('/app');
+  };
+
+  const handleOpenDm = async (friend) => {
+    setDmError(null);
+    try {
+      const conversation = await DmService.getOrCreateConversation(friend.id);
+      setActiveDmConversation({
+        conversationId: conversation.conversationId,
+        otherUserId: friend.id,
+        otherUserName: friend.userName,
+      });
+    } catch (err) {
+      setDmError(err.message);
+    }
   };
 
   const handleSelectChannel = (channel) => {
@@ -621,6 +645,27 @@ function MainLayout() {
 
   return (
     <div className="discord-app">
+      {user && user.emailConfirmed === false && !emailBannerDismissed && (
+        <div className="email-verify-banner">
+          <span className="material-symbols-outlined">mail</span>
+          <p className="email-verify-banner__text">
+            E-posta adresiniz henüz doğrulanmadı.
+          </p>
+          <button
+            className="email-verify-banner__action"
+            onClick={() => { setAccountSettingsTab('email'); setShowAccountSettings(true); }}
+          >
+            Doğrula
+          </button>
+          <button
+            className="email-verify-banner__dismiss"
+            onClick={() => setEmailBannerDismissed(true)}
+            aria-label="Kapat"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      )}
       <ServerList
         clans={clans}
         selectedClanId={selectedClan?.clanId}
@@ -639,6 +684,7 @@ function MainLayout() {
         onSelectVoiceChannel={handleSelectVoiceChannel}
         user={user}
         onLogout={handleLogout}
+        onOpenAccountSettings={() => { setAccountSettingsTab('profile'); setShowAccountSettings(true); }}
         onCreateChannel={handleCreateChannel}
         onCreateVoiceChannel={handleCreateVoiceChannel}
         onUpdateChannel={handleUpdateChannel}
@@ -669,10 +715,29 @@ function MainLayout() {
         setNoiseSuppressionEnabled={setNoiseSuppressionEnabled}
       />
 
-      <ChatArea
-        clan={selectedClan}
-        channel={selectedChannel}
-      />
+      {selectedClan ? (
+        <ChatArea
+          clan={selectedClan}
+          channel={selectedChannel}
+        />
+      ) : activeDmConversation ? (
+        <DmChatArea
+          conversation={activeDmConversation}
+          onBack={() => setActiveDmConversation(null)}
+        />
+      ) : (
+        <FriendsPanel
+          user={user}
+          onlineUserIds={onlineUserIds}
+          onOpenDm={handleOpenDm}
+        />
+      )}
+      {dmError && (
+        <div className="app-toast app-toast--error" role="alert">
+          <span className="material-symbols-outlined">error</span>
+          <span>{dmError}</span>
+        </div>
+      )}
 
       {activeVoiceChannel && (
         <VoiceChannel
@@ -716,6 +781,15 @@ function MainLayout() {
           onDeleteClan={handleDeleteClan}
           onUpdateMemberRole={handleUpdateMemberRole}
           onKickMember={handleKickMember}
+        />
+      )}
+
+      {showAccountSettings && (
+        <AccountSettings
+          user={user}
+          initialTab={accountSettingsTab}
+          onClose={() => setShowAccountSettings(false)}
+          onProfileUpdated={updateUser}
         />
       )}
 

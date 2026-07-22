@@ -201,6 +201,15 @@ function AuthProvider({ children }) {
     }
   }, []);
 
+  // Profil güncellemesi gibi backend'den dönen kısmi verilerle in-memory user'ı yeniler.
+  const updateUser = useCallback(async (updates) => {
+    setUser((prev) => {
+      const next = { ...prev, ...updates };
+      persistSet("user", next);
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       if (user?.sessionId) await AuthService.logoutSession(user.sessionId);
@@ -215,8 +224,8 @@ function AuthProvider({ children }) {
   }, [user?.sessionId]);
 
   const value = useMemo(
-    () => ({ user, token, isAuthenticated: !!token, loading, login, register, logout }),
-    [user, token, loading, login, register, logout]
+    () => ({ user, token, isAuthenticated: !!token, loading, login, register, logout, updateUser }),
+    [user, token, loading, login, register, logout, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
