@@ -14,18 +14,27 @@
  */
 
 import * as signalR from '@microsoft/signalr';
+import { resolveHubUrl } from '../utils/hubUrl';
 
-const HUB_URL =
-  import.meta.env.VITE_HUB_URL ||
-  (import.meta.env.VITE_BASE_URL
-    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/messagehub'
-    : 'http://localhost:5074/hubs/message');
+const HUB_URL = resolveHubUrl({
+  explicitUrl: import.meta.env.VITE_HUB_URL,
+  baseUrl: import.meta.env.VITE_BASE_URL,
+  localPort: 5107,
+  path: '/messagehub',
+});
 
 console.info('[LiveMessageService] HUB_URL:', HUB_URL);
 let connection = null;
 let connectionPromise = null;
-// Bağlantı kurulmadan önce eklenen dinleyicileri saklayacak kuyruk
-const pendingListeners = [];
+// Dinleyiciler bağlantıdan bağımsız tutulur. Böylece bağlantı kurulurken
+// kaydedilen callback'ler iki kez eklenmez ve yeni bağlantıya otomatik taşınır.
+const listeners = new Map();
+
+function attachListeners(target) {
+  for (const [event, callbacks] of listeners) {
+    for (const callback of callbacks) target.on(event, callback);
+  }
+}
 
 /**
  * Mevcut bağlantıyı döndürür (veya null).
@@ -51,9 +60,10 @@ export async function startConnection(token) {
     return connectionPromise;
   }
 
-  connectionPromise = (async () => {
+  const startPromise = (async () => {
+    let nextConnection;
     try {
-      connection = new signalR.HubConnectionBuilder()
+      nextConnection = new signalR.HubConnectionBuilder()
         .withUrl(HUB_URL, {
           accessTokenFactory: () => token,
         })
@@ -61,60 +71,53 @@ export async function startConnection(token) {
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
+      connection = nextConnection;
+      attachListeners(nextConnection);
+
       // Bağlantı durumu loglama
-      connection.onreconnecting((error) => {
+      nextConnection.onreconnecting((error) => {
         console.warn('[SignalR] Yeniden bağlanılıyor...', error);
       });
 
-      connection.onreconnected((connectionId) => {
+      nextConnection.onreconnected((connectionId) => {
         console.info('[SignalR] Yeniden bağlandı:', connectionId);
       });
 
-      connection.onclose((error) => {
+      nextConnection.onclose((error) => {
         console.warn('[SignalR] Bağlantı kapandı', error);
-        connection = null;
-        connectionPromise = null;
+        if (connection === nextConnection) connection = null;
       });
 
-      await connection.start();
+      await nextConnection.start();
       console.info('[SignalR] Bağlantı kuruldu');
 
-      // Bağlantı kurulmadan önce kuyrukta bekleyen dinleyicileri kaydet
-      pendingListeners.forEach(({ event, callback }) => {
-        connection.on(event, callback);
-      });
-      // Kuyruğu temizle: connection.on() zaten kaydetti, tekrar eklenmemeli
-      // (stopConnection + startConnection döngüsünde çift tetiklenmeyi önler).
-      pendingListeners.length = 0;
-
-      return connection;
+      return nextConnection;
     } catch (error) {
       console.error('[SignalR] Bağlantı hatası:', error);
-      connection = null;
-      connectionPromise = null;
+      if (connection === nextConnection) connection = null;
       throw error;
+    } finally {
+      if (connectionPromise === startPromise) connectionPromise = null;
     }
   })();
 
-  return connectionPromise;
+  connectionPromise = startPromise;
+
+  return startPromise;
 }
 
 /**
  * Bağlantıyı durdur.
  */
 export async function stopConnection() {
-  if (connection) {
-    try {
-      await connection.stop();
-    } catch (error) {
-      console.error('[SignalR] Bağlantı durdurma hatası:', error);
-    }
-    if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
-      await connection.stop();
-      console.info('[SignalR] Bağlantı güvenle kapatıldı.');
-    }
-    connection = null;
-    connectionPromise = null;
+  const current = connection;
+  connection = null;
+  connectionPromise = null;
+  if (!current) return;
+  try {
+    await current.stop();
+  } catch (error) {
+    console.error('[SignalR] Bağlantı durdurma hatası:', error);
   }
 }
 
@@ -165,27 +168,7 @@ export async function sendMessage(channelId, clanId, message) {
     throw new Error('SignalR bağlantısı yok');
   }
 
-  try {
-    await connection.invoke('SendMessage', channelId, clanId, message);
-  } catch (error) {
-    // BACKEND-DOĞRULA (madde 1.3): Hub'ın `clanId = null` (DM) durumunu
-    // desteklediği doğrulanamadı — hub metotları HTTP'den keşfedilemiyor.
-    // Destek yoksa hata burada patlar; DM'lerde mesaj gönderilememesinin en
-    // olası sebebi bu. REST üzerinden gönderme alternatifi YOK (MessageService
-    // swagger'ında POST /api/Message bulunmuyor), bu yüzden fallback yerine
-    // teşhis edilebilir bir mesaj veriyoruz.
-    if (clanId == null) {
-      console.error(
-        '[SignalR] DM gönderimi başarısız (clanId=null). Backend MessageHub.SendMessage ' +
-        'nullable clanId desteklemiyor olabilir — bkz. backend-gereksinimleri-dm.md madde 1.3.',
-        error
-      );
-      throw new Error(
-        'Mesaj gönderilemedi. Sunucu doğrudan mesajları henüz desteklemiyor olabilir.'
-      );
-    }
-    throw error;
-  }
+  await connection.invoke('SendMessage', channelId, clanId, message);
 }
 
 /**
@@ -218,11 +201,14 @@ export async function deleteMessage(messageId, channelId) {
  * @param {Function} callback
  */
 export function on(event, callback) {
-  if (connection) {
-    connection.on(event, callback);
+  let callbacks = listeners.get(event);
+  if (!callbacks) {
+    callbacks = new Set();
+    listeners.set(event, callbacks);
   }
-  // Bağlantı henüz kurulmamışsa kuyruğa ekle
-  pendingListeners.push({ event, callback });
+  if (callbacks.has(callback)) return;
+  callbacks.add(callback);
+  connection?.on(event, callback);
 }
 
 /**
@@ -231,12 +217,10 @@ export function on(event, callback) {
  * @param {Function} callback
  */
 export function off(event, callback) {
-  if (connection) {
-    connection.off(event, callback);
-  }
-  // Kuyruktan da kaldır
-  const idx = pendingListeners.findIndex((l) => l.event === event && l.callback === callback);
-  if (idx !== -1) pendingListeners.splice(idx, 1);
+  connection?.off(event, callback);
+  const callbacks = listeners.get(event);
+  callbacks?.delete(callback);
+  if (callbacks?.size === 0) listeners.delete(event);
 }
 
 const SignalRService = {

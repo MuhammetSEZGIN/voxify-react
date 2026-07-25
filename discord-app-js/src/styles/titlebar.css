@@ -1,86 +1,124 @@
-.titlebar {
-  height: 32px;
-  background: var(--bg-dark, #101922);
-  user-select: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
-  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+:root {
+  --titlebar-height: 32px;
 }
 
-.titlebar-drag-region {
-  flex-grow: 1;
+html,
+body,
+#root {
+  width: 100%;
   height: 100%;
+  overflow: hidden;
+}
+
+.app-shell {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-dark, #101922);
+}
+
+.titlebar {
+  position: relative;
+  z-index: 9999;
+  width: 100%;
+  height: var(--titlebar-height);
+  flex: 0 0 var(--titlebar-height);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  overflow: hidden;
+  user-select: none;
+  background: var(--bg-dark, #101922);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+}
+
+.titlebar__drag-region {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   padding-left: 10px;
 }
 
-.titlebar-logo-container {
+.titlebar__brand {
   display: flex;
   align-items: center;
   gap: 8px;
   pointer-events: none;
 }
 
-.titlebar-logo {
+.titlebar__logo {
   width: 18px;
   height: 18px;
   object-fit: contain;
   filter: drop-shadow(0 0 2px rgba(43, 140, 238, 0.5));
 }
 
-.titlebar-title-text {
+.titlebar__title {
   color: var(--text-muted, #828890);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.titlebar-controls {
-  display: flex;
+.titlebar__controls {
   height: 100%;
+  flex: 0 0 auto;
+  display: flex;
 }
 
-.titlebar-button {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
+.titlebar__button {
   width: 46px;
   height: 100%;
-  transition: background-color 0.15s ease, color 0.15s ease;
-  color: var(--text-muted, #828890);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  outline: 0;
   background: transparent;
-  border: none;
-  outline: none;
+  color: var(--text-muted, #828890);
   cursor: default;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.titlebar-button:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: var(--text-light, #E1E1E6);
+.titlebar__button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-light, #e1e1e6);
 }
 
-.titlebar-button.close:hover {
-  background-color: #e81123;
-  color: #ffffff;
+.titlebar__button--close:hover:not(:disabled) {
+  background: #e81123;
+  color: #fff;
 }
 
-.titlebar-button svg {
+.titlebar__button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--primary, #2b8cee);
+}
+
+.titlebar__button:disabled {
+  opacity: 0.45;
+}
+
+.titlebar__button svg {
   width: 10px;
   height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
 }
 
-/* Give padding to the main container so it's not hidden behind titlebar */
 .app-container {
-  padding-top: 32px;
-  height: 100vh;
-  background: var(--bg-dark);
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-dark, #101922);
 }

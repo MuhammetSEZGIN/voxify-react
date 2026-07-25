@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
@@ -6,6 +6,31 @@ import useDesktopMessageNotifications from '../../hooks/useDesktopMessageNotific
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
+
+function groupMessagesBySender(messages) {
+  const groups = [];
+  for (const message of messages) {
+    const lastGroup = groups[groups.length - 1];
+    const lastMessage = lastGroup?.messages[lastGroup.messages.length - 1];
+    if (
+      lastGroup &&
+      lastGroup.userName === message.userName &&
+      lastGroup.senderId === message.senderId &&
+      Math.abs(new Date(message.createdAt) - new Date(lastMessage.createdAt)) < 60000
+    ) {
+      lastGroup.messages.push(message);
+    } else {
+      groups.push({
+        userName: message.userName,
+        senderId: message.senderId,
+        avatarUrl: message.avatarUrl,
+        createdAt: message.createdAt,
+        messages: [message],
+      });
+    }
+  }
+  return groups;
+}
 
 
 /**
@@ -30,6 +55,7 @@ function ChatArea({
   onBack,
   onToggleVoiceCall,
   isVoiceCallActive = false,
+  voiceCallPhase = null,
 }) {
   const isDm = variant === 'dm';
 
@@ -122,6 +148,9 @@ function ChatArea({
     setPage(1);
     setHasMore(true);
     loadMessages(newId, 1, true);
+    // Mesaj yükleme bu effect'in içinde hedef değişiminde çalışmalı; render-başına
+    // yeniden oluşan yardımcı fonksiyon dependency olursa gereksiz REST döngüsü oluşur.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId]);
 
     // SignalR'dan gelen mesajları dinle
@@ -223,14 +252,32 @@ function ChatArea({
       }
     };
 
+    const showHubFailure = (message) => {
+      setSendError(message);
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+    };
+    const handleSendFailed = (reason) => showHubFailure(reason || 'Mesaj gönderilemedi.');
+    const handleUpdateFailed = () => showHubFailure('Mesaj düzenlenemedi.');
+    const handleDeleteFailed = () => showHubFailure('Mesaj silinemedi.');
+    const handleJoinFailed = () => showHubFailure('Bu sohbete erişim iznin yok.');
+
     SignalRService.on('ReceiveMessage', handleReceive);
     SignalRService.on('MessageUpdated', handleUpdated);
     SignalRService.on('MessageDeleted', handleDeleted);
+    SignalRService.on('MessageSendFailed', handleSendFailed);
+    SignalRService.on('MessageUpdateFailed', handleUpdateFailed);
+    SignalRService.on('MessageDeleteFailed', handleDeleteFailed);
+    SignalRService.on('JoinChannelFailed', handleJoinFailed);
 
     return () => {
       SignalRService.off('ReceiveMessage', handleReceive);
       SignalRService.off('MessageUpdated', handleUpdated);
       SignalRService.off('MessageDeleted', handleDeleted);
+      SignalRService.off('MessageSendFailed', handleSendFailed);
+      SignalRService.off('MessageUpdateFailed', handleUpdateFailed);
+      SignalRService.off('MessageDeleteFailed', handleDeleteFailed);
+      SignalRService.off('JoinChannelFailed', handleJoinFailed);
     };
   }, [showDesktopNotification, user, targetId]);
 
@@ -252,6 +299,8 @@ function ChatArea({
     }
 
     return () => observer.disconnect();
+    // loadMoreMessages güncel state'i yukarıdaki dependency'lerden okur.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, loading, loadingMore, targetId, page]);
 
   useEffect(() => {
@@ -295,33 +344,6 @@ function ChatArea({
   };
 
   /**
-   * Mesajları grupla: aynı kullanıcıdan 1 dakika içinde gelen mesajlar tek blok.
-   */
-  const groupMessages = (msgs) => {
-    const groups = [];
-    for (const msg of msgs) {
-      const lastGroup = groups[groups.length - 1];
-      if (
-        lastGroup &&
-        lastGroup.userName === msg.userName &&
-        lastGroup.senderId === msg.senderId &&
-        Math.abs(new Date(msg.createdAt) - new Date(lastGroup.messages[lastGroup.messages.length - 1].createdAt)) < 60000
-      ) {
-        lastGroup.messages.push(msg);
-      } else {
-        groups.push({
-          userName: msg.userName,
-          senderId: msg.senderId,
-          avatarUrl: msg.avatarUrl,
-          createdAt: msg.createdAt,
-          messages: [msg],
-        });
-      }
-    }
-    return groups;
-  };
-
-  /**
    * API yanıtından mesaj listesini çıkar — .NET $values sarması dahil.
    */
   const extractMessages = (data) => {
@@ -340,6 +362,9 @@ function ChatArea({
     console.warn('[ChatArea] Beklenmeyen mesaj formatı:', data);
     return [];
   };
+
+  // Composer'daki her tuş vuruşunda uzun mesaj geçmişini yeniden gruplama.
+  const groupedMessages = useMemo(() => groupMessagesBySender(messages), [messages]);
 
   const loadMessages = async (channelId, pageNum = 1, isInitial = false) => {
     if (isInitial) {
@@ -410,8 +435,12 @@ function ChatArea({
     if (!window.confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
 
     try {
-      await MessageService.deleteMessage(messageId, targetClanId);
-      setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
+      if (isDm) {
+        await SignalRService.deleteMessage(messageId, targetId);
+      } else {
+        await MessageService.deleteMessage(messageId, targetClanId);
+        setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
+      }
     } catch (err) {
       console.error('Failed to delete message via MessageService:', err);
       setSendError('Mesaj silinemedi.');
@@ -450,11 +479,15 @@ function ChatArea({
     handleCancelEdit();
 
     try {
-      await MessageService.editMessage({
-        messageId,
-        clanId: targetClanId,
-        content: trimmed,
-      });
+      if (isDm) {
+        await SignalRService.updateMessage(messageId, trimmed);
+      } else {
+        await MessageService.editMessage({
+          messageId,
+          clanId: targetClanId,
+          content: trimmed,
+        });
+      }
     } catch (err) {
       console.error('Failed to update message via MessageService:', err);
       // Geri al
@@ -469,10 +502,6 @@ function ChatArea({
 
   const handleContextMenu = (e, msg, isOwn) => {
     if (!isOwn) return; // Sadece kendi mesajlarında context menu
-    // DM'lerde düzenle/sil kapalı: MessageService.editMessage/deleteMessage
-    // clanId bekliyor ve DM karşılığı backend'de henüz doğrulanmadı
-    // (bkz. guncelleme-plani.md madde 3).
-    if (isDm) return;
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, messageId: msg.messageId });
   };
@@ -786,20 +815,24 @@ function ChatArea({
           )}
         </div>
 
-        {/* DM sesli görüşme — konuşma başına tek kalıcı oda */}
+        {/* DM sesli arama — backend zil/kabul durum makinesini yönetir. */}
         {isDm && onToggleVoiceCall && (
           <div className="chat-area__header-actions">
             <button
               type="button"
               className={`chat-area__call-btn ${isVoiceCallActive ? 'chat-area__call-btn--active' : ''}`}
               onClick={() => onToggleVoiceCall(conversation)}
-              title={isVoiceCallActive ? 'Görüşmeden ayrıl' : 'Sesli görüşme başlat'}
+              title={isVoiceCallActive ? 'Görüşmeyi bitir' : 'Sesli arama başlat'}
             >
               <span className="material-symbols-outlined">
                 {isVoiceCallActive ? 'call_end' : 'call'}
               </span>
               <span className="chat-area__call-btn-label">
-                {isVoiceCallActive ? 'Ayrıl' : 'Sesli Görüşme'}
+                {isVoiceCallActive
+                  ? 'Bitir'
+                  : ['starting', 'ringing'].includes(voiceCallPhase)
+                    ? 'Aranıyor...'
+                    : 'Sesli Ara'}
               </span>
             </button>
           </div>
@@ -833,7 +866,7 @@ function ChatArea({
               </p>
             </div>
           ) : (
-            groupMessages(messages).map((group, gi) => {
+            groupedMessages.map((group, gi) => {
               const currentUserId = user?.id || user?.sub || '';
               const isOwn = group.senderId === currentUserId || group.userName === (user?.userName || user?.name);
               return (
@@ -1093,4 +1126,4 @@ function ChatArea({
   );
 }
 
-export default ChatArea;
+export default memo(ChatArea);

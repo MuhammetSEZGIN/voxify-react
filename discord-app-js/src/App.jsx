@@ -21,8 +21,8 @@ function App() {
   }, []);
 
   return (
-    <>
-     <TitleBar />
+    <div className="app-shell">
+      <TitleBar />
       <UpdateNotification
         updateInfo={updateInfo}
         status={status}
@@ -31,7 +31,7 @@ function App() {
         onInstall={installUpdate}
         onDismiss={dismiss}
       />
-      <div className="app-container">
+      <main className="app-container">
         <Routes>
           <Route
             path="/"
@@ -71,8 +71,8 @@ function App() {
             }
           />
         </Routes>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
 

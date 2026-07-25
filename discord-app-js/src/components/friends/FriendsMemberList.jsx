@@ -58,17 +58,28 @@ function FriendsMemberList({
       return undefined;
     }
     setSearching(true);
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const results = await UserService.searchUsers(searchQuery.trim());
+        const results = await UserService.searchUsers(
+          searchQuery.trim(),
+          1,
+          20,
+          controller.signal
+        );
         setSearchResults((results || []).filter((u) => u.id !== currentUserId));
       } catch (err) {
-        setAddFeedback(err.message);
+        if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+          setAddFeedback(err.message);
+        }
       } finally {
-        setSearching(false);
+        if (!controller.signal.aborted) setSearching(false);
       }
     }, 400);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery, showAddPanel, currentUserId]);
 
   const { online, offline } = useMemo(() => {

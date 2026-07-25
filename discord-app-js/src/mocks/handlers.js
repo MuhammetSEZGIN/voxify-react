@@ -6,7 +6,7 @@ const IDENTITY_URL = import.meta.env.VITE_IDENTITY_URL || 'http://localhost:5158
 // Mock data
 
 const mockFriends = [
-  { id: 'user-002', userName: 'user2', avatarUrl: null },
+  { id: 'friendship-002', userId: 'user-002', userName: 'user2', avatarUrl: null, status: 'Accepted' },
 ];
 
 const mockFriendRequests = [
@@ -28,11 +28,25 @@ const mockConversations = [];
 // { [conversationId]: MessageDto[] } — DM mesaj geçmişi
 const mockDmMessages = {};
 
+const mockNotifications = [
+  {
+    id: 'notification-001',
+    type: 'FriendRequestReceived',
+    title: 'Yeni arkadaşlık isteği',
+    body: 'gamer_ali sana arkadaşlık isteği gönderdi.',
+    actorUserId: 'user-003',
+    targetId: 'req-001',
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    readAt: null,
+  },
+];
+
 function getOrCreateMockConversation(otherUserId) {
   const existing = mockConversations.find((c) => c.otherUserId === otherUserId);
   if (existing) return existing;
 
-  const friend = mockFriends.find((f) => f.id === otherUserId);
+  const friend = mockFriends.find((f) => f.userId === otherUserId);
   const conversation = {
     // Gerçek backend'de conversationId'nin channelId ile aynı olduğu
     // varsayılıyor (bkz. backend-gereksinimleri-dm.md madde 1.2).
@@ -59,7 +73,7 @@ function getOrCreateMockConversation(otherUserId) {
   return conversation;
 }
 
-const mockMessages = {
+const _mockMessages = {
   'ch-1111-0001': [
     {
       messageId: 'msg-0001',
@@ -112,7 +126,7 @@ const mockMessages = {
     },
   ],
 };
-const mockClans = [
+const _mockClans = [
   {
     clanId: 'c1a1a1a1-1111-1111-1111-111111111111',
     name: 'Genel Sunucu',
@@ -142,7 +156,7 @@ const mockClans = [
   },
 ];
 
-const mockChannels = {
+const _mockChannels = {
   'c1a1a1a1-1111-1111-1111-111111111111': [
     { channelId: 'ch-1111-0001', name: 'genel', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
     { channelId: 'ch-1111-0002', name: 'duyurular', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
@@ -158,7 +172,7 @@ const mockChannels = {
   ],
 };
 
-const mockVoiceChannels = {
+const _mockVoiceChannels = {
   'c1a1a1a1-1111-1111-1111-111111111111': [
     { voiceChannelId: 'vc-1111-0001', name: 'Sohbet 1', clanId: 'c1a1a1a1-1111-1111-1111-111111111111', isActive: true, maxParticipants: 10 },
   ],
@@ -248,12 +262,12 @@ export const handlers = [
     });
   }),
 
-  http.post(`${API_URL}/identity/auth/resend-confirmation-email`, async ({ request }) => {
-    const { userId } = await request.json();
+  http.post(`${API_URL}/identity/resend-confirmation-email`, async ({ request }) => {
+    const { email } = await request.json();
 
-    if (!userId) {
+    if (!email) {
       return HttpResponse.json(
-        { isSuccessfull: false, message: 'userId gereklidir' },
+        { isSuccessfull: false, message: 'email gereklidir' },
         { status: 400 }
       );
     }
@@ -265,7 +279,7 @@ export const handlers = [
     });
   }),
 
-  http.get(`${API_URL}/identity/auth/confirm-email`, ({ request }) => {
+  http.get(`${API_URL}/identity/confirm-email`, ({ request }) => {
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
     const userId = url.searchParams.get('userId');
@@ -310,7 +324,7 @@ export const handlers = [
     });
   }),
 
-  http.put(`${API_URL}/identity/user`, async ({ request }) => {
+  http.put(`${API_URL}/identity/user/update`, async ({ request }) => {
     const updates = await request.json();
 
     return HttpResponse.json({
@@ -368,7 +382,13 @@ export const handlers = [
     const idx = mockFriendRequests.findIndex((r) => r.id === params.id);
     if (idx !== -1) {
       const [accepted] = mockFriendRequests.splice(idx, 1);
-      mockFriends.push({ id: accepted.userId, userName: accepted.userName, avatarUrl: accepted.avatarUrl });
+      mockFriends.push({
+        id: `friendship-${accepted.userId}`,
+        userId: accepted.userId,
+        userName: accepted.userName,
+        avatarUrl: accepted.avatarUrl,
+        status: 'Accepted',
+      });
     }
     return HttpResponse.json({ isSuccessfull: true, data: { id: params.id, status: 'Accepted' } });
   }),
@@ -380,39 +400,77 @@ export const handlers = [
   }),
 
   http.delete(`${API_URL}/identity/friendship/:friendUserId`, ({ params }) => {
-    const idx = mockFriends.findIndex((f) => f.id === params.friendUserId);
+    const idx = mockFriends.findIndex((f) => f.userId === params.friendUserId);
     if (idx !== -1) mockFriends.splice(idx, 1);
     return HttpResponse.json({ isSuccessfull: true, data: { removed: params.friendUserId } });
   }),
 
   // ===== DM konuşmaları =====
-  // Gerçek backend route'u `/message/api/Dm/conversations` (swagger'dan
-  // doğrulandı). Ocelot'un prefix'i soyup soymadığı kesinleşmediği için
-  // servisler iki biçimi de deniyor; mock da ikisini de karşılıyor.
-  ...['api/Dm', 'dm'].flatMap((seg) => [
-    http.post(`${API_URL}/message/${seg}/conversations`, async ({ request }) => {
+  http.post(`${API_URL}/message/dm/conversations`, async ({ request }) => {
       const { otherUserId } = await request.json();
       if (!otherUserId) {
         return HttpResponse.json({ message: 'otherUserId gereklidir' }, { status: 400 });
       }
       return HttpResponse.json(getOrCreateMockConversation(otherUserId));
-    }),
+  }),
 
-    http.get(`${API_URL}/message/${seg}/conversations`, () => {
-      return HttpResponse.json(mockConversations);
-    }),
-  ]),
+  http.get(`${API_URL}/message/dm/conversations`, () => {
+    return HttpResponse.json(mockConversations);
+  }),
 
   // ===== DM mesaj geçmişi =====
-  // clanId'siz genel route: GET /api/Message?channelId=…
-  ...['api/Message', ''].map((seg) =>
-    http.get(`${API_URL}/message${seg ? `/${seg}` : ''}`, ({ request }) => {
-      const url = new URL(request.url);
-      const channelId = url.searchParams.get('channelId');
-      if (!channelId) {
-        return HttpResponse.json({ message: 'channelId gereklidir' }, { status: 400 });
-      }
-      return HttpResponse.json(mockDmMessages[channelId] || []);
-    })
+  http.get(`${API_URL}/message`, ({ request }) => {
+    const url = new URL(request.url);
+    const channelId = url.searchParams.get('channelId');
+    if (!channelId) {
+      return HttpResponse.json({ message: 'channelId gereklidir' }, { status: 400 });
+    }
+    return HttpResponse.json(mockDmMessages[channelId] || []);
+  }),
+
+  // ===== Kalıcı bildirimler =====
+  http.get(`${API_URL}/notification`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page')) || 1;
+    const limit = Number(url.searchParams.get('limit')) || 20;
+    const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
+    const filtered = unreadOnly
+      ? mockNotifications.filter((item) => !item.isRead)
+      : mockNotifications;
+    const start = (page - 1) * limit;
+    return HttpResponse.json({
+      items: filtered.slice(start, start + limit),
+      page,
+      limit,
+      total: filtered.length,
+    });
+  }),
+
+  http.get(`${API_URL}/notification/unread-count`, () =>
+    HttpResponse.json({ count: mockNotifications.filter((item) => !item.isRead).length })
   ),
+
+  http.post(`${API_URL}/notification/:id/read`, ({ params }) => {
+    const item = mockNotifications.find((notification) => notification.id === params.id);
+    if (!item) return HttpResponse.json({}, { status: 404 });
+    item.isRead = true;
+    item.readAt = new Date().toISOString();
+    return HttpResponse.json(item);
+  }),
+
+  http.post(`${API_URL}/notification/read-all`, () => {
+    const readAt = new Date().toISOString();
+    mockNotifications.forEach((item) => {
+      item.isRead = true;
+      item.readAt = readAt;
+    });
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.delete(`${API_URL}/notification/:id`, ({ params }) => {
+    const index = mockNotifications.findIndex((item) => item.id === params.id);
+    if (index === -1) return HttpResponse.json({}, { status: 404 });
+    mockNotifications.splice(index, 1);
+    return HttpResponse.json({ success: true });
+  }),
 ];

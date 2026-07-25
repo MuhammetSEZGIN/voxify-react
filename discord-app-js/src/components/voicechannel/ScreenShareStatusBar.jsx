@@ -5,7 +5,7 @@ import React, { useState } from 'react';
  * Ses kanalı bağlantısı aktifken voice-status-panel'in ÜSTÜNDE görünen
  * ince ekran paylaşımı kontrol çubuğu.
  */
-function ScreenShareStatusBar({ activeVoiceChannel, voiceState, onWatchOwnShare }) {
+function ScreenShareStatusBar({ activeVoiceChannel, voiceState }) {
   const [quality, setQuality] = useState('medium');
 
   if (!activeVoiceChannel || !voiceState) return null;

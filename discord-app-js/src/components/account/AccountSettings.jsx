@@ -69,8 +69,8 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
     setPasswordError(null);
     setPasswordSuccess(null);
 
-    if (newPassword.length < 8) {
-      setPasswordError('Yeni şifre en az 8 karakter olmalıdır');
+    if (newPassword.length < 6) {
+      setPasswordError('Yeni şifre en az 6 karakter olmalıdır');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -93,11 +93,10 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
   };
 
   const handleSendConfirmation = async () => {
-    const userId = user?.id || user?.sub || '';
     setEmailSending(true);
     setEmailError(null);
     try {
-      await UserService.resendConfirmationEmail(userId);
+      await UserService.resendConfirmationEmail(user?.email || '');
       setEmailSent(true);
     } catch (err) {
       setEmailError(err.message);
@@ -224,7 +223,7 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={8}
+                    minLength={6}
                     required
                   />
                 </div>
@@ -235,7 +234,7 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    minLength={8}
+                    minLength={6}
                     required
                   />
                 </div>

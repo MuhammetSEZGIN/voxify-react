@@ -24,9 +24,12 @@ import FriendService from '../../services/FriendService';
 import * as PresenceService from '../../services/PresenceService';
 import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
 import { directVoiceRoomId } from '../../utils/space';
+import NotificationCenter from '../notifications/NotificationCenter';
+import DmCallOverlay from '../calls/DmCallOverlay';
+import useDmCall from '../../hooks/useDmCall';
 
 function MainLayout() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, token, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const { clanId: urlClanId, channelId: urlChannelId } = useParams();
 
@@ -50,6 +53,8 @@ function MainLayout() {
   // PresenceHub bağlantısı kurulduğu anda o anki arkadaş listesi için de
   // online-durum sorgusu atabilmek için (bkz. presence connect effect'i).
   const friendsRef = useRef([]);
+  const friendIdsRef = useRef([]);
+  const awaitingFriendSnapshotRef = useRef(false);
 
   /** Belirtilen ID'ler için sunucudan online durumu sorgular (ateşle-unut). */
   const queryOnlineStatus = useCallback((userIds) => {
@@ -58,6 +63,19 @@ function MainLayout() {
     PresenceService.getOnlineUsers(ids).catch((err) =>
       console.error('[Presence] getOnlineUsers failed', err)
     );
+  }, []);
+
+  /** Arkadaş listesinin tamamını push presence aboneliği olarak değiştirir. */
+  const subscribeFriendPresence = useCallback(async (userIds) => {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    friendIdsRef.current = ids;
+    awaitingFriendSnapshotRef.current = true;
+    try {
+      await PresenceService.subscribeToUsers(ids);
+    } catch (error) {
+      awaitingFriendSnapshotRef.current = false;
+      throw error;
+    }
   }, []);
   const selectedChannelRef = useRef(null);
   const [memeberShips, setMemberships] = useState([]);
@@ -170,6 +188,8 @@ function MainLayout() {
       }
     };
     fetchClans();
+    // Yalnızca ilk açılışta yükle; URL değişikliği ayrı effect'te uzlaştırılır.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // URL'deki clanId değiştiğinde selectedClan'ı güncelle
@@ -231,9 +251,11 @@ function MainLayout() {
       }
     };
     fetchChannels();
+    // Kanal URL'si değiştiğinde tekrar REST isteği atma; effect'in sahibi klan seçimidir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClan]);
 
-  const handleSelectClan = (clan) => {
+  const handleSelectClan = useCallback((clan) => {
     if (!clan) {
       setSelectedClan(null);
       setSelectedChannel(null);
@@ -251,9 +273,9 @@ function MainLayout() {
     setIsFriendsActive(false);
     setActiveDmConversation(null);
     navigate('/app');
-  };
+  }, [navigate]);
 
-  const handleSelectFriends = () => {
+  const handleSelectFriends = useCallback(() => {
     setSelectedClan(null);
     setSelectedChannel(null);
     setChannels([]);
@@ -261,7 +283,7 @@ function MainLayout() {
     setIsFriendsActive(true);
     setActiveDmConversation(null);
     navigate('/app');
-  };
+  }, [navigate]);
 
   const loadFriendsList = useCallback(async () => {
     try {
@@ -294,6 +316,34 @@ function MainLayout() {
   const handleRefreshFriends = useCallback(async () => {
     await Promise.all([loadFriendsList(), loadFriendRequests()]);
   }, [loadFriendsList, loadFriendRequests]);
+
+  const handleNotificationReceived = useCallback((notification) => {
+    if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
+      handleRefreshFriends().catch((error) => {
+        console.error('[Notification] Arkadaş verisi yenilenemedi', error);
+      });
+    }
+  }, [handleRefreshFriends]);
+
+  const handleOpenNotification = useCallback((notification) => {
+    if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
+      handleSelectFriends();
+      return;
+    }
+    if (['DirectMessageReceived', 'MissedCall'].includes(notification?.type) && notification.targetId) {
+      const actor = friendsRef.current.find((friend) => friend.id === notification.actorUserId);
+      setSelectedClan(null);
+      setSelectedChannel(null);
+      setIsFriendsActive(true);
+      setActiveDmConversation({
+        conversationId: notification.targetId,
+        otherUserId: notification.actorUserId || actor?.id || '',
+        otherUserName: actor?.userName || notification.title || 'Doğrudan Mesaj',
+        otherAvatarUrl: actor?.avatarUrl || null,
+      });
+      navigate('/app');
+    }
+  }, [handleSelectFriends, navigate]);
 
   const handleSendFriendRequest = useCallback(async (addresseeId) => {
     await FriendService.sendRequest(addresseeId);
@@ -331,6 +381,8 @@ function MainLayout() {
       setDmError(err.message);
     }
   }, []);
+
+  const handleCloseDm = useCallback(() => setActiveDmConversation(null), []);
 
   const handleMemberContextMenu = useCallback((e, member, isSelf) => {
     e.preventDefault();
@@ -452,11 +504,18 @@ function MainLayout() {
     }
   }, [queryOnlineStatus]);
 
-  const handleDisconnectVoice = useCallback(() => {
+  const handleDisconnectVoice = useCallback((skipCallSignal = false) => {
     // Report leaving to presence hub before clearing state.
-    // DM odalarında presence'a hiç katılmadığımız için ayrılma da bildirilmez.
     const channel = activeVoiceChannelRef.current;
     if (channel?.isDirect) {
+      if (voiceConnectedRef.current) {
+        PresenceService.leaveVoiceChannel()
+          .catch((err) => console.error('[Presence] leave DM voice failed', err));
+      }
+      if (!skipCallSignal && channel.callId) {
+        PresenceService.endCall(channel.callId)
+          .catch((err) => console.error('[Presence] end call failed', err));
+      }
       playVoicePresenceNotification();
       activeVoiceChannelRef.current = null;
       voiceConnectedRef.current = false;
@@ -484,35 +543,78 @@ function MainLayout() {
     setVoiceState(null);
   }, [playVoicePresenceNotification, user]);
 
-  /**
-   * DM sesli görüşmesini başlatır/kapatır.
-   *
-   * Klan ses kanallarıyla aynı `activeVoiceChannel` state'ini kullanır — sadece
-   * `voiceChannelId` olarak `dm-{conversationId}` geçer. Böylece VoiceChannel,
-   * ekran paylaşımı, ses ayarları ve UserBar hiç değişmeden çalışır.
-   *
-   * DM'de kanal oluşturma/silme yoktur: konuşma başına tek kalıcı oda.
-   */
-  const handleToggleDmVoice = useCallback((conversation) => {
-    if (!conversation?.conversationId) return;
-    const roomId = directVoiceRoomId(conversation.conversationId);
+  const handleCallAccepted = useCallback((acceptedCall) => {
+    if (!acceptedCall?.conversationId) return;
+    const roomId = acceptedCall.roomId || directVoiceRoomId(acceptedCall.conversationId);
     const current = activeVoiceChannelRef.current;
+    if (current?.voiceChannelId !== roomId && current) handleDisconnectVoice();
 
-    // Aynı odadaysak → ayrıl (toggle)
-    if (current?.voiceChannelId === roomId) {
-      handleDisconnectVoice();
-      return;
-    }
-    // Başka bir odadaysak önce oradan çık
-    if (current) handleDisconnectVoice();
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+    const otherUserId = acceptedCall.callerUserId === currentUserId
+      ? acceptedCall.calleeUserId
+      : acceptedCall.callerUserId;
+    const friend = friendsRef.current.find((item) => item.id === otherUserId);
 
     setActiveVoiceChannel({
       voiceChannelId: roomId,
-      name: conversation.otherUserName || 'Doğrudan Görüşme',
+      name: acceptedCall.otherUserName || friend?.userName || 'Doğrudan Görüşme',
       isDirect: true,
-      conversationId: conversation.conversationId,
+      conversationId: acceptedCall.conversationId,
+      callId: acceptedCall.callId,
     });
+  }, [handleDisconnectVoice, user]);
+
+  const handleCallEnded = useCallback((endedCall) => {
+    const active = activeVoiceChannelRef.current;
+    if (active?.isDirect && (!endedCall?.callId || active.callId === endedCall.callId)) {
+      handleDisconnectVoice(true);
+    }
   }, [handleDisconnectVoice]);
+
+  const {
+    call: dmCallState,
+    error: dmCallError,
+    startCall,
+    accept: acceptDmCall,
+    reject: rejectDmCall,
+    cancel: cancelDmCall,
+    end: endDmCall,
+    dismiss: dismissDmCall,
+  } = useDmCall({
+    onAccepted: handleCallAccepted,
+    onEnded: handleCallEnded,
+  });
+
+  /** DM butonu odaya doğrudan girmez; backend durum makinesinde zil başlatır. */
+  const handleToggleDmVoice = useCallback((conversation) => {
+    if (!conversation?.conversationId) return;
+    const currentCall = dmCallState;
+    if (currentCall?.conversationId === conversation.conversationId) {
+      if (currentCall.phase === 'accepted') {
+        endDmCall();
+        handleDisconnectVoice(true);
+      } else if (['starting', 'ringing'].includes(currentCall.phase)) {
+        cancelDmCall();
+      }
+      return;
+    }
+    startCall(conversation);
+  }, [cancelDmCall, dmCallState, endDmCall, handleDisconnectVoice, startCall]);
+
+  const handleEndActiveDmCall = useCallback(() => {
+    endDmCall();
+    handleDisconnectVoice(true);
+  }, [endDmCall, handleDisconnectVoice]);
+
+  const dmCallDisplayName = useMemo(() => {
+    if (!dmCallState) return '';
+    if (dmCallState.otherUserName) return dmCallState.otherUserName;
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+    const otherUserId = dmCallState.callerUserId === currentUserId
+      ? dmCallState.calleeUserId
+      : dmCallState.callerUserId;
+    return friends.find((friend) => friend.id === otherUserId)?.userName || 'Bir kullanıcı';
+  }, [dmCallState, friends, user]);
 
   // Keep ref in sync so handleDisconnectVoice always sees the latest channel
   useEffect(() => {
@@ -522,18 +624,22 @@ function MainLayout() {
   useEffect(() => { friendsRef.current = friends; }, [friends]);
   useEffect(() => { selectedChannelRef.current = selectedChannel; }, [selectedChannel]);
 
-  // Report joining to presence hub once LiveKit room connects (voiceState null → non-null)
-  //
-  // DM ses odaları (activeVoiceChannel.isDirect) presence'a bildirilmez:
-  // PresenceHub'ın tüm imzaları clanId merkezli ve DM karşılığı backend'de
-  // henüz yok (bkz. backend-gereksinimleri-dm.md madde 3.2). Bu bloklayıcı
-  // değil — LiveKit'in kendi katılımcı listesi odaya girildikten sonra zaten
-  // kimin bağlı olduğunu veriyor; eksik olan sadece "girmeden önce karşı taraf
-  // seste mi?" göstergesi.
+  // LiveKit bağlandığında Presence'a tek kez katılım bildir.
   useEffect(() => {
     if (activeVoiceChannel?.isDirect) {
-      if (voiceState) voiceConnectedRef.current = true;
-      else voiceConnectedRef.current = false;
+      if (voiceState && !voiceConnectedRef.current && user) {
+        voiceConnectedRef.current = true;
+        const userName = user.userName || user.name || user.email || 'User';
+        PresenceService.subscribeToConversations([activeVoiceChannel.conversationId])
+          .then(() => PresenceService.joinVoiceChannel(
+            null,
+            activeVoiceChannel.voiceChannelId,
+            userName
+          ))
+          .then(playVoicePresenceNotification)
+          .catch((err) => console.error('[Presence] join DM voice failed', err));
+      }
+      if (!voiceState) voiceConnectedRef.current = false;
       return;
     }
     if (voiceState && !voiceConnectedRef.current && activeVoiceChannel && selectedClan && user) {
@@ -556,9 +662,8 @@ function MainLayout() {
 
   // Connect to PresenceHub once and manage subscriptions across clan changes
   useEffect(() => {
-    if (!clanIdsKey || loadingClans) return;
+    if (loadingClans || !token) return;
 
-    const token = localStorage.getItem('token');
     const clanIds = clans.map((c) => c.clanId);
 
     // ── Voice presence handlers ─────────────────────────────────────────
@@ -610,19 +715,21 @@ function MainLayout() {
       });
     };
 
-    // GetOnlineUsers hem klan üyeleri hem arkadaşlar için ayrı ayrı çağrılıyor
-    // (bkz. aşağıdaki friends effect'i), ama sunucudan gelen `OnlineUsers`
-    // cevabı hangi sorguya ait olduğunu belirtmiyor. Eskiden `new Set(userIds)`
-    // ile TÜM listeyi DEĞİŞTİRİYORDUK — bu yüzden ikinci sorgunun (örn. klan
-    // üyeleri) cevabı, ilk sorgunun (arkadaşlar) sonucunu siliyordu ve
-    // arkadaşlar sekmesinde herkes hep çevrimdışı görünüyordu.
-    //
-    // Düzeltme: `OnlineUsers` SADECE birleştirir (ekler), asla silmez.
-    // Çevrimdışı olma bilgisi zaten ayrı ve güvenilir bir kaynaktan geliyor:
-    // `UserOffline` tekil olayı (handleUserOffline). Bu, "hangi sorgunun
-    // cevabı bu?" belirsizliğini bir reconcile/sıralama hilesi olmadan çözer.
     const handleOnlineUsers = (userIds) => {
-      setOnlineUserIds((prev) => new Set([...prev, ...userIds]));
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (awaitingFriendSnapshotRef.current) {
+          for (const friendId of friendIdsRef.current) next.delete(friendId);
+          awaitingFriendSnapshotRef.current = false;
+        }
+        for (const userId of userIds) next.add(userId);
+        return next;
+      });
+    };
+
+    const handleSubscriptionFailed = (reason) => {
+      awaitingFriendSnapshotRef.current = false;
+      console.error('[Presence] Arkadaş aboneliği reddedildi:', reason);
     };
 
     // ── Deletion event handlers ────────────────────────────────────────────────────
@@ -657,8 +764,15 @@ function MainLayout() {
     };
 
     const handleReconnected = async () => {
-      console.info('[Presence] Yeniden bağlandi — klan abonelikleri yenileniyor');
-      await PresenceService.subscribeToClans(clanIds).catch(() => { });
+      console.info('[Presence] Yeniden bağlandı — abonelikler yenileniyor');
+      await Promise.all([
+        PresenceService.subscribeToClans(clanIds),
+        subscribeFriendPresence(friendIdsRef.current),
+      ]).catch((error) => console.error('[Presence] resubscribe failed', error));
+      const active = activeVoiceChannelRef.current;
+      if (active?.isDirect) {
+        PresenceService.subscribeToConversations([active.conversationId]).catch(() => {});
+      }
     };
 
     const connect = async () => {
@@ -672,28 +786,16 @@ function MainLayout() {
         PresenceService.onUserOnline(handleUserOnline);
         PresenceService.onUserOffline(handleUserOffline);
         PresenceService.onOnlineUsers(handleOnlineUsers);
+        PresenceService.onSubscriptionFailed(handleSubscriptionFailed);
         PresenceService.onChannelDeleted(handleChannelDeleted);
         PresenceService.onVoiceChannelDeleted(handleVoiceChannelDeleted);
         PresenceService.onClanDeleted(handleClanDeleted);
         PresenceService.onReconnected(handleReconnected);
 
-        // Subscribe to all user's clans for presence events
-        await PresenceService.subscribeToClans(clanIds);
-
-        // Arkadaşların online durumunu bağlantı kurulur kurulmaz sorgula.
-        //
-        // ÖNEMLİ DÜZELTME: `friends` state'i, klanlar yüklenmeden hemen
-        // (uygulama açılışında) API'den geliyor — ama bu PresenceHub
-        // bağlantı effect'i `clanIdsKey && !loadingClans` şartına bağlı,
-        // yani klanlar yüklenene kadar bağlantı kurulmuyor. Önceki
-        // düzeltmede "friends değişince sorgula" effect'i eklenmişti, ama
-        // `friends` zaten bağlantıdan ÖNCE set edildiği için o effect hiç
-        // yeniden tetiklenmiyordu — `getOnlineUsers` sessizce no-op oluyordu
-        // (PresenceService.js: bağlantı yoksa hiçbir şey yapmadan döner).
-        // Bu yüzden bağlantı kurulur kurulmaz o anki listeyi burada da
-        // sorguluyoruz; `friends` state'i sonradan değişirse ayrı effect
-        // (aşağıda) zaten devreye giriyor.
-        queryOnlineStatus(friendsRef.current.map((f) => f.id));
+        await Promise.all([
+          PresenceService.subscribeToClans(clanIds),
+          subscribeFriendPresence(friendsRef.current.map((friend) => friend.id)),
+        ]);
       } catch (err) {
         console.error('[Presence] connection failed', err);
       }
@@ -708,9 +810,11 @@ function MainLayout() {
       PresenceService.offUserOnline(handleUserOnline);
       PresenceService.offUserOffline(handleUserOffline);
       PresenceService.offOnlineUsers(handleOnlineUsers);
+      PresenceService.offSubscriptionFailed(handleSubscriptionFailed);
       PresenceService.offChannelDeleted(handleChannelDeleted);
       PresenceService.offVoiceChannelDeleted(handleVoiceChannelDeleted);
       PresenceService.offClanDeleted(handleClanDeleted);
+      PresenceService.offReconnected(handleReconnected);
       PresenceService.stopConnection();
       setVoicePresence({});
       setOnlineUserIds(new Set());
@@ -718,7 +822,7 @@ function MainLayout() {
     // clans içeriği aynı kalırken referansı değişmesi bu effect'i tetiklememeli;
     // bu yüzden clans yerine stabil clanIdsKey kullanılıyor (bkz. güncelleme planı #6).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clanIdsKey, loadingClans, queryOnlineStatus]);
+  }, [clanIdsKey, loadingClans, queryOnlineStatus, subscribeFriendPresence, token]);
 
   // When the selected clan changes, fetch voice channel participants & online members
   useEffect(() => {
@@ -738,20 +842,13 @@ function MainLayout() {
       const memberUserIds = memeberShips.map((m) => m.userId || m.user?.id || '').filter(Boolean);
       queryOnlineStatus(memberUserIds);
     }
-  }, [selectedClan?.clanId, memeberShips, queryOnlineStatus]);
+  }, [selectedClan, memeberShips, queryOnlineStatus]);
 
-  // Arkadaş listesi yüklendiğinde/değiştiğinde online durumlarını sorgula.
-  //
-  // ÖNEMLİ DÜZELTME: Bu sorgu daha önce HİÇ YAPILMIYORDU — sadece klan
-  // üyelerinin ID'leri PresenceHub'a soruluyordu. Bir arkadaş ortak klanınız
-  // yoksa (DM'in doğası gereği sık rastlanan durum) online durumu asla
-  // sorgulanmıyor, `onlineUserIds` setine hiç girmiyor ve arkadaşlar
-  // sekmesinde her zaman "çevrimdışı" görünüyordu.
   useEffect(() => {
-    if (friends.length === 0) return;
     const friendIds = friends.map((f) => f.id).filter(Boolean);
-    queryOnlineStatus(friendIds);
-  }, [friends, queryOnlineStatus]);
+    subscribeFriendPresence(friendIds)
+      .catch((err) => console.error('[Presence] subscribe friends failed', err));
+  }, [friends, subscribeFriendPresence]);
 
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
@@ -834,7 +931,6 @@ function MainLayout() {
 
   const handleLeaveClan = async () => {
     if (!selectedClan || !user) return;
-    const userId = user.id || user.sub || '';
     try {
       await ClanMembershipService.leaveClan(selectedClan.clanId);
       setClans((prev) => prev.filter((c) => c.clanId !== selectedClan.clanId));
@@ -960,6 +1056,13 @@ function MainLayout() {
         userRole={userRole}
         onLeaveClan={handleLeaveClan}
         onOpenClanSettings={() => setShowClanSettings(true)}
+        headerAccessory={(
+          <NotificationCenter
+            token={token}
+            onReceive={handleNotificationReceived}
+            onOpen={handleOpenNotification}
+          />
+        )}
         onWatchScreenShare={handleWatchScreenShare}
         onParticipantContextMenu={handleParticipantContextMenu}
       />
@@ -970,12 +1073,19 @@ function MainLayout() {
         <ChatArea
           variant="dm"
           conversation={activeDmConversation}
-          onBack={activeDmConversation ? () => setActiveDmConversation(null) : undefined}
+          onBack={activeDmConversation ? handleCloseDm : undefined}
           onToggleVoiceCall={handleToggleDmVoice}
           isVoiceCallActive={
             !!activeDmConversation &&
             activeVoiceChannel?.voiceChannelId ===
               directVoiceRoomId(activeDmConversation.conversationId)
+          }
+          voiceCallPhase={
+            dmCallState &&
+            activeDmConversation &&
+            dmCallState.conversationId === activeDmConversation.conversationId
+              ? dmCallState.phase
+              : null
           }
         />
       ) : (
@@ -990,6 +1100,18 @@ function MainLayout() {
           <span>{dmError}</span>
         </div>
       )}
+
+      <DmCallOverlay
+        call={dmCallState}
+        error={dmCallError}
+        displayName={dmCallDisplayName}
+        outputVolume={outputVolume}
+        onAccept={acceptDmCall}
+        onReject={rejectDmCall}
+        onCancel={cancelDmCall}
+        onEnd={handleEndActiveDmCall}
+        onDismiss={dismissDmCall}
+      />
 
       {activeVoiceChannel && (
         <VoiceChannel

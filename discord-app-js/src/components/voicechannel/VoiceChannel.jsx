@@ -71,7 +71,7 @@ class RnnoiseAudioProcessor {
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, screenShareQuality, isMicMuted, noiseSuppressionEnabled }) {
+function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, isMicMuted, noiseSuppressionEnabled }) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
@@ -80,7 +80,7 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
   const setupTokenRef = useRef(null);
 
   // Ekran paylaşımı hook'u
-  const { isScreenSharing, remoteScreenShares, startScreenShare, stopScreenShare } = useScreenShare();
+  const { isScreenSharing, remoteScreenShares, stopScreenShare } = useScreenShare();
 
   // Kalite bazlı ekran paylaşımı başlat
   const startScreenShareWithQuality = useCallback(async (quality = 'medium') => {
@@ -240,6 +240,7 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     startScreenShareWithQuality,
     stopScreenShare,
     remoteScreenShares,
+    isMicMuted,
   ]);
 
   return null;
@@ -266,7 +267,7 @@ const VoiceChannel = ({
       try {
         setLoading(true);
         setError(null);
-        const data = await VoiceService.joinRoom(roomId, userId, userName, abortController.signal);
+        const data = await VoiceService.joinRoom(roomId, abortController.signal);
         if (data && data.token) setToken(data.token);
         else throw new Error('Odadan geçerli bir token alınamadı.');
       } catch (err) {

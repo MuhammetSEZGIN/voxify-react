@@ -21,7 +21,13 @@ function unwrap(result, fallbackMessage) {
 async function getFriends() {
   try {
     const response = await api.get("/identity/friendship");
-    return unwrap(response.data, "Arkadaş listesi alınamadı");
+    const list = unwrap(response.data, "Arkadaş listesi alınamadı");
+    return (Array.isArray(list) ? list : []).map((friendship) => ({
+      ...friendship,
+      friendshipId: friendship.id,
+      // Kabul/ret friendship id, DM ve silme ise karşı tarafın userId'sini ister.
+      id: friendship.userId,
+    }));
   } catch (error) {
     const msg = error.response?.data?.message || error.message || "Arkadaş listesi alınırken bir hata oluştu";
     throw new Error(msg);

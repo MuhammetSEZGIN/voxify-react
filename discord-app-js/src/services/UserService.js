@@ -36,14 +36,13 @@ async function changePassword(currentPassword, newPassword) {
 
 /**
  * Kayıtlı e-postaya yeni bir doğrulama bağlantısı gönderilmesini ister.
- * POST /identity/auth/resend-confirmation-email — henüz login olmamış kullanıcılar
- * da çağırabildiği için userId body'de gönderilir, JWT şart değil.
- * @param {string} userId
+ * POST /identity/resend-confirmation-email
+ * @param {string} email
  * @returns {Promise<Object>}
  */
-async function resendConfirmationEmail(userId) {
+async function resendConfirmationEmail(email) {
   try {
-    const response = await api.post("/identity/auth/resend-confirmation-email", { userId });
+    const response = await api.post("/identity/resend-confirmation-email", { email });
     return unwrap(response.data, "Doğrulama e-postası gönderilemedi");
   } catch (error) {
     const msg = error.response?.data?.message || error.message || "Doğrulama e-postası gönderilirken bir hata oluştu";
@@ -53,14 +52,14 @@ async function resendConfirmationEmail(userId) {
 
 /**
  * E-posta doğrulama bağlantısındaki token'ı backend'e onaylatır.
- * GET /identity/auth/confirm-email?userId=...&token=... (e-postadaki linkin hedefi).
+ * GET /identity/confirm-email?userId=...&token=... (e-postadaki linkin hedefi).
  * @param {string} userId
  * @param {string} token
  * @returns {Promise<Object>}
  */
 async function confirmEmail(userId, token) {
   try {
-    const response = await api.get("/identity/auth/confirm-email", {
+    const response = await api.get("/identity/confirm-email", {
       params: { userId, token },
     });
     return unwrap(response.data, "E-posta doğrulanamadı");
@@ -87,13 +86,13 @@ async function getMe() {
 
 /**
  * Profil bilgilerini günceller (görünen ad, biyografi, avatar URL'si vb).
- * PUT /identity/user — userId JWT'den okunur.
+ * PUT /identity/user/update — userId JWT'den okunur.
  * @param {{userName?: string, bio?: string, avatarUrl?: string}} updates
  * @returns {Promise<Object>}
  */
 async function updateProfile(updates) {
   try {
-    const response = await api.put("/identity/user", updates);
+    const response = await api.put("/identity/user/update", updates);
     return unwrap(response.data, "Profil güncellenemedi");
   } catch (error) {
     const msg = error.response?.data?.message || error.message || "Profil güncellenirken bir hata oluştu";
@@ -109,13 +108,15 @@ async function updateProfile(updates) {
  * @param {number} limit
  * @returns {Promise<Array<{id, userName, avatarUrl}>>}
  */
-async function searchUsers(query, page = 1, limit = 20) {
+async function searchUsers(query, page = 1, limit = 20, signal) {
   try {
     const response = await api.get("/identity/user/search", {
       params: { q: query, page, limit },
+      signal,
     });
     return unwrap(response.data, "Kullanıcı arama başarısız");
   } catch (error) {
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') throw error;
     const msg = error.response?.data?.message || error.message || "Kullanıcı aranırken bir hata oluştu";
     throw new Error(msg);
   }

@@ -46,7 +46,6 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
 
     const audioTrack = share?.audioTrack;
     const el = audioRef.current;
-    el.volume = screenVolume / 100;
 
     if (!audioTrack) {
       el.srcObject = null;

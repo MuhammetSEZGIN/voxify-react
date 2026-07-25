@@ -67,10 +67,12 @@ export function useUpdater() {
 
   useEffect(() => {
     if (checkedOnce) return;
-    checkedOnce = true;
-    const t = setTimeout(() => checkForUpdate(), 3000);
+    const t = setTimeout(() => {
+      checkedOnce = true;
+      checkForUpdate();
+    }, 3000);
     return () => clearTimeout(t);
-  }, []);
+  }, [checkForUpdate]);
 
   return { updateInfo, status, progress, errorMsg, checkForUpdate, installUpdate, dismiss };
 }

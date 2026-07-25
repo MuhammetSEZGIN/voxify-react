@@ -29,6 +29,7 @@ function ChannelSidebar({
   userRole,
   onLeaveClan,
   onOpenClanSettings,
+  headerAccessory,
   onWatchScreenShare,
   onParticipantContextMenu,
 }) {
@@ -75,6 +76,9 @@ function ChannelSidebar({
       <aside className="channel-sidebar">
         <header className="channel-sidebar__header">
           <h1 className="channel-sidebar__title">Voxify</h1>
+          <div className="channel-sidebar__header-actions">
+            {headerAccessory}
+          </div>
         </header>
         <div className="channel-sidebar__empty">
           <p className="channel-sidebar__empty-text">Select a clan to see channels</p>
@@ -155,24 +159,27 @@ function ChannelSidebar({
       {/* Clan Header */}
       <header className="channel-sidebar__header">
         <h1 className="channel-sidebar__title">{clan.name}</h1>
-        <div className="channel-sidebar__header-menu-wrapper">
-          <button className="channel-sidebar__header-btn" onClick={() => setShowClanMenu(!showClanMenu)}>
-            <span className="material-symbols-outlined">{showClanMenu ? 'close' : 'expand_more'}</span>
-          </button>
-          {showClanMenu && (
-            <div className="clan-dropdown-menu">
-              {(userRole === 'owner' || userRole === 'admin') && (
-                <button className="clan-dropdown-menu__item" onClick={() => { setShowClanMenu(false); onOpenClanSettings?.(); }}>
-                  <span className="material-symbols-outlined">settings</span>
-                  <span>Klan Ayarları</span>
+        <div className="channel-sidebar__header-actions">
+          {headerAccessory}
+          <div className="channel-sidebar__header-menu-wrapper">
+            <button className="channel-sidebar__header-btn" onClick={() => setShowClanMenu(!showClanMenu)}>
+              <span className="material-symbols-outlined">{showClanMenu ? 'close' : 'expand_more'}</span>
+            </button>
+            {showClanMenu && (
+              <div className="clan-dropdown-menu">
+                {(userRole === 'owner' || userRole === 'admin') && (
+                  <button className="clan-dropdown-menu__item" onClick={() => { setShowClanMenu(false); onOpenClanSettings?.(); }}>
+                    <span className="material-symbols-outlined">settings</span>
+                    <span>Klan Ayarları</span>
+                  </button>
+                )}
+                <button className="clan-dropdown-menu__item clan-dropdown-menu__item--danger" onClick={() => { setShowClanMenu(false); onLeaveClan?.(); }}>
+                  <span className="material-symbols-outlined">logout</span>
+                  <span>Klandan Ayrıl</span>
                 </button>
-              )}
-              <button className="clan-dropdown-menu__item clan-dropdown-menu__item--danger" onClick={() => { setShowClanMenu(false); onLeaveClan?.(); }}>
-                <span className="material-symbols-outlined">logout</span>
-                <span>Klandan Ayrıl</span>
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
