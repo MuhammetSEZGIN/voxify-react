@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import ScreenShareStatusBar from '../voicechannel/ScreenShareStatusBar';
-import { getMessageNotificationsMuted, setMessageNotificationsMuted } from '../../utils/messageNotifications';
 
+/**
+ * NOT: Kullanıcı çubuğu (avatar + mikrofon/kulaklık/ses ayarları) artık burada
+ * değil — `layout/UserBar.jsx` olarak ayrıldı ve MainLayout'ta floating olarak
+ * tek bir kez render ediliyor. Sidebar'ın altındaki boşluk `.channel-sidebar`
+ * padding'i ile ayrılır (bkz. discord.css `--user-bar-height`).
+ */
 function ChannelSidebar({
   clan,
   channels,
@@ -10,9 +15,6 @@ function ChannelSidebar({
   activeVoiceChannelId,
   onSelectChannel,
   onSelectVoiceChannel,
-  user,
-  onLogout,
-  onOpenAccountSettings,
   onCreateChannel,
   onCreateVoiceChannel,
   onUpdateChannel,
@@ -27,20 +29,8 @@ function ChannelSidebar({
   userRole,
   onLeaveClan,
   onOpenClanSettings,
-  inputVolume,
-  setInputVolume,
-  outputVolume,
-  setOutputVolume,
-  selectedInputDevice,
-  setSelectedInputDevice,
-  selectedOutputDevice,
-  setSelectedOutputDevice,
   onWatchScreenShare,
-  isMicMuted,
-  onToggleMic,
   onParticipantContextMenu,
-  noiseSuppressionEnabled,
-  setNoiseSuppressionEnabled,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -52,53 +42,33 @@ function ChannelSidebar({
   const [editingVoiceChannel, setEditingVoiceChannel] = useState(null);
   const [editName, setEditName] = useState('');
   const [showClanMenu, setShowClanMenu] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
-  const [showMicSettings, setShowMicSettings] = useState(false);
-  const [showHeadphoneSettings, setShowHeadphoneSettings] = useState(false);
-  const [audioInputDevices, setAudioInputDevices] = useState([]);
-  const [audioOutputDevices, setAudioOutputDevices] = useState([]);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [messageNotificationsMuted, setMessageNotificationsMutedState] = useState(getMessageNotificationsMuted);
-  const micSettingsRef = useRef(null);
-  const headphoneSettingsRef = useRef(null);
-  const userMenuRef = useRef(null);
 
-  // Load audio devices — no getUserMedia on mount; enumerate with whatever labels are already available.
-  // Labels are populated if the user has previously granted permission or once they open mic settings.
-  const loadDevices = async () => {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      setAudioInputDevices(devices.filter(d => d.kind === 'audioinput'));
-      setAudioOutputDevices(devices.filter(d => d.kind === 'audiooutput'));
-    } catch {
-      // Device enumeration not supported
-    }
+  // Ses bağlantısı durum paneli — hem klan kanalı hem DM görüşmesi için aynı.
+  const renderVoiceStatusPanel = () => {
+    if (!activeVoiceChannel || !voiceState) return null;
+    return (
+      <div className="voice-status-panel">
+        <div className="voice-status-panel__info">
+          <div className="voice-status-panel__signal">
+            <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
+            <span className="voice-status-panel__label">
+              {activeVoiceChannel.isDirect ? 'Sesli Görüşme' : 'Ses Bağlantısı'}
+            </span>
+          </div>
+          <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>
+        </div>
+        <div className="voice-status-panel__actions">
+          <button
+            className="voice-status-panel__btn"
+            onClick={() => onDisconnectVoice?.()}
+            title="Bağlantıyı Kes"
+          >
+            <span className="material-symbols-outlined" style={{ color: '#ed4245' }}>call_end</span>
+          </button>
+        </div>
+      </div>
+    );
   };
-
-  useEffect(() => {
-    loadDevices();
-  }, []);
-
-  useEffect(() => {
-    setMessageNotificationsMutedState(getMessageNotificationsMuted());
-  }, []);
-
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (micSettingsRef.current && !micSettingsRef.current.contains(e.target)) {
-        setShowMicSettings(false);
-      }
-      if (headphoneSettingsRef.current && !headphoneSettingsRef.current.contains(e.target)) {
-        setShowHeadphoneSettings(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   if (!clan) {
     return (
@@ -109,52 +79,13 @@ function ChannelSidebar({
         <div className="channel-sidebar__empty">
           <p className="channel-sidebar__empty-text">Select a clan to see channels</p>
         </div>
-        {user && (
-          <div className="channel-sidebar__user-bar">
-            <div
-              className="channel-sidebar__user-info"
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              ref={userMenuRef}
-              style={{ cursor: 'pointer', position: 'relative' }}
-            >
-              <div className="channel-sidebar__user-avatar-wrapper">
-                <div className="channel-sidebar__user-avatar">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="avatar" className="channel-sidebar__user-avatar-img" />
-                  ) : (
-                    <span>{user.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                  )}
-                </div>
-                <div className="channel-sidebar__user-status-dot" />
-              </div>
-              <div>
-                <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
-                <p className="channel-sidebar__user-status">Online</p>
-              </div>
-
-              {showUserMenu && (
-                <div className="channel-sidebar__user-dropdown">
-                  <button className="channel-sidebar__user-dropdown-item" onClick={onOpenAccountSettings}>
-                    <span className="material-symbols-outlined">person</span>
-                    Profil ve Ayarlar
-                  </button>
-                  <button className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
-                    <span className="material-symbols-outlined">logout</span>
-                    Çıkış Yap
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="channel-sidebar__user-actions">
-              <button className="channel-sidebar__user-action-btn" title="Microphone">
-                <span className="material-symbols-outlined">mic</span>
-              </button>
-              <button className="channel-sidebar__user-action-btn" title="Headphones">
-                <span className="material-symbols-outlined">headphones</span>
-              </button>
-            </div>
-          </div>
-        )}
+        {/* DM görüşmesi klan seçili değilken de sürebilir — bağlantıyı kesme
+            yolu her zaman görünür olmalı. */}
+        <ScreenShareStatusBar
+          activeVoiceChannel={activeVoiceChannel}
+          voiceState={voiceState}
+        />
+        {renderVoiceStatusPanel()}
       </aside>
     );
   }
@@ -217,17 +148,6 @@ function ChannelSidebar({
   const handleDeleteVoiceChannel = (voiceChannelId, clanId, e) => {
     e.stopPropagation();
     onDeleteVoiceChannel(voiceChannelId, clanId || clan?.clanId);
-  };
-
-  const handleToggleDeafen = () => {
-    setIsDeafened((prev) => {
-      const newDeafened = !prev;
-      // Mute/unmute all audio elements on the page
-      document.querySelectorAll('audio, video').forEach((el) => {
-        el.muted = newDeafened;
-      });
-      return newDeafened;
-    });
   };
 
   return (
@@ -481,183 +401,8 @@ function ChannelSidebar({
       />
 
       {/* Voice Connection Panel - Discord tarzı bağlantı durumu */}
-      {activeVoiceChannel && voiceState && (
-        <div className="voice-status-panel">
-          <div className="voice-status-panel__info">
-            <div className="voice-status-panel__signal">
-              <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
-              <span className="voice-status-panel__label">Ses Bağlantısı</span>
-            </div>
-            <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>
-          </div>
-          <div className="voice-status-panel__actions">
-            <button
-              className="voice-status-panel__btn"
-              onClick={() => onDisconnectVoice?.()}
-              title="Bağlantıyı Kes"
-            >
-              <span className="material-symbols-outlined" style={{ color: '#ed4245' }}>call_end</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {renderVoiceStatusPanel()}
 
-      {/* User Control Bar */}
-      {user && (
-        <div className="channel-sidebar__user-bar">
-          <div
-            className="channel-sidebar__user-info"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            ref={userMenuRef}
-            style={{ cursor: 'pointer', position: 'relative' }}
-          >
-            <div className="channel-sidebar__user-avatar-wrapper">
-              <div className="channel-sidebar__user-avatar">
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="avatar" className="channel-sidebar__user-avatar-img" />
-                ) : (
-                  <span>{user.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                )}
-              </div>
-              <div className="channel-sidebar__user-status-dot" />
-            </div>
-            <div>
-              <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
-              <p className="channel-sidebar__user-status">Online</p>
-            </div>
-
-            {showUserMenu && (
-              <div className="channel-sidebar__user-dropdown">
-                <button className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
-                  <span className="material-symbols-outlined">logout</span>
-                  Çıkış Yap
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="channel-sidebar__user-actions">
-            {/* Microphone button + settings */}
-            <div className="channel-sidebar__audio-control" ref={micSettingsRef}>
-              <button
-                className={`channel-sidebar__user-action-btn ${isMicMuted ? 'channel-sidebar__user-action-btn--muted' : ''}`}
-                title={isMicMuted ? 'Mikrofonu Aç' : 'Sustur'}
-                onClick={onToggleMic}
-              >
-                <span className="material-symbols-outlined">
-                  {isMicMuted ? 'mic_off' : 'mic'}
-                </span>
-              </button>
-              <button
-                className="channel-sidebar__audio-settings-btn"
-                title="Mikrofon Ayarları"
-                onClick={async () => {
-                  if (!showMicSettings) {
-                    try {
-                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                      stream.getTracks().forEach(t => t.stop());
-                      await loadDevices();
-                    } catch { /* izin reddedildi */ }
-                  }
-                  setShowMicSettings(!showMicSettings);
-                  setShowHeadphoneSettings(false);
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>expand_less</span>
-              </button>
-              {showMicSettings && (
-                <div className="audio-settings-menu audio-settings-menu--mic">
-                  <h4 className="audio-settings-menu__title">Giriş Ayarları</h4>
-                  <label className="audio-settings-menu__label">Giriş Aygıtı</label>
-                  <select
-                    className="audio-settings-menu__select"
-                    value={selectedInputDevice}
-                    onChange={(e) => setSelectedInputDevice(e.target.value)}
-                  >
-                    <option value="">Varsayılan</option>
-                    {audioInputDevices.map((d) => (
-                      <option key={d.deviceId} value={d.deviceId}>{d.label || `Mikrofon ${d.deviceId.slice(0, 5)}`}</option>
-                    ))}
-                  </select>
-                  <label className="audio-settings-menu__label">Giriş Sesi — {inputVolume}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={inputVolume}
-                    onChange={(e) => setInputVolume(Number(e.target.value))}
-                    className="audio-settings-menu__slider"
-                  />
-                  <label className="audio-settings-menu__label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-                    <input
-                      type="checkbox"
-                      checked={noiseSuppressionEnabled ?? true}
-                      onChange={(e) => setNoiseSuppressionEnabled?.(e.target.checked)}
-                    />
-                    AI Gürültü İzolasyonu
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Headphone button + settings */}
-            <div className="channel-sidebar__audio-control" ref={headphoneSettingsRef}>
-              <button
-                className={`channel-sidebar__user-action-btn ${isDeafened ? 'channel-sidebar__user-action-btn--muted' : ''}`}
-                title={isDeafened ? 'Sesi Aç' : 'Sesi Kapat'}
-                onClick={handleToggleDeafen}
-              >
-                <span className="material-symbols-outlined">
-                  {isDeafened ? 'headset_off' : 'headphones'}
-                </span>
-              </button>
-              <button
-                className="channel-sidebar__audio-settings-btn"
-                title="Ses Çıkış Ayarları"
-                onClick={() => { setShowHeadphoneSettings(!showHeadphoneSettings); setShowMicSettings(false); }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>expand_less</span>
-              </button>
-              {showHeadphoneSettings && (
-                <div className="audio-settings-menu audio-settings-menu--headphone">
-                  <h4 className="audio-settings-menu__title">Çıkış Ayarları</h4>
-                  <label className="audio-settings-menu__label">Çıkış Aygıtı</label>
-                  <select
-                    className="audio-settings-menu__select"
-                    value={selectedOutputDevice}
-                    onChange={(e) => setSelectedOutputDevice(e.target.value)}
-                  >
-                    <option value="">Varsayılan</option>
-                    {audioOutputDevices.map((d) => (
-                      <option key={d.deviceId} value={d.deviceId}>{d.label || `Hoparlör ${d.deviceId.slice(0, 5)}`}</option>
-                    ))}
-                  </select>
-                  <label className="audio-settings-menu__label">Çıkış Sesi — {outputVolume}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={outputVolume}
-                    onChange={(e) => setOutputVolume(Number(e.target.value))}
-                    className="audio-settings-menu__slider"
-                  />
-                  <label className="audio-settings-menu__label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-                    <input
-                      type="checkbox"
-                      checked={!messageNotificationsMuted}
-                      onChange={(e) => {
-                        const enabled = e.target.checked;
-                        setMessageNotificationsMuted(!enabled);
-                        setMessageNotificationsMutedState(!enabled);
-                      }}
-                    />
-                    Mesaj bildirimleri
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

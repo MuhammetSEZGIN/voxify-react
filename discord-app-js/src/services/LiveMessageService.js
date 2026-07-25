@@ -164,7 +164,28 @@ export async function sendMessage(channelId, clanId, message) {
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     throw new Error('SignalR bağlantısı yok');
   }
-  await connection.invoke('SendMessage', channelId, clanId, message);
+
+  try {
+    await connection.invoke('SendMessage', channelId, clanId, message);
+  } catch (error) {
+    // BACKEND-DOĞRULA (madde 1.3): Hub'ın `clanId = null` (DM) durumunu
+    // desteklediği doğrulanamadı — hub metotları HTTP'den keşfedilemiyor.
+    // Destek yoksa hata burada patlar; DM'lerde mesaj gönderilememesinin en
+    // olası sebebi bu. REST üzerinden gönderme alternatifi YOK (MessageService
+    // swagger'ında POST /api/Message bulunmuyor), bu yüzden fallback yerine
+    // teşhis edilebilir bir mesaj veriyoruz.
+    if (clanId == null) {
+      console.error(
+        '[SignalR] DM gönderimi başarısız (clanId=null). Backend MessageHub.SendMessage ' +
+        'nullable clanId desteklemiyor olabilir — bkz. backend-gereksinimleri-dm.md madde 1.3.',
+        error
+      );
+      throw new Error(
+        'Mesaj gönderilemedi. Sunucu doğrudan mesajları henüz desteklemiyor olabilir.'
+      );
+    }
+    throw error;
+  }
 }
 
 /**

@@ -7,10 +7,16 @@ const AuthContext = createContext(null);
 // AppData/Roaming/com.voxify.desktop/auth.json — installer tarafından silinmez
 const authStore = new LazyStore("auth.json", { autoSave: true });
 
+// Tauri store yalnızca gerçek Tauri runtime'ında çalışır; `npm run dev` gibi
+// düz tarayıcı ortamında window.__TAURI_INTERNALS__ yok, çağrı her zaman patlar.
+const isTauriRuntime = () =>
+  typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
+
 // Hem store hem localStorage'a yaz (servisler localStorage'dan okur)
 async function persistSet(key, value) {
   const serialized = typeof value === "string" ? value : JSON.stringify(value);
   localStorage.setItem(key, serialized);
+  if (!isTauriRuntime()) return;
   try {
     await authStore.set(key, value);
   } catch (error) {
@@ -22,6 +28,7 @@ async function persistSet(key, value) {
 
 async function persistRemove(key) {
   localStorage.removeItem(key);
+  if (!isTauriRuntime()) return;
   try {
     await authStore.delete(key);
   } catch (error) {
@@ -31,11 +38,13 @@ async function persistRemove(key) {
 
 // Store'dan oku; boşsa localStorage'a bak (update sonrası kurtarma)
 async function persistGet(key) {
-  try {
-    const storeVal = await authStore.get(key);
-    if (storeVal !== null && storeVal !== undefined) return storeVal;
-  } catch { /* ignore */ }
-  // Store boş — localStorage'dan oku (ilk migration veya kurtarma)
+  if (isTauriRuntime()) {
+    try {
+      const storeVal = await authStore.get(key);
+      if (storeVal !== null && storeVal !== undefined) return storeVal;
+    } catch { /* ignore */ }
+  }
+  // Store boş/yok — localStorage'dan oku (ilk migration, kurtarma veya tarayıcı ortamı)
   const lsVal = localStorage.getItem(key);
   return lsVal ?? null;
 }

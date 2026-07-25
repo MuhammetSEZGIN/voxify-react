@@ -8,7 +8,36 @@ import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
 
 
-function ChatArea({ clan, channel }) {
+/**
+ * ChatArea — hem klan metin kanalları hem 1:1 DM'ler için tek sohbet bileşeni.
+ *
+ * `variant` ile iki mod arasında geçer:
+ *  - 'channel' (varsayılan): klan kanalı. `clan` + `channel` props'ları gerekir.
+ *    Başlıkta `#kanal-adı`, mesaj düzenleme/silme (clanId gerektirir) açık.
+ *  - 'dm': doğrudan mesaj. `conversation` prop'u gerekir. Başlıkta `@kullanıcı`,
+ *    geri butonu. Mesaj yükleme/gönderme aynı MessageService/SignalR akışını
+ *    `clanId=null` ile kullanır (bkz. guncelleme-plani.md madde 3).
+ *
+ * Önceden DM'ler ayrı bir `DmChatArea.jsx` içinde ~200 satır kopya kodla
+ * çalışıyordu (normalizeMessage, SignalR join/leave, optimistik gönderim...).
+ * O dosya kaldırıldı; tek kaynak burası.
+ */
+function ChatArea({
+  clan,
+  channel,
+  variant = 'channel',
+  conversation,
+  onBack,
+  onToggleVoiceCall,
+  isVoiceCallActive = false,
+}) {
+  const isDm = variant === 'dm';
+
+  // İki mod için ortak "hedef" — aşağıdaki tüm mantık bunları kullanır, böylece
+  // kanal/DM ayrımı tek noktada kalır.
+  const targetId = isDm ? conversation?.conversationId : channel?.channelId;
+  const targetClanId = isDm ? null : clan?.clanId;
+  const targetName = isDm ? (conversation?.otherUserName || 'DM') : channel?.name;
 
   const { user, token } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -46,7 +75,7 @@ function ChatArea({ clan, channel }) {
   const observerTargetRef = useRef(null);
   const chatContainerRef = useRef(null);
   const prevChannelIdRef = useRef(null);
-  const { showDesktopNotification } = useDesktopMessageNotifications(channel?.name);
+  const { showDesktopNotification } = useDesktopMessageNotifications(targetName);
   
 
   // OS bildirim izni iste
@@ -58,19 +87,20 @@ function ChatArea({ clan, channel }) {
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
-    if (!token) return;
+    // DM modunda `clan` yok; bağlantı yine de gerekli.
+    if (!token || (!clan && !isDm)) return;
 
     SignalRService.startConnection(token).catch((err) => {
       console.error('SignalR connection failed:', err);
     });
     // Bağlantıyı burada kapatmıyoruz: modül seviyesinde singleton,
     // Strict Mode cleanup'ı negotiation'ı yarıda kesiyor.
-  }, [token]);
+  }, [token, clan, isDm]);
 
-  // Kanal değiştiğinde: eski kanaldan ayrıl, yeni kanala katıl, mesajları yükle
+  // Hedef (kanal ya da DM) değiştiğinde: eskisinden ayrıl, yenisine katıl, yükle
   useEffect(() => {
     const prevId = prevChannelIdRef.current;
-    const newId = channel?.channelId;
+    const newId = targetId;
 
     if (prevId && prevId !== newId) {
       SignalRService.leaveChannel(prevId);
@@ -92,7 +122,7 @@ function ChatArea({ clan, channel }) {
     setPage(1);
     setHasMore(true);
     loadMessages(newId, 1, true);
-  }, [channel?.channelId]);
+  }, [targetId]);
 
     // SignalR'dan gelen mesajları dinle
     useEffect(() => {
@@ -118,6 +148,10 @@ function ChatArea({ clan, channel }) {
                 return;
             }
             console.log('[SignalR] Normalized message:', normalized);
+
+            // Başka bir kanala/DM'e ait mesajı bu görünüme ekleme. (Hub grupları
+            // ayrı olsa da kanal geçişinde yarış durumunda karışabiliyor.)
+            if (normalized.channelId && targetId && normalized.channelId !== targetId) return;
 
             // Bildirim sesi çal ve OS bildirimi gönder (Eğer mesaj bizden değilse)
             const currentId = user?.id || user?.sub || '';
@@ -198,14 +232,14 @@ function ChatArea({ clan, channel }) {
       SignalRService.off('MessageUpdated', handleUpdated);
       SignalRService.off('MessageDeleted', handleDeleted);
     };
-  }, [showDesktopNotification, user]);
+  }, [showDesktopNotification, user, targetId]);
 
 
   // Intersection Observer for pagination
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && channel?.channelId) {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && targetId) {
           console.log('[ChatArea] Load more triggered by observer');
           loadMoreMessages();
         }
@@ -218,7 +252,7 @@ function ChatArea({ clan, channel }) {
     }
 
     return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, channel?.channelId, page]);
+  }, [hasMore, loading, loadingMore, targetId, page]);
 
   useEffect(() => {
     if (page === 1 && messages.length > 0) {
@@ -316,7 +350,7 @@ function ChatArea({ clan, channel }) {
 
     try {
       console.log(`Loading messages for channel: ${channelId}, page: ${pageNum}`);
-      const data = await MessageService.getMessagesByChannelId(channelId, clan?.clanId, pageNum, 50);
+      const data = await MessageService.getMessagesByChannelId(channelId, targetClanId, pageNum, 50);
       const rawMessages = extractMessages(data);
 
       // Assume no more messages if we get less than requested or 0
@@ -363,20 +397,20 @@ function ChatArea({ clan, channel }) {
   };
 
   const loadMoreMessages = () => {
-    if (!channel?.channelId || loadingMore || !hasMore) return;
+    if (!targetId || loadingMore || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
-    loadMessages(channel.channelId, nextPage, false);
+    loadMessages(targetId, nextPage, false);
   };
 
   const handleDeleteMessage = async (messageId) => {
     setContextMenu(null);
-    if (!channel?.channelId || !clan?.clanId) return;
+    if (!targetId) return;
 
     if (!window.confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
 
     try {
-      await MessageService.deleteMessage(messageId, clan.clanId);
+      await MessageService.deleteMessage(messageId, targetClanId);
       setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
     } catch (err) {
       console.error('Failed to delete message via MessageService:', err);
@@ -404,7 +438,7 @@ function ChatArea({ clan, channel }) {
   const handleSubmitEdit = async (e) => {
     e.preventDefault();
     const trimmed = editingContent.trim();
-    if (!trimmed || !editingMessageId || !clan?.clanId) return;
+    if (!trimmed || !editingMessageId || !targetId) return;
 
     const messageId = editingMessageId;
     const oldContent = messages.find((m) => m.messageId === messageId)?.content;
@@ -418,7 +452,7 @@ function ChatArea({ clan, channel }) {
     try {
       await MessageService.editMessage({
         messageId,
-        clanId: clan.clanId,
+        clanId: targetClanId,
         content: trimmed,
       });
     } catch (err) {
@@ -435,6 +469,10 @@ function ChatArea({ clan, channel }) {
 
   const handleContextMenu = (e, msg, isOwn) => {
     if (!isOwn) return; // Sadece kendi mesajlarında context menu
+    // DM'lerde düzenle/sil kapalı: MessageService.editMessage/deleteMessage
+    // clanId bekliyor ve DM karşılığı backend'de henüz doğrulanmadı
+    // (bkz. guncelleme-plani.md madde 3).
+    if (isDm) return;
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, messageId: msg.messageId });
   };
@@ -496,7 +534,7 @@ function ChatArea({ clan, channel }) {
     setGifSearch('');
     setGifs([]);
 
-    if (!channel?.channelId) return;
+    if (!targetId) return;
 
     const senderId = user?.id || user?.sub || '';
     const userName = user?.userName || user?.username || user?.name || 'Unknown';
@@ -508,14 +546,14 @@ function ChatArea({ clan, channel }) {
       senderId,
       avatarUrl: user?.avatarUrl || null,
       createdAt: new Date().toISOString(),
-      channelId: channel.channelId,
+      channelId: targetId,
       _optimistic: true,
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      await SignalRService.sendMessage(channel.channelId, clan?.clanId, url);
+      await SignalRService.sendMessage(targetId, targetClanId, url);
     } catch (err) {
       console.error('Failed to send GIF via SignalR:', err);
       setMessages((prev) => prev.filter((m) => m.messageId !== optimisticMsg.messageId));
@@ -551,16 +589,15 @@ function ChatArea({ clan, channel }) {
         return;
     }
 
+    if (!targetId) return;
+
     setIsUploading(true);
     try {
         const publicUrl = await ImgBBService.uploadImage(file);
-        
+
         // Yüklenen dosyanın URL'sini hemen sohbete gönder
-        const senderId = user?.id || user?.sub || '';
-        const userName = user?.userName || user?.username || user?.name || 'Unknown';
-        
-        await SignalRService.sendMessage(channel.channelId, clan?.clanId, publicUrl);
-        
+        await SignalRService.sendMessage(targetId, targetClanId, publicUrl);
+
         // Inputu temizle
         e.target.value = '';
     } catch (err) {
@@ -577,7 +614,7 @@ function ChatArea({ clan, channel }) {
   const handleSendMessage = async (e) => {
 
     e.preventDefault();
-    if (!newMessage.trim() || !channel?.channelId) return;
+    if (!newMessage.trim() || !targetId) return;
 
     const content = newMessage.trim();
     const senderId = user?.id || user?.sub || '';
@@ -593,14 +630,14 @@ function ChatArea({ clan, channel }) {
       senderId,
       avatarUrl: user?.avatarUrl || null,
       createdAt: new Date().toISOString(),
-      channelId: channel.channelId,
+      channelId: targetId,
       _optimistic: true,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setNewMessage('');
 
     try {
-      await SignalRService.sendMessage(channel.channelId, clan?.clanId, content);
+      await SignalRService.sendMessage(targetId, targetClanId, content);
     } catch (err) {
       console.error('Failed to send message via SignalR:', err);
       // Optimistik mesajı kaldır ve input'a geri koy
@@ -691,13 +728,13 @@ function ChatArea({ clan, channel }) {
     });
   };
 
-  // No clan selected — show welcome/download page
-  if (!clan) {
+  // Klan modu: klan seçili değilse karşılama sayfası
+  if (!isDm && !clan) {
     return <WelcomePage />;
   }
 
-  // No channel selected
-  if (!channel) {
+  // Klan modu: kanal seçili değil
+  if (!isDm && !channel) {
     return (
       <main className="chat-area">
         <div className="chat-area__welcome">
@@ -709,16 +746,64 @@ function ChatArea({ clan, channel }) {
     );
   }
 
+  // DM modu: henüz bir sohbet seçilmedi — sağdaki listeden birini seç
+  if (isDm && !conversation) {
+    return (
+      <main className="chat-area">
+        <div className="chat-area__welcome">
+          <span className="material-symbols-outlined chat-area__welcome-icon">forum</span>
+          <h2 className="chat-area__welcome-title">Mesajların</h2>
+          <p className="chat-area__welcome-subtitle">
+            Sohbete başlamak için sağdaki listeden bir arkadaşını seç.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="chat-area">
-      {/* Channel Header */}
+      {/* Header — kanalda #kanal-adı, DM'de @kullanıcı */}
       <header className="chat-area__header">
         <div className="chat-area__header-info">
-          <span className="chat-area__header-hash">#</span>
-          <h2 className="chat-area__header-name">{channel.name}</h2>
-          <div className="chat-area__header-divider" />
-          <p className="chat-area__header-topic">{channel.description || `Welcome to #${channel.name}`}</p>
+          {isDm && onBack && (
+            <button
+              type="button"
+              className="chat-area__header-back-btn"
+              onClick={onBack}
+              title="Geri"
+            >
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+          )}
+          <span className="chat-area__header-hash">{isDm ? '@' : '#'}</span>
+          <h2 className="chat-area__header-name">{targetName}</h2>
+          {!isDm && (
+            <>
+              <div className="chat-area__header-divider" />
+              <p className="chat-area__header-topic">{channel.description || `Welcome to #${channel.name}`}</p>
+            </>
+          )}
         </div>
+
+        {/* DM sesli görüşme — konuşma başına tek kalıcı oda */}
+        {isDm && onToggleVoiceCall && (
+          <div className="chat-area__header-actions">
+            <button
+              type="button"
+              className={`chat-area__call-btn ${isVoiceCallActive ? 'chat-area__call-btn--active' : ''}`}
+              onClick={() => onToggleVoiceCall(conversation)}
+              title={isVoiceCallActive ? 'Görüşmeden ayrıl' : 'Sesli görüşme başlat'}
+            >
+              <span className="material-symbols-outlined">
+                {isVoiceCallActive ? 'call_end' : 'call'}
+              </span>
+              <span className="chat-area__call-btn-label">
+                {isVoiceCallActive ? 'Ayrıl' : 'Sesli Görüşme'}
+              </span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Messages */}
@@ -738,8 +823,14 @@ function ChatArea({ clan, channel }) {
           ) : messages.length === 0 ? (
             <div className="chat-area__empty">
               <span className="material-symbols-outlined chat-area__empty-icon">chat_bubble</span>
-              <h3 className="chat-area__empty-title">Welcome to #{channel.name}</h3>
-              <p className="chat-area__empty-subtitle">This is the start of the channel. Send a message to begin!</p>
+              <h3 className="chat-area__empty-title">
+                {isDm ? targetName : `Welcome to #${targetName}`}
+              </h3>
+              <p className="chat-area__empty-subtitle">
+                {isDm
+                  ? 'Bu sohbetin başlangıcı. İlk mesajı gönder!'
+                  : 'This is the start of the channel. Send a message to begin!'}
+              </p>
             </div>
           ) : (
             groupMessages(messages).map((group, gi) => {
@@ -967,7 +1058,7 @@ function ChatArea({ clan, channel }) {
             <textarea
               ref={composerRef}
               className="chat-area__input"
-              placeholder={`Message #${channel.name}`}
+              placeholder={isDm ? `@${targetName} kullanıcısına mesaj gönder` : `Message #${targetName}`}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleComposerKeyDown}

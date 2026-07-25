@@ -74,7 +74,7 @@ const deleteClan = async (clanId) => {
 
 /**
  * Create invitation for a clan
- * POST /clanMembership/{clanId}/invitations
+ * POST /clanMembership/invitations/clanId/{clanId}
  */
 const createInvitation = async (clanId) => {
   try {

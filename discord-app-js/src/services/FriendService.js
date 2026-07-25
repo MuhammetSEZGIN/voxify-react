@@ -29,9 +29,11 @@ async function getFriends() {
 }
 
 /**
- * Gelen/giden bekleyen arkadaşlık isteklerini getirir.
+ * Bana gelen bekleyen arkadaşlık isteklerini getirir.
  * GET /identity/friendship/requests
- * @returns {Promise<{incoming: Array, outgoing: Array}>}
+ * Backend düz bir array döner: [{ id, userId, userName, avatarUrl, createdAt, respondedAt, status }]
+ * — her eleman isteği gönderen kullanıcıyı temsil eder (outgoing ayrı bir uç değil).
+ * @returns {Promise<Array<{id, userId, userName, avatarUrl, status}>>}
  */
 async function getRequests() {
   try {

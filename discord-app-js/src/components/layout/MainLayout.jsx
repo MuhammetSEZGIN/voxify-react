@@ -11,15 +11,19 @@ import CreateClanModal from '../clan/CreateClanModal';
 import VoiceChannel from '../voicechannel/VoiceChannel';
 import ScreenShareViewer from '../voicechannel/ScreenShareViewer';
 import UserVolumeContextMenu from '../voicechannel/UserVolumeContextMenu';
+import MemberContextMenu from '../clan/MemberContextMenu';
+import UserProfilePopup from '../clan/UserProfilePopup';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
 import AccountSettings from '../account/AccountSettings';
-import FriendsPanel from '../friends/FriendsPanel';
-import DmChatArea from '../friends/DmChatArea';
+import FriendsMemberList from '../friends/FriendsMemberList';
+import UserBar from './UserBar';
 import DmService from '../../services/DmService';
+import FriendService from '../../services/FriendService';
 import * as PresenceService from '../../services/PresenceService';
 import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
+import { directVoiceRoomId } from '../../utils/space';
 
 function MainLayout() {
   const { user, logout, updateUser } = useAuth();
@@ -43,6 +47,18 @@ function MainLayout() {
   const activeVoiceChannelRef = useRef(null);
   const voiceConnectedRef = useRef(false);
   const selectedClanRef = useRef(null);
+  // PresenceHub bağlantısı kurulduğu anda o anki arkadaş listesi için de
+  // online-durum sorgusu atabilmek için (bkz. presence connect effect'i).
+  const friendsRef = useRef([]);
+
+  /** Belirtilen ID'ler için sunucudan online durumu sorgular (ateşle-unut). */
+  const queryOnlineStatus = useCallback((userIds) => {
+    const ids = (userIds || []).filter(Boolean);
+    if (ids.length === 0) return;
+    PresenceService.getOnlineUsers(ids).catch((err) =>
+      console.error('[Presence] getOnlineUsers failed', err)
+    );
+  }, []);
   const selectedChannelRef = useRef(null);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
@@ -53,6 +69,12 @@ function MainLayout() {
   const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
   const [activeDmConversation, setActiveDmConversation] = useState(null);
   const [dmError, setDmError] = useState(null);
+  const [isFriendsActive, setIsFriendsActive] = useState(false);
+  // Arkadaş listesi ve bekleyen istekler — sağdaki FriendsMemberList okur.
+  const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+  const [friendsError, setFriendsError] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
 
@@ -63,11 +85,18 @@ function MainLayout() {
   const [selectedInputDevice, setSelectedInputDevice] = useState('');
   const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
   const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(true);
+  // Deafen (sağırlaştırma) artık UserBar global olduğu için burada tutuluyor —
+  // sayfa değiştirince durumun sıfırlanmaması gerekir.
+  const [isDeafened, setIsDeafened] = useState(false);
 
   // Per-user volume overrides: { [identity]: number (0-100) }
   const [userVolumes, setUserVolumes] = useState({});
   // Context menu state for right-click user volume
   const [volumeCtxMenu, setVolumeCtxMenu] = useState({ visible: false, x: 0, y: 0, participant: null });
+  // Context menu state for right-click on a clan member (add friend / message)
+  const [memberCtxMenu, setMemberCtxMenu] = useState({ visible: false, x: 0, y: 0, member: null, isSelf: false });
+  // Profile popup state — small card shown above a clicked member
+  const [profilePopup, setProfilePopup] = useState({ visible: false, anchorRect: null, member: null });
 
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
@@ -210,6 +239,8 @@ function MainLayout() {
       setSelectedChannel(null);
       setChannels([]);
       setVoiceChannels([]);
+      setIsFriendsActive(false);
+      setActiveDmConversation(null);
       navigate('/app');
       return;
     }
@@ -217,11 +248,74 @@ function MainLayout() {
     setSelectedChannel(null);
     setChannels([]);
     setVoiceChannels([]);
+    setIsFriendsActive(false);
     setActiveDmConversation(null);
     navigate('/app');
   };
 
-  const handleOpenDm = async (friend) => {
+  const handleSelectFriends = () => {
+    setSelectedClan(null);
+    setSelectedChannel(null);
+    setChannels([]);
+    setVoiceChannels([]);
+    setIsFriendsActive(true);
+    setActiveDmConversation(null);
+    navigate('/app');
+  };
+
+  const loadFriendsList = useCallback(async () => {
+    try {
+      const data = await FriendService.getFriends();
+      setFriends(data || []);
+      setFriendsError(null);
+    } catch (err) {
+      setFriendsError(err.message);
+    }
+  }, []);
+
+  const loadFriendRequests = useCallback(async () => {
+    try {
+      const data = await FriendService.getRequests();
+      setFriendRequests(data || []);
+      setFriendsError(null);
+    } catch (err) {
+      setFriendsError(err.message);
+    }
+  }, []);
+
+  // Arkadaş verisini giriş sonrası bir kez yükle — sadece Arkadaşlar sayfasına
+  // gidince değil, çünkü sidebar rozet/durum göstergeleri her yerden görünür olmalı.
+  useEffect(() => {
+    if (!user) return;
+    setFriendsLoading(true);
+    Promise.all([loadFriendsList(), loadFriendRequests()]).finally(() => setFriendsLoading(false));
+  }, [user, loadFriendsList, loadFriendRequests]);
+
+  const handleRefreshFriends = useCallback(async () => {
+    await Promise.all([loadFriendsList(), loadFriendRequests()]);
+  }, [loadFriendsList, loadFriendRequests]);
+
+  const handleSendFriendRequest = useCallback(async (addresseeId) => {
+    await FriendService.sendRequest(addresseeId);
+    await loadFriendRequests();
+  }, [loadFriendRequests]);
+
+  const handleAcceptFriendRequest = useCallback(async (requestId) => {
+    await FriendService.acceptRequest(requestId);
+    await Promise.all([loadFriendsList(), loadFriendRequests()]);
+  }, [loadFriendsList, loadFriendRequests]);
+
+  const handleRejectFriendRequest = useCallback(async (requestId) => {
+    await FriendService.rejectRequest(requestId);
+    await loadFriendRequests();
+  }, [loadFriendRequests]);
+
+  const handleRemoveFriend = useCallback(async (friendUserId) => {
+    await FriendService.removeFriend(friendUserId);
+    await loadFriendsList();
+  }, [loadFriendsList]);
+
+  const handleOpenDm = useCallback(async (friend) => {
     setDmError(null);
     try {
       const conversation = await DmService.getOrCreateConversation(friend.id);
@@ -230,9 +324,45 @@ function MainLayout() {
         otherUserId: friend.id,
         otherUserName: friend.userName,
       });
+      // Sağ panelden bir arkadaşa tıklamak Arkadaşlar sekmesine geçirir —
+      // klan görünümündeyken DM açılırsa sohbet alanı boş kalmasın.
+      setIsFriendsActive(true);
     } catch (err) {
       setDmError(err.message);
     }
+  }, []);
+
+  const handleMemberContextMenu = useCallback((e, member, isSelf) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMemberCtxMenu({ visible: true, x: e.clientX, y: e.clientY, member, isSelf });
+  }, []);
+
+  const handleCloseMemberCtx = useCallback(() => {
+    setMemberCtxMenu((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleMemberClick = useCallback((member, anchorRect) => {
+    setProfilePopup({ visible: true, anchorRect, member });
+  }, []);
+
+  const handleCloseProfilePopup = useCallback(() => {
+    setProfilePopup((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const getMemberId = (m) => m.userId || m.user?.id || m.id || '';
+
+  const handleAddFriendFromMember = async (member) => {
+    try {
+      await handleSendFriendRequest(getMemberId(member));
+      showToast('Arkadaşlık isteği gönderildi', 'info');
+    } catch (err) {
+      showToast(err.message || 'Arkadaşlık isteği gönderilemedi', 'error');
+    }
+  };
+
+  const handleSendMessageFromMember = (member) => {
+    handleOpenDm({ id: getMemberId(member), userName: member.userName || member.username });
   };
 
   const handleSelectChannel = (channel) => {
@@ -283,9 +413,57 @@ function MainLayout() {
     setVolumeCtxMenu(prev => ({ ...prev, visible: false }));
   }, []);
 
+  // ── UserBar callback'leri ────────────────────────────────────────────────
+  // Hepsi stabil referans: UserBar memo'lu, satır içi lambda geçersek her
+  // MainLayout render'ında (mesaj geldi, presence değişti...) yeniden çizilir.
+  const handleToggleMic = useCallback(() => setIsMicMuted((prev) => !prev), []);
+
+  const handleToggleDeafen = useCallback(() => {
+    setIsDeafened((prev) => {
+      const next = !prev;
+      // Sayfadaki tüm ses/video elemanlarını sustur/aç
+      document.querySelectorAll('audio, video').forEach((el) => {
+        el.muted = next;
+      });
+      return next;
+    });
+  }, []);
+
+  const handleOpenProfileSettings = useCallback(() => {
+    setAccountSettingsTab('profile');
+    setShowAccountSettings(true);
+  }, []);
+
+  /** Sağ paneldeki yenile tuşu — yalnızca üye listesi ve online durumlarını tazeler. */
+  const handleRefreshMembers = useCallback(async () => {
+    const clanId = selectedClanRef.current?.clanId;
+    if (!clanId) return;
+    try {
+      const data = await ClanService.getClanById(clanId);
+      const memberships = data.clanMemberships || [];
+      setMemberships(memberships);
+
+      const memberUserIds = memberships
+        .map((m) => m.userId || m.user?.id || '')
+        .filter(Boolean);
+      await queryOnlineStatus(memberUserIds);
+    } catch (error) {
+      console.error('Failed to refresh members', error);
+    }
+  }, [queryOnlineStatus]);
+
   const handleDisconnectVoice = useCallback(() => {
-    // Report leaving to presence hub before clearing state
+    // Report leaving to presence hub before clearing state.
+    // DM odalarında presence'a hiç katılmadığımız için ayrılma da bildirilmez.
     const channel = activeVoiceChannelRef.current;
+    if (channel?.isDirect) {
+      playVoicePresenceNotification();
+      activeVoiceChannelRef.current = null;
+      voiceConnectedRef.current = false;
+      setActiveVoiceChannel(null);
+      setVoiceState(null);
+      return;
+    }
     if (channel && user) {
       const userId = user.id || user.sub || '';
       playVoicePresenceNotification();
@@ -306,15 +484,58 @@ function MainLayout() {
     setVoiceState(null);
   }, [playVoicePresenceNotification, user]);
 
+  /**
+   * DM sesli görüşmesini başlatır/kapatır.
+   *
+   * Klan ses kanallarıyla aynı `activeVoiceChannel` state'ini kullanır — sadece
+   * `voiceChannelId` olarak `dm-{conversationId}` geçer. Böylece VoiceChannel,
+   * ekran paylaşımı, ses ayarları ve UserBar hiç değişmeden çalışır.
+   *
+   * DM'de kanal oluşturma/silme yoktur: konuşma başına tek kalıcı oda.
+   */
+  const handleToggleDmVoice = useCallback((conversation) => {
+    if (!conversation?.conversationId) return;
+    const roomId = directVoiceRoomId(conversation.conversationId);
+    const current = activeVoiceChannelRef.current;
+
+    // Aynı odadaysak → ayrıl (toggle)
+    if (current?.voiceChannelId === roomId) {
+      handleDisconnectVoice();
+      return;
+    }
+    // Başka bir odadaysak önce oradan çık
+    if (current) handleDisconnectVoice();
+
+    setActiveVoiceChannel({
+      voiceChannelId: roomId,
+      name: conversation.otherUserName || 'Doğrudan Görüşme',
+      isDirect: true,
+      conversationId: conversation.conversationId,
+    });
+  }, [handleDisconnectVoice]);
+
   // Keep ref in sync so handleDisconnectVoice always sees the latest channel
   useEffect(() => {
     activeVoiceChannelRef.current = activeVoiceChannel;
   }, [activeVoiceChannel]);
   useEffect(() => { selectedClanRef.current = selectedClan; }, [selectedClan]);
+  useEffect(() => { friendsRef.current = friends; }, [friends]);
   useEffect(() => { selectedChannelRef.current = selectedChannel; }, [selectedChannel]);
 
   // Report joining to presence hub once LiveKit room connects (voiceState null → non-null)
+  //
+  // DM ses odaları (activeVoiceChannel.isDirect) presence'a bildirilmez:
+  // PresenceHub'ın tüm imzaları clanId merkezli ve DM karşılığı backend'de
+  // henüz yok (bkz. backend-gereksinimleri-dm.md madde 3.2). Bu bloklayıcı
+  // değil — LiveKit'in kendi katılımcı listesi odaya girildikten sonra zaten
+  // kimin bağlı olduğunu veriyor; eksik olan sadece "girmeden önce karşı taraf
+  // seste mi?" göstergesi.
   useEffect(() => {
+    if (activeVoiceChannel?.isDirect) {
+      if (voiceState) voiceConnectedRef.current = true;
+      else voiceConnectedRef.current = false;
+      return;
+    }
     if (voiceState && !voiceConnectedRef.current && activeVoiceChannel && selectedClan && user) {
       voiceConnectedRef.current = true;
       const userName = user.userName || user.name || user.email || 'User';
@@ -389,8 +610,19 @@ function MainLayout() {
       });
     };
 
+    // GetOnlineUsers hem klan üyeleri hem arkadaşlar için ayrı ayrı çağrılıyor
+    // (bkz. aşağıdaki friends effect'i), ama sunucudan gelen `OnlineUsers`
+    // cevabı hangi sorguya ait olduğunu belirtmiyor. Eskiden `new Set(userIds)`
+    // ile TÜM listeyi DEĞİŞTİRİYORDUK — bu yüzden ikinci sorgunun (örn. klan
+    // üyeleri) cevabı, ilk sorgunun (arkadaşlar) sonucunu siliyordu ve
+    // arkadaşlar sekmesinde herkes hep çevrimdışı görünüyordu.
+    //
+    // Düzeltme: `OnlineUsers` SADECE birleştirir (ekler), asla silmez.
+    // Çevrimdışı olma bilgisi zaten ayrı ve güvenilir bir kaynaktan geliyor:
+    // `UserOffline` tekil olayı (handleUserOffline). Bu, "hangi sorgunun
+    // cevabı bu?" belirsizliğini bir reconcile/sıralama hilesi olmadan çözer.
     const handleOnlineUsers = (userIds) => {
-      setOnlineUserIds(new Set(userIds));
+      setOnlineUserIds((prev) => new Set([...prev, ...userIds]));
     };
 
     // ── Deletion event handlers ────────────────────────────────────────────────────
@@ -447,6 +679,21 @@ function MainLayout() {
 
         // Subscribe to all user's clans for presence events
         await PresenceService.subscribeToClans(clanIds);
+
+        // Arkadaşların online durumunu bağlantı kurulur kurulmaz sorgula.
+        //
+        // ÖNEMLİ DÜZELTME: `friends` state'i, klanlar yüklenmeden hemen
+        // (uygulama açılışında) API'den geliyor — ama bu PresenceHub
+        // bağlantı effect'i `clanIdsKey && !loadingClans` şartına bağlı,
+        // yani klanlar yüklenene kadar bağlantı kurulmuyor. Önceki
+        // düzeltmede "friends değişince sorgula" effect'i eklenmişti, ama
+        // `friends` zaten bağlantıdan ÖNCE set edildiği için o effect hiç
+        // yeniden tetiklenmiyordu — `getOnlineUsers` sessizce no-op oluyordu
+        // (PresenceService.js: bağlantı yoksa hiçbir şey yapmadan döner).
+        // Bu yüzden bağlantı kurulur kurulmaz o anki listeyi burada da
+        // sorguluyoruz; `friends` state'i sonradan değişirse ayrı effect
+        // (aşağıda) zaten devreye giriyor.
+        queryOnlineStatus(friendsRef.current.map((f) => f.id));
       } catch (err) {
         console.error('[Presence] connection failed', err);
       }
@@ -471,7 +718,7 @@ function MainLayout() {
     // clans içeriği aynı kalırken referansı değişmesi bu effect'i tetiklememeli;
     // bu yüzden clans yerine stabil clanIdsKey kullanılıyor (bkz. güncelleme planı #6).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clanIdsKey, loadingClans]);
+  }, [clanIdsKey, loadingClans, queryOnlineStatus]);
 
   // When the selected clan changes, fetch voice channel participants & online members
   useEffect(() => {
@@ -489,10 +736,22 @@ function MainLayout() {
     // Fetch online status for clan members
     if (memeberShips.length > 0) {
       const memberUserIds = memeberShips.map((m) => m.userId || m.user?.id || '').filter(Boolean);
-      PresenceService.getOnlineUsers(memberUserIds)
-        .catch((err) => console.error('[Presence] getOnlineUsers failed', err));
+      queryOnlineStatus(memberUserIds);
     }
-  }, [selectedClan?.clanId, memeberShips]);
+  }, [selectedClan?.clanId, memeberShips, queryOnlineStatus]);
+
+  // Arkadaş listesi yüklendiğinde/değiştiğinde online durumlarını sorgula.
+  //
+  // ÖNEMLİ DÜZELTME: Bu sorgu daha önce HİÇ YAPILMIYORDU — sadece klan
+  // üyelerinin ID'leri PresenceHub'a soruluyordu. Bir arkadaş ortak klanınız
+  // yoksa (DM'in doğası gereği sık rastlanan durum) online durumu asla
+  // sorgulanmıyor, `onlineUserIds` setine hiç girmiyor ve arkadaşlar
+  // sekmesinde her zaman "çevrimdışı" görünüyordu.
+  useEffect(() => {
+    if (friends.length === 0) return;
+    const friendIds = friends.map((f) => f.id).filter(Boolean);
+    queryOnlineStatus(friendIds);
+  }, [friends, queryOnlineStatus]);
 
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
@@ -672,19 +931,21 @@ function MainLayout() {
         onSelectClan={handleSelectClan}
         onCreateClan={() => setShowCreateModal(true)}
         onReorder={handleReorderClans}
+        isFriendsActive={isFriendsActive}
+        onSelectFriends={handleSelectFriends}
       />
 
+      {/* Sol panel — Arkadaşlar sekmesinde de kanal listesi kalır. Arkadaş
+          listesi artık yalnızca sağdaki FriendsMemberList'te (eskiden burada
+          FriendsSidebar olarak ikinci bir kopya vardı, kaldırıldı). */}
       <ChannelSidebar
-        clan={selectedClan}
+        clan={isFriendsActive ? null : selectedClan}
         channels={channels}
         voiceChannels={voiceChannels}
         selectedChannelId={selectedChannel?.channelId}
         activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
         onSelectChannel={handleSelectChannel}
         onSelectVoiceChannel={handleSelectVoiceChannel}
-        user={user}
-        onLogout={handleLogout}
-        onOpenAccountSettings={() => { setAccountSettingsTab('profile'); setShowAccountSettings(true); }}
         onCreateChannel={handleCreateChannel}
         onCreateVoiceChannel={handleCreateVoiceChannel}
         onUpdateChannel={handleUpdateChannel}
@@ -699,37 +960,28 @@ function MainLayout() {
         userRole={userRole}
         onLeaveClan={handleLeaveClan}
         onOpenClanSettings={() => setShowClanSettings(true)}
-        inputVolume={inputVolume}
-        setInputVolume={setInputVolume}
-        outputVolume={outputVolume}
-        setOutputVolume={setOutputVolume}
-        selectedInputDevice={selectedInputDevice}
-        setSelectedInputDevice={setSelectedInputDevice}
-        selectedOutputDevice={selectedOutputDevice}
-        setSelectedOutputDevice={setSelectedOutputDevice}
         onWatchScreenShare={handleWatchScreenShare}
-        isMicMuted={isMicMuted}
-        onToggleMic={() => setIsMicMuted(prev => !prev)}
         onParticipantContextMenu={handleParticipantContextMenu}
-        noiseSuppressionEnabled={noiseSuppressionEnabled}
-        setNoiseSuppressionEnabled={setNoiseSuppressionEnabled}
       />
 
-      {selectedClan ? (
+      {/* Orta alan — Arkadaşlar sekmesinde de klanlarda da aynı ChatArea.
+          DM modunda sohbet seçili değilse ChatArea kendi boş durumunu gösterir. */}
+      {isFriendsActive ? (
+        <ChatArea
+          variant="dm"
+          conversation={activeDmConversation}
+          onBack={activeDmConversation ? () => setActiveDmConversation(null) : undefined}
+          onToggleVoiceCall={handleToggleDmVoice}
+          isVoiceCallActive={
+            !!activeDmConversation &&
+            activeVoiceChannel?.voiceChannelId ===
+              directVoiceRoomId(activeDmConversation.conversationId)
+          }
+        />
+      ) : (
         <ChatArea
           clan={selectedClan}
           channel={selectedChannel}
-        />
-      ) : activeDmConversation ? (
-        <DmChatArea
-          conversation={activeDmConversation}
-          onBack={() => setActiveDmConversation(null)}
-        />
-      ) : (
-        <FriendsPanel
-          user={user}
-          onlineUserIds={onlineUserIds}
-          onOpenDm={handleOpenDm}
         />
       )}
       {dmError && (
@@ -768,7 +1020,34 @@ function MainLayout() {
         />
       )}
 
-      <MemberList members={memeberShips} clanId={selectedClan?.clanId} onlineUserIds={onlineUserIds} />
+      {/* Sağ panel — Arkadaşlar sekmesinde arkadaş listesi, klanda üye listesi */}
+      {isFriendsActive ? (
+        <FriendsMemberList
+          friends={friends}
+          friendRequests={friendRequests}
+          onlineUserIds={onlineUserIds}
+          activeConversationUserId={activeDmConversation?.otherUserId}
+          currentUserId={user?.id || user?.sub || ''}
+          loading={friendsLoading}
+          error={friendsError}
+          onOpenDm={handleOpenDm}
+          onRemoveFriend={handleRemoveFriend}
+          onRefresh={handleRefreshFriends}
+          onSendRequest={handleSendFriendRequest}
+          onAcceptRequest={handleAcceptFriendRequest}
+          onRejectRequest={handleRejectFriendRequest}
+        />
+      ) : (
+        <MemberList
+          members={memeberShips}
+          clanId={selectedClan?.clanId}
+          onlineUserIds={onlineUserIds}
+          currentUserId={user?.id || user?.sub || ''}
+          onMemberContextMenu={handleMemberContextMenu}
+          onMemberClick={handleMemberClick}
+          onRefresh={handleRefreshMembers}
+        />
+      )}
 
       {showClanSettings && selectedClan && (
         <ClanSettings
@@ -816,7 +1095,7 @@ function MainLayout() {
           share={watchingScreenShare}
           onClose={() => setWatchingScreenShare(null)}
           isMicMuted={isMicMuted}
-          onToggleMic={() => setIsMicMuted(prev => !prev)}
+          onToggleMic={handleToggleMic}
         />
       )}
 
@@ -829,6 +1108,47 @@ function MainLayout() {
         currentVolume={volumeCtxMenu.participant ? (userVolumes[volumeCtxMenu.participant.identity] ?? 100) : 100}
         onVolumeChange={handleUserVolumeChange}
         onClose={handleCloseVolumeCtx}
+      />
+
+      {/* Klan Üyesi Bağlam Menüsü */}
+      <MemberContextMenu
+        visible={memberCtxMenu.visible}
+        x={memberCtxMenu.x}
+        y={memberCtxMenu.y}
+        member={memberCtxMenu.member}
+        isSelf={memberCtxMenu.isSelf}
+        onAddFriend={handleAddFriendFromMember}
+        onSendMessage={handleSendMessageFromMember}
+        onClose={handleCloseMemberCtx}
+      />
+
+      {/* Floating kullanıcı çubuğu — her sayfada sol altta aynı, tek örnek */}
+      <UserBar
+        user={user}
+        onLogout={handleLogout}
+        onOpenAccountSettings={handleOpenProfileSettings}
+        inputVolume={inputVolume}
+        setInputVolume={setInputVolume}
+        outputVolume={outputVolume}
+        setOutputVolume={setOutputVolume}
+        selectedInputDevice={selectedInputDevice}
+        setSelectedInputDevice={setSelectedInputDevice}
+        selectedOutputDevice={selectedOutputDevice}
+        setSelectedOutputDevice={setSelectedOutputDevice}
+        isMicMuted={isMicMuted}
+        onToggleMic={handleToggleMic}
+        isDeafened={isDeafened}
+        onToggleDeafen={handleToggleDeafen}
+        noiseSuppressionEnabled={noiseSuppressionEnabled}
+        setNoiseSuppressionEnabled={setNoiseSuppressionEnabled}
+      />
+
+      {/* Kullanıcı Profil Popup'ı */}
+      <UserProfilePopup
+        visible={profilePopup.visible}
+        anchorRect={profilePopup.anchorRect}
+        member={profilePopup.member}
+        onClose={handleCloseProfilePopup}
       />
     </div>
   );

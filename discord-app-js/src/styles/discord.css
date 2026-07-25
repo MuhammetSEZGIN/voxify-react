@@ -14,6 +14,9 @@
   --green: #22c55e;
   --red: #ef4444;
   --white: #ffffff;
+  /* Floating UserBar yüksekliği — sol panellerin alt boşluğu buna göre ayarlanır */
+  --user-bar-height: 60px;
+  --user-bar-inset: 8px;
 }
 
 /* ============================
@@ -498,24 +501,14 @@ body {
   color: var(--text-light);
 }
 
-/* User Control Bar */
-.channel-sidebar__user-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-  padding: 0 12px;
-  background: rgba(16, 25, 34, 0.5);
-  flex-shrink: 0;
-}
-
+/* User Control Bar — artık floating UserBar bileşeni (bkz. "Floating User Bar") */
 .channel-sidebar__user-info {
   display: flex;
   align-items: center;
   gap: 8px;
   overflow: visible;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: background 0.2s;
 }
 
@@ -1441,6 +1434,7 @@ body {
 .member-list--collapsed {
   width: 48px;
   min-width: 48px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1478,19 +1472,18 @@ body {
   flex-shrink: 0;
 }
 
+/* Artık .member-list--collapsed kapsayıcısının içinde — konumlandırma
+   margin hack'leriyle değil, kapsayıcının hizalamasıyla yapılıyor. */
 .member-list__toggle-btn--collapsed {
-  position:relative;
-  margin-top: 16px;
-  margin-right: 16px;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  background-color: var(--bg-dark);
+  background: transparent;
 }
 
 .member-list__toggle-btn--collapsed:hover {
-  background: rgba(26, 34, 45, 0.9);
-  }
+  background: rgba(255, 255, 255, 0.1);
+}
 
 /* Search */
 .member-list__search-wrapper {
@@ -1632,6 +1625,10 @@ body {
 }
 
 .member-list__name {
+  /* flex:1 + min-width:0 olmadan ellipsis hiç tetiklenmez; uzun isimler
+     rol rozetini ve hover aksiyonlarını satırdan taşırıyordu. */
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--text-light);
   overflow: hidden;
@@ -2600,53 +2597,8 @@ body {
 }
 
 /* ============================
-   Friends Panel
+   Friends — shared bits (avatar, badge, search box)
    ============================ */
-.friends-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.friends-panel__header {
-  margin-bottom: 20px;
-}
-
-.friends-panel__tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-dark);
-  padding-bottom: 12px;
-}
-
-.friends-panel__tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-light);
-  opacity: 0.7;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
-}
-
-.friends-panel__tab:hover {
-  background: rgba(255, 255, 255, 0.06);
-  opacity: 1;
-}
-
-.friends-panel__tab--active {
-  background: var(--primary);
-  opacity: 1;
-}
-
 .friends-panel__badge {
   background: #f04747;
   color: #fff;
@@ -2657,7 +2609,7 @@ body {
 }
 
 .friends-panel__error {
-  margin-bottom: 12px;
+  margin: 0 24px 12px;
 }
 
 .friends-panel__empty {
@@ -2665,35 +2617,6 @@ body {
   opacity: 0.6;
   font-size: 14px;
   padding: 16px 0;
-}
-
-.friends-panel__list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.friends-panel__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.friends-panel__item:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.friends-panel__item-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.friends-panel__avatar-wrapper {
-  position: relative;
 }
 
 .friends-panel__avatar {
@@ -2717,17 +2640,6 @@ body {
   object-fit: cover;
 }
 
-.friends-panel__status-dot {
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #3ba55c;
-  border: 2px solid var(--bg-dark);
-}
-
 .friends-panel__name {
   font-size: 14px;
   font-weight: 600;
@@ -2735,45 +2647,89 @@ body {
   margin: 0;
 }
 
-.friends-panel__status-text {
-  font-size: 12px;
-  color: var(--text-light);
-  opacity: 0.6;
-  margin: 0;
-}
-
-.friends-panel__item-actions {
+.friends-panel__search-box {
   display: flex;
+  align-items: center;
   gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  padding: 0 12px;
+  transition: border-color 0.15s;
 }
 
-.friends-panel__action-btn {
+.friends-panel__search-box:focus-within {
+  border-color: var(--primary);
+}
+
+.friends-panel__search-icon {
+  color: var(--text-light);
+  opacity: 0.5;
+  font-size: 20px;
+}
+
+.friends-panel__search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-light);
+  font-size: 14px;
+  padding: 12px 0;
+}
+
+.friends-panel__search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
   border: none;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-light);
+  opacity: 0.7;
   cursor: pointer;
-  transition: background 0.15s;
+  flex-shrink: 0;
 }
 
-.friends-panel__action-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+.friends-panel__search-clear:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
 }
 
-.friends-panel__action-btn--danger:hover {
-  background: #f04747;
-  color: #fff;
+.friends-panel__search-clear .material-symbols-outlined {
+  font-size: 14px;
 }
 
-.friends-panel__add {
+.friends-panel__search-state {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  color: var(--text-light);
+  opacity: 0.5;
+  text-align: center;
+}
+
+.friends-panel__search-state--compact {
+  padding: 16px;
+}
+
+.friends-panel__search-state-icon {
+  font-size: 40px;
+  opacity: 0.8;
+}
+
+.friends-panel__search-state-icon--spin {
+  animation: friends-refresh-spin 0.9s linear infinite;
+}
+
+.friends-panel__search-state p {
+  margin: 0;
+  font-size: 13px;
 }
 
 /* ============================
@@ -2876,10 +2832,18 @@ body {
   padding: 1px 6px;
   border-radius: 10px;
   border: 1px solid;
-  margin-left: auto;
+  /* margin-left:auto kaldırıldı — .member-list__name artık flex:1, rozet ile
+     hover aksiyonları aynı "auto" boşluğu için yarışmıyor. */
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* Hover'da aksiyonlar görünürken rozet gizlenir: ikisi aynı anda sığmıyor ve
+   satır içeriği kayıyordu. */
+.member-list__item:hover .member-list__role-badge {
+  display: none;
 }
 
 /* ============================
@@ -3621,6 +3585,153 @@ body {
 }
 
 /* ============================
+   Member Context Menu (right-click on a clan member)
+   ============================ */
+.member-ctx {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  background: rgba(18, 24, 32, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: user-volume-ctx-appear 0.12s ease-out;
+}
+
+.member-ctx__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+}
+
+.member-ctx__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.member-ctx__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.member-ctx__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-ctx__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+.member-ctx__action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-light);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.member-ctx__action .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.member-ctx__action:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================
+   User Profile Popup (appears above the clicked user)
+   ============================ */
+.user-profile-popup {
+  position: fixed;
+  z-index: 9999;
+  width: 220px;
+  background: rgba(18, 24, 32, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: user-volume-ctx-appear 0.12s ease-out;
+}
+
+.user-profile-popup__banner {
+  height: 48px;
+  background: var(--primary);
+}
+
+.user-profile-popup__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 4px solid rgba(18, 24, 32, 0.98);
+  margin: -32px 0 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  overflow: hidden;
+}
+
+.user-profile-popup__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.user-profile-popup__body {
+  padding: 8px 12px 12px;
+}
+
+.user-profile-popup__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-light);
+  margin: 0;
+}
+
+.user-profile-popup__role {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0 0;
+}
+
+/* ============================
    ScreenShare Viewer — Mic Toggle
    ============================ */
 .screenshare-viewer__mic-btn {
@@ -3654,4 +3765,343 @@ body {
 
 .screenshare-viewer__mic-btn .material-symbols-outlined {
   font-size: 20px;
+}
+
+/* ============================
+   Floating User Bar
+   ============================
+   Sol alt köşede, sayfadan bağımsız duran kullanıcı çubuğu.
+   MainLayout'ta bir kez render edilir; ChannelSidebar / FriendsSidebar
+   içindeki eski kopyaların yerini alır. */
+.user-bar {
+  position: fixed;
+  /* 80px = .server-list genişliği */
+  left: calc(80px + var(--user-bar-inset));
+  bottom: var(--user-bar-inset);
+  width: calc(256px - var(--user-bar-inset) * 2);
+  z-index: 500;
+  pointer-events: none;
+}
+
+.user-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: var(--user-bar-height);
+  padding: 0 8px;
+  border-radius: 10px;
+  background: rgba(16, 25, 34, 0.92);
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.user-bar__identity {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  position: relative;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.user-bar__identity-text {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Sol panel floating çubuğun altında kalmasın */
+.channel-sidebar {
+  padding-bottom: calc(var(--user-bar-height) + var(--user-bar-inset) * 2);
+}
+
+/* Kullanıcı menüsündeki nötr (kırmızı olmayan) satırlar */
+.channel-sidebar__user-dropdown-item--neutral {
+  color: var(--text-light);
+}
+
+.channel-sidebar__user-dropdown-item--neutral:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+/* Mikrofon kapalıyken kırmızı gösterge */
+.channel-sidebar__user-action-btn--muted {
+  color: var(--red);
+}
+
+.channel-sidebar__user-action-btn--muted:hover {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Ses ayarları menüsündeki onay kutuları */
+.audio-settings-menu__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+.audio-settings-menu__checkbox input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.audio-settings-menu__hint {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ============================
+   Member List — satır içi aksiyonlar
+   (FriendsMemberList tarafından kullanılır)
+   ============================ */
+.member-list__item {
+  position: relative;
+}
+
+.member-list__item-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.member-list__item:hover .member-list__item-actions,
+.member-list__item-actions--always {
+  display: flex;
+}
+
+.member-list__item-action-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.member-list__item-action-btn .material-symbols-outlined {
+  font-size: 17px;
+}
+
+.member-list__item-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+}
+
+.member-list__item-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+}
+
+.member-list__item--active {
+  background: rgba(43, 140, 238, 0.15);
+}
+
+/* ============================
+   Member List — başlık aksiyonları (yenile / arkadaş ekle)
+   ============================ */
+.member-list__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.member-list__refresh-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.member-list__refresh-btn .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.member-list__refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+}
+
+.member-list__refresh-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.member-list__refresh-btn--spinning .material-symbols-outlined {
+  animation: member-list-spin 0.8s linear infinite;
+}
+
+@keyframes member-list-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Arkadaş ekleme popover'ı */
+.member-list__add-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.member-list__add-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: var(--surface-dark-alt);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 300;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: dropdown-fade-in 0.15s ease;
+}
+
+.member-list__add-results {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.member-list__add-state {
+  padding: 12px 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.member-list__add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: 6px;
+}
+
+.member-list__add-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.member-list__avatar--sm {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.member-list__item-action-btn--accept:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+}
+
+/* ============================
+   Chat Area — DM geri butonu
+   ============================ */
+.chat-area__header-back-btn {
+  width: 30px;
+  height: 30px;
+  margin-right: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-area__header-back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-light);
+}
+
+.chat-area__header-back-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+/* ============================
+   Chat Area — DM sesli görüşme butonu
+   ============================ */
+.chat-area__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chat-area__call-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chat-area__call-btn:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.chat-area__call-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.chat-area__call-btn--active {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+}
+
+.chat-area__call-btn--active:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+@media (max-width: 900px) {
+  .chat-area__call-btn-label {
+    display: none;
+  }
 }

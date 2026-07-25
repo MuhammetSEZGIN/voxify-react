@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 
-function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReorder }) {
+function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReorder, isFriendsActive, onSelectFriends }) {
   const draggedIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
 
@@ -40,17 +40,31 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
 
   return (
     <nav className="server-list">
-      {/* Home / DM button */}
+      {/* Home button */}
       <div className="server-list__home-wrapper">
         <div
-          className={`server-list__indicator ${!selectedClanId ? 'server-list__indicator--active' : ''}`}
+          className={`server-list__indicator ${!selectedClanId && !isFriendsActive ? 'server-list__indicator--active' : ''}`}
         />
         <button
-          className={`server-list__item ${!selectedClanId ? 'server-list__item--active' : 'server-list__item--default'}`}
+          className={`server-list__item ${!selectedClanId && !isFriendsActive ? 'server-list__item--active' : 'server-list__item--default'}`}
           onClick={() => onSelectClan(null)}
           title="Home"
         >
           <span className="material-symbols-outlined server-list__icon">shield</span>
+        </button>
+      </div>
+
+      {/* Friends / DM button */}
+      <div className="server-list__home-wrapper">
+        <div
+          className={`server-list__indicator ${isFriendsActive ? 'server-list__indicator--active' : ''}`}
+        />
+        <button
+          className={`server-list__item ${isFriendsActive ? 'server-list__item--active' : 'server-list__item--default'}`}
+          onClick={onSelectFriends}
+          title="Arkadaşlar"
+        >
+          <span className="material-symbols-outlined server-list__icon">group</span>
         </button>
       </div>
 
