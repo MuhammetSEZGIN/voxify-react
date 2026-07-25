@@ -32,6 +32,8 @@ function ChannelSidebar({
   headerAccessory,
   onWatchScreenShare,
   onParticipantContextMenu,
+  isClanMuted = false,
+  onToggleClanMute,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -167,6 +169,15 @@ function ChannelSidebar({
             </button>
             {showClanMenu && (
               <div className="clan-dropdown-menu">
+                <button
+                  className="clan-dropdown-menu__item"
+                  onClick={() => { setShowClanMenu(false); onToggleClanMute?.(); }}
+                >
+                  <span className="material-symbols-outlined">
+                    {isClanMuted ? 'notifications_active' : 'notifications_off'}
+                  </span>
+                  <span>{isClanMuted ? 'Klan Bildirimlerini Aç' : 'Klanı Sessize Al'}</span>
+                </button>
                 {(userRole === 'owner' || userRole === 'admin') && (
                   <button className="clan-dropdown-menu__item" onClick={() => { setShowClanMenu(false); onOpenClanSettings?.(); }}>
                     <span className="material-symbols-outlined">settings</span>

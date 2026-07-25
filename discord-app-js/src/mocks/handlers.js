@@ -279,6 +279,32 @@ export const handlers = [
     });
   }),
 
+  http.post(`${API_URL}/identity/forgot-password`, async ({ request }) => {
+    await request.json();
+    return HttpResponse.json({
+      isSuccessfull: true,
+      statusCode: 200,
+      message: 'Parola sıfırlama bağlantısı gönderildi',
+      data: null,
+    });
+  }),
+
+  http.post(`${API_URL}/identity/reset-password`, async ({ request }) => {
+    const data = await request.json();
+    if (!data.email || !data.token || !data.newPassword || data.newPassword !== data.newPasswordConfirmation) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Parola sıfırlama bilgileri geçersiz' },
+        { status: 400 }
+      );
+    }
+    return HttpResponse.json({
+      isSuccessfull: true,
+      statusCode: 200,
+      message: 'Parola başarıyla değiştirildi',
+      data: null,
+    });
+  }),
+
   http.get(`${API_URL}/identity/confirm-email`, ({ request }) => {
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
@@ -336,6 +362,25 @@ export const handlers = [
         emailConfirmed: false,
         avatarUrl: updates.avatarUrl ?? null,
         bio: updates.bio ?? '',
+      },
+    });
+  }),
+
+  http.put(`${API_URL}/identity/user/email`, async ({ request }) => {
+    const { email } = await request.json();
+    if (!email) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'E-posta adresi gereklidir' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'E-posta adresi güncellendi ve doğrulama bağlantısı gönderildi',
+      data: {
+        email,
+        emailConfirmed: false,
       },
     });
   }),

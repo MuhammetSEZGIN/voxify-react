@@ -25,8 +25,17 @@ import * as PresenceService from '../../services/PresenceService';
 import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
 import { directVoiceRoomId } from '../../utils/space';
 import NotificationCenter from '../notifications/NotificationCenter';
+import FriendsNotificationSidebar from '../notifications/FriendsNotificationSidebar';
 import DmCallOverlay from '../calls/DmCallOverlay';
 import useDmCall from '../../hooks/useDmCall';
+import useNotifications from '../../hooks/useNotifications';
+import {
+  getMutedClanIds,
+  getMutedUserIds,
+  setClanMuted as persistClanMuted,
+  setUserMuted as persistUserMuted,
+} from '../../utils/messageNotifications';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
 
 function MainLayout() {
   const { user, token, logout, updateUser } = useAuth();
@@ -95,6 +104,8 @@ function MainLayout() {
   const [friendsError, setFriendsError] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const [mutedClanIds, setMutedClanIds] = useState(() => getMutedClanIds());
+  const [mutedUserIds, setMutedUserIds] = useState(() => getMutedUserIds());
 
   // Global Audio Settings
   const [inputVolume, setInputVolume] = useState(100);
@@ -136,11 +147,50 @@ function MainLayout() {
 
   const canManage = userRole === 'owner' || userRole === 'admin';
 
+  // Klan servisi üyeleri düz veya iç içe kullanıcı alanlarıyla döndürebiliyor.
+  // Eksik profil alanlarını IdentityService'ten zaten alınmış mevcut kullanıcı ve
+  // arkadaş verisiyle tamamlayarak sağ panel, ayarlar ve profil kartını eşit tut.
+  const displayMemberships = useMemo(() => {
+    const friendProfiles = new Map(friends.map((friend) => [friend.id, friend]));
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+
+    return memeberShips.map((member) => {
+      const memberId = getMemberId(member);
+      const knownProfile = memberId === currentUserId ? user : friendProfiles.get(memberId);
+
+      return {
+        ...member,
+        userId: memberId,
+        userName: getMemberName(member) !== 'Unknown'
+          ? getMemberName(member)
+          : knownProfile?.userName || knownProfile?.username || 'Unknown',
+        avatarUrl: getMemberAvatarUrl(member) || knownProfile?.avatarUrl || null,
+      };
+    });
+  }, [friends, memeberShips, user]);
+
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type });
     clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
+
+  const handleToggleClanMute = useCallback((clan) => {
+    const clanId = clan?.clanId;
+    if (!clanId) return;
+    const shouldMute = !mutedClanIds.includes(clanId);
+    setMutedClanIds(persistClanMuted(clanId, shouldMute));
+    showToast(shouldMute ? `${clan.name} sessize alındı` : `${clan.name} bildirimleri açıldı`);
+  }, [mutedClanIds, showToast]);
+
+  const handleToggleUserMute = useCallback((targetUser) => {
+    const targetUserId = targetUser?.userId || targetUser?.user?.id || targetUser?.id || '';
+    if (!targetUserId) return;
+    const shouldMute = !mutedUserIds.includes(targetUserId);
+    setMutedUserIds(persistUserMuted(targetUserId, shouldMute));
+    const name = targetUser?.userName || targetUser?.username || 'Kullanıcı';
+    showToast(shouldMute ? `${name} sessize alındı` : `${name} bildirimleri açıldı`);
+  }, [mutedUserIds, showToast]);
 
   const playVoicePresenceNotification = useCallback(() => {
     try {
@@ -325,6 +375,10 @@ function MainLayout() {
     }
   }, [handleRefreshFriends]);
 
+  // Bildirim merkezi ile Arkadaşlar sidebar'ı aynı listeyi ve SignalR
+  // bağlantısını paylaşır; okundu durumu iki yerde de anında eşleşir.
+  const notifications = useNotifications(token, handleNotificationReceived);
+
   const handleOpenNotification = useCallback((notification) => {
     if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
       handleSelectFriends();
@@ -401,8 +455,6 @@ function MainLayout() {
   const handleCloseProfilePopup = useCallback(() => {
     setProfilePopup((prev) => ({ ...prev, visible: false }));
   }, []);
-
-  const getMemberId = (m) => m.userId || m.user?.id || m.id || '';
 
   const handleAddFriendFromMember = async (member) => {
     try {
@@ -1031,41 +1083,58 @@ function MainLayout() {
         onSelectFriends={handleSelectFriends}
       />
 
-      {/* Sol panel — Arkadaşlar sekmesinde de kanal listesi kalır. Arkadaş
-          listesi artık yalnızca sağdaki FriendsMemberList'te (eskiden burada
-          FriendsSidebar olarak ikinci bir kopya vardı, kaldırıldı). */}
-      <ChannelSidebar
-        clan={isFriendsActive ? null : selectedClan}
-        channels={channels}
-        voiceChannels={voiceChannels}
-        selectedChannelId={selectedChannel?.channelId}
-        activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
-        onSelectChannel={handleSelectChannel}
-        onSelectVoiceChannel={handleSelectVoiceChannel}
-        onCreateChannel={handleCreateChannel}
-        onCreateVoiceChannel={handleCreateVoiceChannel}
-        onUpdateChannel={handleUpdateChannel}
-        onDeleteChannel={handleDeleteChannel}
-        onUpdateVoiceChannel={handleUpdateVoiceChannel}
-        onDeleteVoiceChannel={handleDeleteVoiceChannel}
-        voiceState={voiceState}
-        activeVoiceChannel={activeVoiceChannel}
-        onDisconnectVoice={handleDisconnectVoice}
-        voicePresence={voicePresence}
-        canManage={canManage}
-        userRole={userRole}
-        onLeaveClan={handleLeaveClan}
-        onOpenClanSettings={() => setShowClanSettings(true)}
-        headerAccessory={(
-          <NotificationCenter
-            token={token}
-            onReceive={handleNotificationReceived}
-            onOpen={handleOpenNotification}
-          />
-        )}
-        onWatchScreenShare={handleWatchScreenShare}
-        onParticipantContextMenu={handleParticipantContextMenu}
-      />
+      {/* Sol panel — Arkadaşlar görünümünde sohbet bildirimleri, klan
+          görünümünde metin/ses kanalları gösterilir. */}
+      {isFriendsActive ? (
+        <FriendsNotificationSidebar
+          notifications={notifications}
+          activeConversationId={activeDmConversation?.conversationId}
+          onOpenNotification={handleOpenNotification}
+          activeVoiceChannel={activeVoiceChannel}
+          voiceState={voiceState}
+          onDisconnectVoice={handleDisconnectVoice}
+          headerAccessory={(
+            <NotificationCenter
+              notifications={notifications}
+              onOpen={handleOpenNotification}
+            />
+          )}
+        />
+      ) : (
+        <ChannelSidebar
+          clan={selectedClan}
+          channels={channels}
+          voiceChannels={voiceChannels}
+          selectedChannelId={selectedChannel?.channelId}
+          activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
+          onSelectChannel={handleSelectChannel}
+          onSelectVoiceChannel={handleSelectVoiceChannel}
+          onCreateChannel={handleCreateChannel}
+          onCreateVoiceChannel={handleCreateVoiceChannel}
+          onUpdateChannel={handleUpdateChannel}
+          onDeleteChannel={handleDeleteChannel}
+          onUpdateVoiceChannel={handleUpdateVoiceChannel}
+          onDeleteVoiceChannel={handleDeleteVoiceChannel}
+          voiceState={voiceState}
+          activeVoiceChannel={activeVoiceChannel}
+          onDisconnectVoice={handleDisconnectVoice}
+          voicePresence={voicePresence}
+          canManage={canManage}
+          userRole={userRole}
+          onLeaveClan={handleLeaveClan}
+          onOpenClanSettings={() => setShowClanSettings(true)}
+          headerAccessory={(
+            <NotificationCenter
+              notifications={notifications}
+              onOpen={handleOpenNotification}
+            />
+          )}
+          onWatchScreenShare={handleWatchScreenShare}
+          onParticipantContextMenu={handleParticipantContextMenu}
+          isClanMuted={mutedClanIds.includes(selectedClan?.clanId)}
+          onToggleClanMute={() => handleToggleClanMute(selectedClan)}
+        />
+      )}
 
       {/* Orta alan — Arkadaşlar sekmesinde de klanlarda da aynı ChatArea.
           DM modunda sohbet seçili değilse ChatArea kendi boş durumunu gösterir. */}
@@ -1087,11 +1156,13 @@ function MainLayout() {
               ? dmCallState.phase
               : null
           }
+          notificationVolume={outputVolume}
         />
       ) : (
         <ChatArea
           clan={selectedClan}
           channel={selectedChannel}
+          notificationVolume={outputVolume}
         />
       )}
       {dmError && (
@@ -1158,10 +1229,12 @@ function MainLayout() {
           onSendRequest={handleSendFriendRequest}
           onAcceptRequest={handleAcceptFriendRequest}
           onRejectRequest={handleRejectFriendRequest}
+          mutedUserIds={mutedUserIds}
+          onToggleUserMute={handleToggleUserMute}
         />
       ) : (
         <MemberList
-          members={memeberShips}
+          members={displayMemberships}
           clanId={selectedClan?.clanId}
           onlineUserIds={onlineUserIds}
           currentUserId={user?.id || user?.sub || ''}
@@ -1174,7 +1247,7 @@ function MainLayout() {
       {showClanSettings && selectedClan && (
         <ClanSettings
           clan={selectedClan}
-          members={memeberShips}
+          members={displayMemberships}
           userRole={userRole}
           user={user}
           onClose={() => setShowClanSettings(false)}
@@ -1239,8 +1312,10 @@ function MainLayout() {
         y={memberCtxMenu.y}
         member={memberCtxMenu.member}
         isSelf={memberCtxMenu.isSelf}
+        isMuted={mutedUserIds.includes(getMemberId(memberCtxMenu.member || {}))}
         onAddFriend={handleAddFriendFromMember}
         onSendMessage={handleSendMessageFromMember}
+        onToggleMute={handleToggleUserMute}
         onClose={handleCloseMemberCtx}
       />
 
@@ -1270,6 +1345,7 @@ function MainLayout() {
         visible={profilePopup.visible}
         anchorRect={profilePopup.anchorRect}
         member={profilePopup.member}
+        isOnline={onlineUserIds.has(getMemberId(profilePopup.member))}
         onClose={handleCloseProfilePopup}
       />
     </div>

@@ -14,6 +14,28 @@ function unwrap(result, fallbackMessage) {
   return result?.data ?? result;
 }
 
+function describeError(error, fallbackMessage) {
+  const data = error.response?.data;
+
+  if (Array.isArray(data)) {
+    const descriptions = data
+      .map((item) => item?.description || item?.message || String(item || ''))
+      .filter(Boolean);
+    if (descriptions.length) return descriptions.join(' ');
+  }
+
+  if (Array.isArray(data?.errors) && data.errors.length) {
+    return data.errors.join(' ');
+  }
+
+  if (data?.errorsByField && typeof data.errorsByField === 'object') {
+    const fieldErrors = Object.values(data.errorsByField).flat().filter(Boolean);
+    if (fieldErrors.length) return fieldErrors.join(' ');
+  }
+
+  return data?.message || data?.detail || data?.title || error.message || fallbackMessage;
+}
+
 /**
  * Oturum açık kullanıcının şifresini değiştirir.
  * POST /identity/user/change-password — userId JWT'den okunur.
@@ -29,8 +51,7 @@ async function changePassword(currentPassword, newPassword) {
     });
     return unwrap(response.data, "Şifre değiştirilemedi");
   } catch (error) {
-    const msg = error.response?.data?.message || error.message || "Şifre değiştirilirken bir hata oluştu";
-    throw new Error(msg);
+    throw new Error(describeError(error, 'Şifre değiştirilirken bir hata oluştu'));
   }
 }
 
@@ -79,8 +100,7 @@ async function getMe() {
     const response = await api.get("/identity/user/me");
     return unwrap(response.data, "Profil bilgileri alınamadı");
   } catch (error) {
-    const msg = error.response?.data?.message || error.message || "Profil bilgileri alınırken bir hata oluştu";
-    throw new Error(msg);
+    throw new Error(describeError(error, 'Profil bilgileri alınırken bir hata oluştu'));
   }
 }
 
@@ -93,10 +113,28 @@ async function getMe() {
 async function updateProfile(updates) {
   try {
     const response = await api.put("/identity/user/update", updates);
-    return unwrap(response.data, "Profil güncellenemedi");
+    unwrap(response.data, "Profil güncellenemedi");
+    // Endpoint yalnızca başarı mesajı döndürüyor. AuthContext'e gönderilecek
+    // güncel profil alanları isteğin kendisidir.
+    return updates;
   } catch (error) {
-    const msg = error.response?.data?.message || error.message || "Profil güncellenirken bir hata oluştu";
-    throw new Error(msg);
+    throw new Error(describeError(error, 'Profil güncellenirken bir hata oluştu'));
+  }
+}
+
+/**
+ * Oturumdaki kullanıcının e-posta adresini değiştirir ve yeni adrese doğrulama
+ * bağlantısı gönderir. Aynı doğrulanmamış adres gönderildiğinde maili yeniler.
+ * PUT /identity/user/email — userId JWT'den okunur.
+ * @param {string} email
+ * @returns {Promise<Object>}
+ */
+async function updateEmail(email) {
+  try {
+    const response = await api.put('/identity/user/email', { email });
+    return unwrap(response.data, 'E-posta adresi güncellenemedi');
+  } catch (error) {
+    throw new Error(describeError(error, 'E-posta adresi güncellenirken bir hata oluştu'));
   }
 }
 
@@ -128,8 +166,9 @@ const UserService = {
   confirmEmail,
   getMe,
   updateProfile,
+  updateEmail,
   searchUsers,
 };
 
 export default UserService;
-export { changePassword, resendConfirmationEmail, confirmEmail, getMe, updateProfile, searchUsers };
+export { changePassword, resendConfirmationEmail, confirmEmail, getMe, updateProfile, updateEmail, searchUsers };

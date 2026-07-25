@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import useNotifications from '../../hooks/useNotifications';
 
 const TYPE_ICONS = {
   FriendRequestReceived: 'person_add',
@@ -19,7 +18,7 @@ function formatRelativeTime(value) {
   return new Date(value).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-function NotificationCenter({ token, onReceive, onOpen }) {
+function NotificationCenter({ notifications, onOpen }) {
   const [open, setOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
   const containerRef = useRef(null);
@@ -34,7 +33,7 @@ function NotificationCenter({ token, onReceive, onOpen }) {
     markRead,
     markAllRead,
     remove,
-  } = useNotifications(token, onReceive);
+  } = notifications;
 
   useEffect(() => {
     if (!open) return undefined;

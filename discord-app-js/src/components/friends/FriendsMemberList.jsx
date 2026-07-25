@@ -26,6 +26,8 @@ function FriendsMemberList({
   onSendRequest,
   onAcceptRequest,
   onRejectRequest,
+  mutedUserIds = [],
+  onToggleUserMute,
 }) {
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(true);
@@ -170,6 +172,19 @@ function FriendsMemberList({
       </div>
       <span className="member-list__name">{friend.userName}</span>
       <div className="member-list__item-actions">
+        <button
+          type="button"
+          className="member-list__item-action-btn"
+          title={mutedUserIds.includes(friend.id) ? 'Bildirimlerini Aç' : 'Kullanıcıyı Sessize Al'}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleUserMute?.(friend);
+          }}
+        >
+          <span className="material-symbols-outlined">
+            {mutedUserIds.includes(friend.id) ? 'notifications_off' : 'notifications'}
+          </span>
+        </button>
         <button
           type="button"
           className="member-list__item-action-btn"

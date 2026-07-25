@@ -6,6 +6,8 @@ import {
   CLAN_ROLE_COLORS,
   normalizeClanRole,
 } from '../../utils/constants';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import AvatarContent from '../common/AvatarContent';
 
 function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId, onMemberContextMenu, onMemberClick, onRefresh }) {
   const [search, setSearch] = useState('');
@@ -26,12 +28,10 @@ function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId,
     }
   };
 
-  const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
-  const getUserId = (m) => m.userId || m.user?.id || m.id || '';
   const getRole = (m) => normalizeClanRole(m.role);
 
   const filtered = members.filter((m) =>
-    getName(m).toLowerCase().includes(search.toLowerCase())
+    getMemberName(m).toLowerCase().includes(search.toLowerCase())
   );
   // Group by role, then sort within each group by online status
   const grouped = {};
@@ -49,8 +49,8 @@ function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId,
   // Within each role, online first
   for (const role of sortedRoles) {
     grouped[role].sort((a, b) => {
-      const aOnline = onlineUserIds.has(getUserId(a)) ? 0 : 1;
-      const bOnline = onlineUserIds.has(getUserId(b)) ? 0 : 1;
+      const aOnline = onlineUserIds.has(getMemberId(a)) ? 0 : 1;
+      const bOnline = onlineUserIds.has(getMemberId(b)) ? 0 : 1;
       return aOnline - bOnline;
     });
   }
@@ -138,8 +138,10 @@ function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId,
             </p>
             <ul className="member-list__list">
               {grouped[role].map((member) => {
-                const isOnline = onlineUserIds.has(getUserId(member));
-                const memberId = getUserId(member);
+                const isOnline = onlineUserIds.has(getMemberId(member));
+                const memberId = getMemberId(member);
+                const memberName = getMemberName(member);
+                const avatarUrl = getMemberAvatarUrl(member);
                 const isSelf = currentUserId && memberId === currentUserId;
                 return (
                   <li
@@ -153,15 +155,15 @@ function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId,
                   >
                     <div className="member-list__avatar-wrapper">
                       <div className={`member-list__avatar ${!isOnline ? 'member-list__avatar--offline' : ''}`}>
-                        {member.avatarUrl ? (
-                          <img src={member.avatarUrl} alt="" className={`member-list__avatar-img ${!isOnline ? 'member-list__avatar-img--offline' : ''}`} />
-                        ) : (
-                          <span>{getName(member).charAt(0).toUpperCase()}</span>
-                        )}
+                        <AvatarContent
+                          src={avatarUrl}
+                          name={memberName}
+                          imgClassName={`member-list__avatar-img ${!isOnline ? 'member-list__avatar-img--offline' : ''}`}
+                        />
                       </div>
                       <div className={`member-list__status-dot ${isOnline ? 'member-list__status-dot--online' : 'member-list__status-dot--offline'}`} />
                     </div>
-                    <span className="member-list__name">{getName(member)}</span>
+                    <span className="member-list__name">{memberName}</span>
                     {CLAN_ROLE_COLORS[role] && (
                       <span className="member-list__role-badge" style={{ color: CLAN_ROLE_COLORS[role], borderColor: CLAN_ROLE_COLORS[role] }}>
                         {CLAN_ROLE_LABELS[role]}

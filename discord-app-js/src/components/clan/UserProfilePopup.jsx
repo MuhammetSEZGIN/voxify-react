@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useLayoutEffect, useState } from 'react';
+import { CLAN_ROLE_COLORS, CLAN_ROLE_LABELS, normalizeClanRole } from '../../utils/constants';
+import { getMemberAvatarUrl, getMemberName } from '../../utils/member';
+import AvatarContent from '../common/AvatarContent';
 
 /**
  * UserProfilePopup
@@ -12,7 +15,7 @@ import React, { useEffect, useRef, useLayoutEffect, useState } from 'react';
  *  - member      : { userName, avatarUrl, role }
  *  - onClose     : () => void
  */
-function UserProfilePopup({ visible, anchorRect, member, onClose }) {
+function UserProfilePopup({ visible, anchorRect, member, isOnline = false, onClose }) {
   const popupRef = useRef(null);
   const [style, setStyle] = useState({ left: 0, top: 0 });
 
@@ -51,21 +54,38 @@ function UserProfilePopup({ visible, anchorRect, member, onClose }) {
 
   if (!visible || !member) return null;
 
-  const name = member.userName || member.username || 'Unknown';
+  const name = getMemberName(member);
+  const avatarUrl = getMemberAvatarUrl(member);
+  const role = normalizeClanRole(member.role);
+  const roleLabel = CLAN_ROLE_LABELS[role] || role;
+  const roleColor = CLAN_ROLE_COLORS[role];
 
   return (
     <div ref={popupRef} className="user-profile-popup" style={style}>
       <div className="user-profile-popup__banner" />
       <div className="user-profile-popup__avatar">
-        {member.avatarUrl ? (
-          <img src={member.avatarUrl} alt="" />
-        ) : (
-          <span>{name.charAt(0).toUpperCase()}</span>
-        )}
+        <AvatarContent src={avatarUrl} name={name} />
+        <span
+          className={`user-profile-popup__status-dot ${isOnline ? 'user-profile-popup__status-dot--online' : ''}`}
+          aria-label={isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+        />
       </div>
       <div className="user-profile-popup__body">
         <p className="user-profile-popup__name">{name}</p>
-        {member.role && <p className="user-profile-popup__role">{member.role}</p>}
+        <p className="user-profile-popup__handle">@{name}</p>
+        <div className="user-profile-popup__meta">
+          <span className={`user-profile-popup__presence ${isOnline ? 'user-profile-popup__presence--online' : ''}`}>
+            {isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}
+          </span>
+          {member.role && (
+            <span
+              className="user-profile-popup__role"
+              style={roleColor ? { color: roleColor, borderColor: roleColor } : undefined}
+            >
+              {roleLabel}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

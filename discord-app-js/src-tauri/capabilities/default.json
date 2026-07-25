@@ -24,6 +24,7 @@
     "store:allow-get",
     "store:allow-set",
     "store:allow-delete",
-    "store:allow-save"
+    "store:allow-save",
+    "notification:default"
   ]
 }

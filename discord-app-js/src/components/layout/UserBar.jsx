@@ -5,6 +5,7 @@ import {
   getMessageNotificationsMuted,
   setMessageNotificationsMuted,
 } from '../../utils/messageNotifications';
+import { requestDesktopNotificationPermission } from '../../utils/desktopNotifications';
 
 /**
  * UserBar — sol alt köşede floating duran, sayfadan bağımsız kullanıcı çubuğu.
@@ -195,9 +196,16 @@ function UserBar({
     }
   }, [openMenu, toggleMenu, inputDevices, requestPermission]);
 
-  const handleNotificationsChange = useCallback((enabled) => {
+  const handleNotificationsChange = useCallback(async (enabled) => {
     setMessageNotificationsMuted(!enabled);
     setNotificationsEnabled(enabled);
+    if (enabled) {
+      const permission = await requestDesktopNotificationPermission();
+      if (permission !== 'granted') {
+        setMessageNotificationsMuted(true);
+        setNotificationsEnabled(false);
+      }
+    }
   }, []);
 
   const handleOpenAccountSettings = useCallback(() => {

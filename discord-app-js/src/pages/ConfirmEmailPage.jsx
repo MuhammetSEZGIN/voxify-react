@@ -1,17 +1,29 @@
-import React, { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import React, { useEffect, useLayoutEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import UserService from "../services/UserService";
 import "../styles/auth.css";
 
 function ConfirmEmailPage() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
-  const userId = searchParams.get("userId");
+  // Query değerlerini bir kez belleğe al. Ardından doğrulama token'ının adres
+  // çubuğu, tarayıcı geçmişi ve kopyalanan URL içinde kalmasını engelle.
+  const [{ token, userId }] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return {
+      token: searchParams.get("token"),
+      userId: searchParams.get("userId"),
+    };
+  });
   const { isAuthenticated, updateUser } = useAuth();
 
   const [status, setStatus] = useState("loading"); // loading | success | error
   const [message, setMessage] = useState("");
+
+  useLayoutEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState(window.history.state, "", "/confirm-email");
+    }
+  }, []);
 
   useEffect(() => {
     if (!token || !userId) {

@@ -5,6 +5,8 @@ import {
   CLAN_ROLE_LABELS,
   normalizeClanRole,
 } from '../../utils/constants';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import AvatarContent from '../common/AvatarContent';
 
 function ClanSettings({
   clan,
@@ -54,11 +56,6 @@ function ClanSettings({
   const handleKick = async (memberId) => {
     await onKickMember(clan.clanId, memberId);
   };
-
-  const getMemberName = (m) =>
-    m.user?.username || m.user?.userName || m.userName || m.username || 'Unknown';
-
-  const getMemberId = (m) => m.userId || m.user?.id || '';
 
   const getMembershipId = (m) => m.id || m.membershipId || '';
 
@@ -160,7 +157,11 @@ function ClanSettings({
                       <div key={memberId || membershipId} className="clan-settings__member-item">
                         <div className="clan-settings__member-info">
                           <div className="clan-settings__member-avatar">
-                            <span>{getMemberName(member).charAt(0).toUpperCase()}</span>
+                            <AvatarContent
+                              src={getMemberAvatarUrl(member)}
+                              name={getMemberName(member)}
+                              imgClassName="clan-settings__member-avatar-img"
+                            />
                           </div>
                           <div>
                             <p className="clan-settings__member-name">

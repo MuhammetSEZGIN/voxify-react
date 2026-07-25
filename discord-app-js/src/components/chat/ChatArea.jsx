@@ -6,6 +6,7 @@ import useDesktopMessageNotifications from '../../hooks/useDesktopMessageNotific
 import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
+import { playMessageNotificationSound } from '../../utils/messageNotifications';
 
 function groupMessagesBySender(messages) {
   const groups = [];
@@ -56,6 +57,7 @@ function ChatArea({
   onToggleVoiceCall,
   isVoiceCallActive = false,
   voiceCallPhase = null,
+  notificationVolume = 100,
 }) {
   const isDm = variant === 'dm';
 
@@ -91,6 +93,8 @@ function ChatArea({
   // File Upload
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const dragDepthRef = useRef(0);
 
   const gifSearchTimerRef = useRef(null);
 
@@ -103,13 +107,6 @@ function ChatArea({
   const prevChannelIdRef = useRef(null);
   const { showDesktopNotification } = useDesktopMessageNotifications(targetName);
   
-
-  // OS bildirim izni iste
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
@@ -182,32 +179,17 @@ function ChatArea({
             // ayrı olsa da kanal geçişinde yarış durumunda karışabiliyor.)
             if (normalized.channelId && targetId && normalized.channelId !== targetId) return;
 
-            // Bildirim sesi çal ve OS bildirimi gönder (Eğer mesaj bizden değilse)
+            // Bildirim sesi ve masaüstü bildirimi tek ayar/mute hattından geçer.
             const currentId = user?.id || user?.sub || '';
             if (normalized.senderId !== currentId) {
-                try {
-                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-                    audio.volume = 0.5;
-                    audio.play().catch(() => {});
-                } catch (err) {
-                    console.warn('Bildirim sesi çalınamadı:', err);
-                }
-
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    const senderName = normalized.userName || 'Birisi';
-                    const body = normalized.content?.length > 100
-                        ? normalized.content.slice(0, 97) + '...'
-                        : normalized.content || '';
-                    new Notification(senderName, {
-                        body,
-                        tag: `msg-${normalized.channelId}`,
-                        silent: true,
-                    });
-                }
-            }
-
-            if (normalized.senderId !== currentId) {
-                showDesktopNotification(normalized).catch((error) => {
+                playMessageNotificationSound({
+                    clanId: targetClanId,
+                    senderId: normalized.senderId,
+                    volume: (notificationVolume / 100) * 0.5,
+                });
+                showDesktopNotification(normalized, {
+                    clanId: targetClanId,
+                }).catch((error) => {
                     console.warn('[ChatArea] Desktop notification failed:', error);
                 });
             }
@@ -279,7 +261,7 @@ function ChatArea({
       SignalRService.off('MessageDeleteFailed', handleDeleteFailed);
       SignalRService.off('JoinChannelFailed', handleJoinFailed);
     };
-  }, [showDesktopNotification, user, targetId]);
+  }, [isDm, notificationVolume, showDesktopNotification, targetClanId, targetId, user]);
 
 
   // Intersection Observer for pagination
@@ -608,35 +590,79 @@ function ChatArea({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadAndSendImages = useCallback(async (fileList) => {
+    const files = Array.from(fileList || []);
+    const images = files.filter((file) => file?.type?.startsWith('image/'));
 
-    // Sadece görsellere izin ver
-    if (!file.type.startsWith('image/')) {
-        alert('Lütfen sadece resim dosyası seçin.');
-        return;
+    if (images.length === 0) {
+      setSendError('Yalnızca görsel dosyaları yüklenebilir.');
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+      return;
     }
-
-    if (!targetId) return;
+    if (!targetId || isUploading) return;
 
     setIsUploading(true);
     try {
-        const publicUrl = await ImgBBService.uploadImage(file);
-
-        // Yüklenen dosyanın URL'sini hemen sohbete gönder
+      for (const image of images) {
+        const publicUrl = await ImgBBService.uploadImage(image);
         await SignalRService.sendMessage(targetId, targetClanId, publicUrl);
-
-        // Inputu temizle
-        e.target.value = '';
+      }
     } catch (err) {
-        console.error('Dosya yüklenemedi:', err);
-        setSendError('Görsel yüklenirken bir hata oluştu: ' + err.message);
-        clearTimeout(sendErrorTimerRef.current);
-        sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
+      console.error('Dosya yüklenemedi:', err);
+      setSendError('Görsel yüklenirken bir hata oluştu: ' + err.message);
+      clearTimeout(sendErrorTimerRef.current);
+      sendErrorTimerRef.current = setTimeout(() => setSendError(null), 5000);
     } finally {
-        setIsUploading(false);
+      setIsUploading(false);
     }
+  }, [isUploading, targetClanId, targetId]);
+
+  const handleFileChange = async (e) => {
+    await uploadAndSendImages(e.target.files);
+    e.target.value = '';
+  };
+
+  const handleComposerPaste = (e) => {
+    const imageFiles = Array.from(e.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    uploadAndSendImages(imageFiles);
+  };
+
+  const dragContainsFiles = (dataTransfer) =>
+    Array.from(dataTransfer?.types || []).includes('Files');
+
+  const handleDragEnter = (e) => {
+    if (!dragContainsFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingImage(true);
+  };
+
+  const handleDragOver = (e) => {
+    if (!dragContainsFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDragLeave = (e) => {
+    if (!dragContainsFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingImage(false);
+  };
+
+  const handleDrop = (e) => {
+    if (!dragContainsFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingImage(false);
+    uploadAndSendImages(e.dataTransfer.files);
   };
 
 
@@ -791,7 +817,21 @@ function ChatArea({
   }
 
   return (
-    <main className="chat-area">
+    <main
+      className={`chat-area ${isDraggingImage ? 'chat-area--dragging' : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onPaste={handleComposerPaste}
+    >
+      {isDraggingImage && (
+        <div className="chat-area__drop-overlay" aria-hidden="true">
+          <span className="material-symbols-outlined">add_photo_alternate</span>
+          <strong>Görseli buraya bırak</strong>
+          <span>Sohbete yükleyip göndereceğiz</span>
+        </div>
+      )}
       {/* Header — kanalda #kanal-adı, DM'de @kullanıcı */}
       <header className="chat-area__header">
         <div className="chat-area__header-info">
@@ -1072,6 +1112,7 @@ function ChatArea({
               ref={fileInputRef}
               style={{ display: 'none' }}
               accept="image/*"
+              multiple
               onChange={handleFileChange}
             />
             <button

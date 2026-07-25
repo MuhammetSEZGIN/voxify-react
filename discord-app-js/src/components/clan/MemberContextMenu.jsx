@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { getMemberAvatarUrl, getMemberName } from '../../utils/member';
+import AvatarContent from '../common/AvatarContent';
 
 /**
  * MemberContextMenu
@@ -14,7 +16,18 @@ import React, { useEffect, useRef } from 'react';
  *  - onSendMessage  : (member) => void
  *  - onClose        : () => void
  */
-function MemberContextMenu({ visible, x, y, member, isSelf, onAddFriend, onSendMessage, onClose }) {
+function MemberContextMenu({
+  visible,
+  x,
+  y,
+  member,
+  isSelf,
+  isMuted = false,
+  onAddFriend,
+  onSendMessage,
+  onToggleMute,
+  onClose,
+}) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -54,7 +67,8 @@ function MemberContextMenu({ visible, x, y, member, isSelf, onAddFriend, onSendM
 
   if (!visible || !member) return null;
 
-  const name = member.userName || member.username || 'Unknown';
+  const name = getMemberName(member);
+  const avatarUrl = getMemberAvatarUrl(member);
 
   return (
     <div
@@ -65,11 +79,7 @@ function MemberContextMenu({ visible, x, y, member, isSelf, onAddFriend, onSendM
     >
       <div className="member-ctx__header">
         <div className="member-ctx__avatar">
-          {member.avatarUrl ? (
-            <img src={member.avatarUrl} alt="" />
-          ) : (
-            <span>{name.charAt(0).toUpperCase()}</span>
-          )}
+          <AvatarContent src={avatarUrl} name={name} />
         </div>
         <span className="member-ctx__name">{name}</span>
       </div>
@@ -90,6 +100,15 @@ function MemberContextMenu({ visible, x, y, member, isSelf, onAddFriend, onSendM
           >
             <span className="material-symbols-outlined">person_add</span>
             Arkadaş Ekle
+          </button>
+          <button
+            className="member-ctx__action"
+            onClick={() => { onToggleMute?.(member); onClose?.(); }}
+          >
+            <span className="material-symbols-outlined">
+              {isMuted ? 'notifications_active' : 'notifications_off'}
+            </span>
+            {isMuted ? 'Bildirimlerini Aç' : 'Kullanıcıyı Sessize Al'}
           </button>
         </>
       )}
