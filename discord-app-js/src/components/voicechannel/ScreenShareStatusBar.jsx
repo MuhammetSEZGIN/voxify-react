@@ -1,20 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
+import ScreenShareControls from './ScreenShareControls';
 
 /**
  * ScreenShareStatusBar
  * Ses kanalı bağlantısı aktifken voice-status-panel'in ÜSTÜNDE görünen
  * ince ekran paylaşımı kontrol çubuğu.
  */
-function ScreenShareStatusBar({ activeVoiceChannel, voiceState }) {
-  const [quality, setQuality] = useState('medium');
-
+function ScreenShareStatusBar({ activeVoiceChannel, voiceState, onWatchScreenShare }) {
   if (!activeVoiceChannel || !voiceState) return null;
 
-  const { isScreenSharing, startScreenShare, stopScreenShare } = voiceState;
-
-  const handleStartShare = () => {
-    startScreenShare(quality);
-  };
+  const { isScreenSharing, remoteScreenShares = [] } = voiceState;
+  const remoteShare = remoteScreenShares[0];
 
   return (
     <div className="screenshare-status-bar">
@@ -24,7 +20,11 @@ function ScreenShareStatusBar({ activeVoiceChannel, voiceState }) {
         </span>
         <div className="screenshare-status-bar__text">
           <span className="screenshare-status-bar__label">
-            {isScreenSharing ? 'Ekran Yayını Aktif' : 'Ekran Paylaşımı'}
+            {isScreenSharing
+              ? 'Ekran Yayını Aktif'
+              : remoteShare
+                ? `${remoteShare.name} ekran paylaşıyor`
+                : 'Ekran Paylaşımı'}
           </span>
           <span className="screenshare-status-bar__channel">
             {activeVoiceChannel.name}
@@ -32,38 +32,11 @@ function ScreenShareStatusBar({ activeVoiceChannel, voiceState }) {
         </div>
       </div>
 
-      <div className="screenshare-status-bar__actions">
-        {!isScreenSharing && (
-          <select
-            className="screenshare-status-bar__quality"
-            value={quality}
-            onChange={(e) => setQuality(e.target.value)}
-            title="Yayın Kalitesi"
-          >
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </select>
-        )}
-
-        {isScreenSharing ? (
-          <button
-            className="screenshare-status-bar__btn screenshare-status-bar__btn--stop"
-            onClick={stopScreenShare}
-            title="Yayını Durdur"
-          >
-            <span className="material-symbols-outlined">stop_screen_share</span>
-          </button>
-        ) : (
-          <button
-            className="screenshare-status-bar__btn screenshare-status-bar__btn--start"
-            onClick={handleStartShare}
-            title="Ekranı Paylaş"
-          >
-            <span className="material-symbols-outlined">present_to_all</span>
-          </button>
-        )}
-      </div>
+      <ScreenShareControls
+        voiceState={voiceState}
+        onWatchScreenShare={onWatchScreenShare}
+        compact
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
+import ScreenShareControls from '../voicechannel/ScreenShareControls';
 
 const STATUS_TEXT = {
   starting: 'Arama başlatılıyor...',
@@ -12,7 +13,19 @@ const STATUS_TEXT = {
   failed: 'Çağrı başarısız',
 };
 
-function DmCallOverlay({ call, error, displayName, outputVolume = 100, onAccept, onReject, onCancel, onEnd, onDismiss }) {
+function DmCallOverlay({
+  call,
+  error,
+  displayName,
+  outputVolume = 100,
+  voiceState,
+  onWatchScreenShare,
+  onAccept,
+  onReject,
+  onCancel,
+  onEnd,
+  onDismiss,
+}) {
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -33,42 +46,60 @@ function DmCallOverlay({ call, error, displayName, outputVolume = 100, onAccept,
   const terminal = ['rejected', 'cancelled', 'timed-out', 'busy', 'ended', 'failed'].includes(call.phase);
   const incoming = call.phase === 'incoming';
   const name = displayName || call.otherUserName || 'Bir kullanıcı';
+  const remoteShare = voiceState?.remoteScreenShares?.[0];
 
   return (
     <section className={`dm-call ${incoming ? 'dm-call--incoming' : ''}`} role="dialog" aria-live="assertive">
-      <div className="dm-call__avatar">
-        {call.otherAvatarUrl ? <img src={call.otherAvatarUrl} alt="" /> : name.charAt(0).toUpperCase()}
-      </div>
-      <div className="dm-call__content">
-        <strong>{name}</strong>
-        <span>{incoming ? 'Gelen sesli arama' : STATUS_TEXT[call.phase] || 'Sesli arama'}</span>
-        {error && <small>{error}</small>}
-      </div>
-      <div className="dm-call__actions">
-        {incoming && (
-          <>
-            <button type="button" className="dm-call__action dm-call__action--reject" onClick={onReject} title="Reddet">
+      <div className="dm-call__main">
+        <div className="dm-call__avatar">
+          {call.otherAvatarUrl ? <img src={call.otherAvatarUrl} alt="" /> : name.charAt(0).toUpperCase()}
+        </div>
+        <div className="dm-call__content">
+          <strong>{name}</strong>
+          <span>
+            {remoteShare
+              ? `${remoteShare.name} ekran paylaşıyor`
+              : incoming
+                ? 'Gelen sesli arama'
+                : STATUS_TEXT[call.phase] || 'Sesli arama'}
+          </span>
+          {error && <small>{error}</small>}
+        </div>
+        <div className="dm-call__actions">
+          {incoming && (
+            <>
+              <button type="button" className="dm-call__action dm-call__action--reject" onClick={onReject} title="Reddet">
+                <span className="material-symbols-outlined">call_end</span>
+              </button>
+              <button type="button" className="dm-call__action dm-call__action--accept" onClick={onAccept} title="Kabul et">
+                <span className="material-symbols-outlined">call</span>
+              </button>
+            </>
+          )}
+          {['starting', 'ringing'].includes(call.phase) && (
+            <button type="button" className="dm-call__action dm-call__action--reject" onClick={onCancel} title="Aramayı iptal et">
               <span className="material-symbols-outlined">call_end</span>
             </button>
-            <button type="button" className="dm-call__action dm-call__action--accept" onClick={onAccept} title="Kabul et">
-              <span className="material-symbols-outlined">call</span>
+          )}
+          {call.phase === 'accepted' && (
+            <button type="button" className="dm-call__action dm-call__action--reject" onClick={onEnd} title="Görüşmeyi bitir">
+              <span className="material-symbols-outlined">call_end</span>
             </button>
-          </>
-        )}
-        {['starting', 'ringing'].includes(call.phase) && (
-          <button type="button" className="dm-call__action dm-call__action--reject" onClick={onCancel} title="Aramayı iptal et">
-            <span className="material-symbols-outlined">call_end</span>
-          </button>
-        )}
-        {call.phase === 'accepted' && (
-          <button type="button" className="dm-call__action dm-call__action--reject" onClick={onEnd} title="Görüşmeyi bitir">
-            <span className="material-symbols-outlined">call_end</span>
-          </button>
-        )}
-        {terminal && (
-          <button type="button" className="dm-call__dismiss" onClick={onDismiss}>Kapat</button>
-        )}
+          )}
+          {terminal && (
+            <button type="button" className="dm-call__dismiss" onClick={onDismiss}>Kapat</button>
+          )}
+        </div>
       </div>
+
+      {call.phase === 'accepted' && voiceState && (
+        <div className="dm-call__screen-share">
+          <ScreenShareControls
+            voiceState={voiceState}
+            onWatchScreenShare={onWatchScreenShare}
+          />
+        </div>
+      )}
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import ScreenShareStatusBar from '../voicechannel/ScreenShareStatusBar';
+import VoiceSessionPanel from '../voicechannel/VoiceSessionPanel';
 
 /**
  * NOT: Kullanıcı çubuğu (avatar + mikrofon/kulaklık/ses ayarları) artık burada
@@ -46,33 +46,6 @@ function ChannelSidebar({
   const [editName, setEditName] = useState('');
   const [showClanMenu, setShowClanMenu] = useState(false);
 
-  // Ses bağlantısı durum paneli — hem klan kanalı hem DM görüşmesi için aynı.
-  const renderVoiceStatusPanel = () => {
-    if (!activeVoiceChannel || !voiceState) return null;
-    return (
-      <div className="voice-status-panel">
-        <div className="voice-status-panel__info">
-          <div className="voice-status-panel__signal">
-            <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
-            <span className="voice-status-panel__label">
-              {activeVoiceChannel.isDirect ? 'Sesli Görüşme' : 'Ses Bağlantısı'}
-            </span>
-          </div>
-          <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>
-        </div>
-        <div className="voice-status-panel__actions">
-          <button
-            className="voice-status-panel__btn"
-            onClick={() => onDisconnectVoice?.()}
-            title="Bağlantıyı Kes"
-          >
-            <span className="material-symbols-outlined" style={{ color: '#ed4245' }}>call_end</span>
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   if (!clan) {
     return (
       <aside className="channel-sidebar">
@@ -87,11 +60,12 @@ function ChannelSidebar({
         </div>
         {/* DM görüşmesi klan seçili değilken de sürebilir — bağlantıyı kesme
             yolu her zaman görünür olmalı. */}
-        <ScreenShareStatusBar
+        <VoiceSessionPanel
           activeVoiceChannel={activeVoiceChannel}
           voiceState={voiceState}
+          onDisconnectVoice={onDisconnectVoice}
+          onWatchScreenShare={onWatchScreenShare}
         />
-        {renderVoiceStatusPanel()}
       </aside>
     );
   }
@@ -412,14 +386,12 @@ function ChannelSidebar({
         </details>
       </div>
 
-      {/* Screen Share Status Bar - voice status panelinin ÜSTÜNDE */}
-      <ScreenShareStatusBar
+      <VoiceSessionPanel
         activeVoiceChannel={activeVoiceChannel}
         voiceState={voiceState}
+        onDisconnectVoice={onDisconnectVoice}
+        onWatchScreenShare={onWatchScreenShare}
       />
-
-      {/* Voice Connection Panel - Discord tarzı bağlantı durumu */}
-      {renderVoiceStatusPanel()}
 
     </aside>
   );

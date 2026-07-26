@@ -1,6 +1,7 @@
 import React, { createContext, useMemo, useState, useEffect, useCallback } from "react";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import AuthService from "../services/AuthService";
+import UserService from "../services/UserService";
 
 const AuthContext = createContext(null);
 
@@ -76,6 +77,8 @@ function mapClaimsToUser(decoded) {
     'email': 'email',
     'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'role',
     'role': 'role',
+    'picture': 'avatarUrl',
+    'IsEmailConfirmed': 'emailConfirmed',
   };
 
   const user = {};
@@ -86,7 +89,24 @@ function mapClaimsToUser(decoded) {
   }
 
   if (!user.userName) user.userName = user.email || user.id || 'User';
+  if (typeof user.emailConfirmed === 'string') {
+    user.emailConfirmed = user.emailConfirmed.toLowerCase() === 'true';
+  }
   return user;
+}
+
+// JWT yalnızca oturum kimliği için yeterlidir; avatar, biyografi ve değişmiş
+// e-posta gibi güncel profil alanlarının tek kaynağı `/identity/user/me`'dir.
+// İstek geçici olarak başarısız olursa oturum açmayı engellemeden claim verisine
+// geri düşeriz.
+async function hydrateUserProfile(baseUser) {
+  try {
+    const profile = await UserService.getMe();
+    return { ...baseUser, ...profile };
+  } catch (error) {
+    console.warn('[Auth] Profil başlangıçta eşitlenemedi:', error.message);
+    return baseUser;
+  }
 }
 
 function AuthProvider({ children }) {
@@ -132,9 +152,10 @@ function AuthProvider({ children }) {
           setToken(newToken);
 
           const newDecoded = decodeJwt(newToken);
-          const refreshedUser = mapClaimsToUser(newDecoded);
+          let refreshedUser = mapClaimsToUser(newDecoded);
           if (storedUser?.id) refreshedUser.id = storedUser.id;
           if (storedUser?.sessionId) refreshedUser.sessionId = storedUser.sessionId;
+          refreshedUser = await hydrateUserProfile(refreshedUser);
           setUser(refreshedUser);
           await persistSet("user", refreshedUser);
           console.info("[Auth] Token refreshed successfully");
@@ -157,8 +178,9 @@ function AuthProvider({ children }) {
         setToken(storedToken);
         const resolvedUser = storedUser
           ?? mapClaimsToUser(decoded?.user ? decoded.user : decoded);
-        setUser(resolvedUser);
-        if (resolvedUser && !storedUser) await persistSet("user", resolvedUser);
+        const hydratedUser = await hydrateUserProfile(resolvedUser);
+        setUser(hydratedUser);
+        if (hydratedUser) await persistSet("user", hydratedUser);
       }
 
       setLoading(false);
@@ -179,9 +201,10 @@ function AuthProvider({ children }) {
       if (rtkn) await persistSet("refreshToken", rtkn);
 
       const decoded = decodeJwt(tkn);
-      const nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
+      let nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
       if (nextUser && data.userID) nextUser.id = data.userID;
       if (nextUser && data.sessionId) nextUser.sessionId = data.sessionId;
+      nextUser = await hydrateUserProfile(nextUser);
       setUser(nextUser);
       if (nextUser) await persistSet("user", nextUser);
     } catch (error) {
@@ -200,8 +223,9 @@ function AuthProvider({ children }) {
       await persistSet("token", tkn);
       if (rtkn) await persistSet("refreshToken", rtkn);
 
-      const rawUser = data.user ?? decodeJwt(data.token)?.user ?? decodeJwt(data.token);
-      const nextUser = mapClaimsToUser(rawUser);
+      const decoded = decodeJwt(tkn);
+      const rawUser = data.user ?? decoded?.user ?? decoded;
+      const nextUser = await hydrateUserProfile(mapClaimsToUser(rawUser));
       setUser(nextUser);
       if (nextUser) await persistSet("user", nextUser);
     } catch (error) {

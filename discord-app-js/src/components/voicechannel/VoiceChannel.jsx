@@ -79,41 +79,14 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
   const processorRef = useRef(null);
   const setupTokenRef = useRef(null);
 
-  // Ekran paylaşımı hook'u
-  const { isScreenSharing, remoteScreenShares, stopScreenShare } = useScreenShare();
-
-  // Kalite bazlı ekran paylaşımı başlat
-  const startScreenShareWithQuality = useCallback(async (quality = 'medium') => {
-    if (!localParticipant) return;
-    const presets = {
-      low: { maxBitrate: 500_000, maxFramerate: 30, width: 1280, height: 720 },
-      medium: { maxBitrate: 1_500_000, maxFramerate: 60, width: 1920, height: 1080 },
-      high: { maxBitrate: 3_000_000, maxFramerate: 60, width: 2560, height: 1440 },
-    };
-    const enc = presets[quality] || presets.medium;
-    try {
-      await localParticipant.setScreenShareEnabled(true, {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false,
-        },
-        selfBrowserSurface: 'include',
-        contentHint: quality === 'high' ? 'detail' : 'motion',
-        resolution: { width: enc.width, height: enc.height, frameRate: enc.maxFramerate },
-      });
-      const pub = localParticipant.getTrackPublication(Track.Source.ScreenShare);
-      if (pub?.videoTrack) {
-        pub.videoTrack.sender?.setParameters({
-          encodings: [{ maxBitrate: enc.maxBitrate, maxFramerate: enc.maxFramerate }],
-        }).catch(() => { });
-      }
-    } catch (err) {
-      if (err.name !== 'NotAllowedError') {
-        console.error('[ScreenShare] Ekran paylaşımı başlatılamadı:', err);
-      }
-    }
-  }, [localParticipant]);
+  const {
+    isScreenSharing,
+    remoteScreenShares,
+    isStartingScreenShare,
+    screenShareError,
+    startScreenShare,
+    stopScreenShare,
+  } = useScreenShare();
 
   // Global Mute durumunu LiveKit'e senkronize et
   useEffect(() => {
@@ -225,9 +198,11 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
       toggleMute,
       disconnect,
       isScreenSharing,
-      startScreenShare: startScreenShareWithQuality,
+      startScreenShare,
       stopScreenShare,
       remoteScreenShares,
+      isStartingScreenShare,
+      screenShareError,
     });
   }, [
     isMicrophoneEnabled,
@@ -237,9 +212,11 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     onVoiceStateChange,
     localParticipant,
     isScreenSharing,
-    startScreenShareWithQuality,
+    startScreenShare,
     stopScreenShare,
     remoteScreenShares,
+    isStartingScreenShare,
+    screenShareError,
     isMicMuted,
   ]);
 

@@ -485,8 +485,14 @@ function MainLayout() {
 
   const handleVoiceStateChange = useCallback((state) => {
     setVoiceState(state);
-    // Ekran paylaşımı izleme: state null olduğunda (bağlantı kesildi) viewer'u kapat
-    if (!state) setWatchingScreenShare(null);
+    // İzlenen yayın sona ererse veya track nesnesi yenilenirse viewer'u aynı
+    // state güncellemesinde kapat/güncelle; donmuş video penceresi bırakma.
+    setWatchingScreenShare((current) => {
+      if (!current || !state) return null;
+      return state.remoteScreenShares?.find(
+        (share) => share.participantIdentity === current.participantIdentity
+      ) || null;
+    });
   }, []);
 
   const handleWatchScreenShare = useCallback((identity) => {
@@ -1093,6 +1099,7 @@ function MainLayout() {
           activeVoiceChannel={activeVoiceChannel}
           voiceState={voiceState}
           onDisconnectVoice={handleDisconnectVoice}
+          onWatchScreenShare={handleWatchScreenShare}
           headerAccessory={(
             <NotificationCenter
               notifications={notifications}
@@ -1177,6 +1184,8 @@ function MainLayout() {
         error={dmCallError}
         displayName={dmCallDisplayName}
         outputVolume={outputVolume}
+        voiceState={activeVoiceChannel?.isDirect ? voiceState : null}
+        onWatchScreenShare={handleWatchScreenShare}
         onAccept={acceptDmCall}
         onReject={rejectDmCall}
         onCancel={cancelDmCall}

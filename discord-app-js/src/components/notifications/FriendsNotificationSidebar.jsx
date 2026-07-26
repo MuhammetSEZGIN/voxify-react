@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import ScreenShareStatusBar from '../voicechannel/ScreenShareStatusBar';
+import VoiceSessionPanel from '../voicechannel/VoiceSessionPanel';
 
 const CONVERSATION_NOTIFICATION_TYPES = new Set([
   'DirectMessageReceived',
@@ -30,6 +30,7 @@ function FriendsNotificationSidebar({
   activeVoiceChannel,
   voiceState,
   onDisconnectVoice,
+  onWatchScreenShare,
 }) {
   const [actionError, setActionError] = useState(null);
   const {
@@ -56,33 +57,6 @@ function FriendsNotificationSidebar({
       setActionError(err.message);
     }
   }, [markRead, onOpenNotification]);
-
-  const renderVoiceStatusPanel = () => {
-    if (!activeVoiceChannel || !voiceState) return null;
-    return (
-      <div className="voice-status-panel">
-        <div className="voice-status-panel__info">
-          <div className="voice-status-panel__signal">
-            <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
-            <span className="voice-status-panel__label">
-              {activeVoiceChannel.isDirect ? 'Sesli Görüşme' : 'Ses Bağlantısı'}
-            </span>
-          </div>
-          <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>
-        </div>
-        <div className="voice-status-panel__actions">
-          <button
-            type="button"
-            className="voice-status-panel__btn"
-            onClick={() => onDisconnectVoice?.()}
-            title="Bağlantıyı Kes"
-          >
-            <span className="material-symbols-outlined" style={{ color: '#ed4245' }}>call_end</span>
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <aside className="channel-sidebar friends-notification-sidebar">
@@ -151,11 +125,12 @@ function FriendsNotificationSidebar({
         )}
       </div>
 
-      <ScreenShareStatusBar
+      <VoiceSessionPanel
         activeVoiceChannel={activeVoiceChannel}
         voiceState={voiceState}
+        onDisconnectVoice={onDisconnectVoice}
+        onWatchScreenShare={onWatchScreenShare}
       />
-      {renderVoiceStatusPanel()}
     </aside>
   );
 }
