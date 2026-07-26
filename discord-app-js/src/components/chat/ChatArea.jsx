@@ -3,35 +3,14 @@ import MessageService from '../../services/MessageService';
 import SignalRService from '../../services/LiveMessageService';
 import { useAuth } from '../../hooks/useAuth';
 import useDesktopMessageNotifications from '../../hooks/useDesktopMessageNotifications';
-import { TENOR_API_KEY, TENOR_CLIENT_KEY, COMMON_EMOJIS } from '../../utils/constants';
+import { TENOR_API_KEY, TENOR_CLIENT_KEY } from '../../utils/constants';
 import ImgBBService from '../../services/ImgBBService';
 import WelcomePage from '../../pages/WelcomePage';
 import { playMessageNotificationSound } from '../../utils/messageNotifications';
-
-function groupMessagesBySender(messages) {
-  const groups = [];
-  for (const message of messages) {
-    const lastGroup = groups[groups.length - 1];
-    const lastMessage = lastGroup?.messages[lastGroup.messages.length - 1];
-    if (
-      lastGroup &&
-      lastGroup.userName === message.userName &&
-      lastGroup.senderId === message.senderId &&
-      Math.abs(new Date(message.createdAt) - new Date(lastMessage.createdAt)) < 60000
-    ) {
-      lastGroup.messages.push(message);
-    } else {
-      groups.push({
-        userName: message.userName,
-        senderId: message.senderId,
-        avatarUrl: message.avatarUrl,
-        createdAt: message.createdAt,
-        messages: [message],
-      });
-    }
-  }
-  return groups;
-}
+import ChatHeader from './ChatHeader';
+import ChatMessageList from './ChatMessageList';
+import ChatComposer from './ChatComposer';
+import { extractMessages, groupMessagesBySender, normalizeMessage } from './chatMessageUtils';
 
 
 /**
@@ -299,53 +278,6 @@ function ChatArea({
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior });
     }
-  };
-
-  /**
-   * Mesaj nesnesini normalize et — farklı API/SignalR formatlarını
-   * tek bir yapıya dönüştür.
-   */
-  const normalizeMessage = (msg) => {
-    // id alanı nesne olabilir (MongoDB ObjectId: { timestamp, machine, pid, increment } veya { $oid })
-    const messageId = msg.messageId
-      || (typeof msg.id === 'object' && msg.id !== null
-        ? (msg.id.$oid
-          || `${msg.id.timestamp ?? ''}-${msg.id.machine ?? ''}-${msg.id.pid ?? ''}-${msg.id.increment ?? ''}`)
-        : msg.id)
-      || msg.Id
-      || crypto.randomUUID();
-
-    return {
-      messageId,
-      content: msg.text || msg.Text || msg.content || msg.Content || msg.message || msg.Message || '',
-      userName: msg.userName || msg.UserName
-        || msg.user?.userName || msg.user?.username || msg.user?.UserName
-        || msg.senderName || msg.SenderName || 'Unknown',
-      senderId: msg.senderId || msg.SenderId || msg.userId || msg.UserId || msg.user?.id || '',
-      avatarUrl: msg.avatarUrl || msg.AvatarUrl || msg.user?.avatarUrl || null,
-      createdAt: msg.createdAt || msg.CreatedAt || msg.sentAt || msg.SentAt || new Date().toISOString(),
-      channelId: msg.channelId || msg.ChannelId || '',
-    };
-  };
-
-  /**
-   * API yanıtından mesaj listesini çıkar — .NET $values sarması dahil.
-   */
-  const extractMessages = (data) => {
-    if (!data) return [];
-    // $values sarması (System.Text.Json ReferenceHandler.Preserve)
-    if (data.$values && Array.isArray(data.$values)) return data.$values;
-    // Doğrudan dizi
-    if (Array.isArray(data)) return data;
-    // { messages: [...] } sarması
-    if (data.messages && Array.isArray(data.messages)) return data.messages;
-    if (data.Messages && Array.isArray(data.Messages)) return data.Messages;
-    // { items: [...] } sarması
-    if (data.items && Array.isArray(data.items)) return data.items;
-    // Tek mesaj nesnesi
-    if (data.messageId || data.id || data.content) return [data];
-    console.warn('[ChatArea] Beklenmeyen mesaj formatı:', data);
-    return [];
   };
 
   // Composer'daki her tuş vuruşunda uzun mesaj geçmişini yeniden gruplama.
@@ -726,66 +658,6 @@ function ChatArea({
     }
   };
 
-  // Yardımcı fonksiyon: Mesaj içeriğindeki linkleri ve medyayı render et
-  const renderMessageContent = (content) => {
-    if (!content) return null;
-
-    // Basit URL regex'i
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = content.split(urlRegex);
-
-    return parts.map((part, i) => {
-      if (part.match(urlRegex)) {
-        const url = part;
-        const lowerUrl = url.toLowerCase();
-
-        // Görüntü önizleme
-        if (lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)$/) || lowerUrl.includes('imgur.com')) {
-          return (
-            <div key={i} className="chat-area__media-preview">
-              <img src={url} alt="attachment" className="chat-area__preview-img" loading="lazy" />
-            </div>
-          );
-        }
-
-        // Video önizleme
-        if (lowerUrl.match(/\.(mp4|webm|ogg)$/)) {
-          return (
-            <div key={i} className="chat-area__media-preview">
-              <video src={url} controls className="chat-area__preview-video" preload="metadata" />
-            </div>
-          );
-        }
-
-        // YouTube önizleme
-        const youtubeMatch = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n]+)/);
-        if (youtubeMatch) {
-          const videoId = youtubeMatch[1];
-          return (
-            <div key={i} className="chat-area__media-preview">
-              <iframe
-                className="chat-area__preview-youtube"
-                src={`https://www.youtube.com/embed/${videoId}`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          );
-        }
-
-        // Normal link
-        return (
-          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="chat-area__message-link">
-            {url}
-          </a>
-        );
-      }
-      return <span key={i}>{part}</span>;
-    });
-  };
-
   // Klan modu: klan seçili değilse karşılama sayfası
   if (!isDm && !clan) {
     return <WelcomePage />;
@@ -835,155 +707,38 @@ function ChatArea({
           <span>Sohbete yükleyip göndereceğiz</span>
         </div>
       )}
-      {/* Header — kanalda #kanal-adı, DM'de @kullanıcı */}
-      <header className="chat-area__header">
-        <div className="chat-area__header-info">
-          {isDm && onBack && (
-            <button
-              type="button"
-              className="chat-area__header-back-btn"
-              onClick={onBack}
-              title="Geri"
-            >
-              <span className="material-symbols-outlined">arrow_back</span>
-            </button>
-          )}
-          <span className="chat-area__header-hash">{isDm ? '@' : '#'}</span>
-          <h2 className="chat-area__header-name">{targetName}</h2>
-          {!isDm && (
-            <>
-              <div className="chat-area__header-divider" />
-              <p className="chat-area__header-topic">{channel.description || `Welcome to #${channel.name}`}</p>
-            </>
-          )}
-        </div>
+      <ChatHeader
+        isDm={isDm}
+        targetName={targetName}
+        channel={channel}
+        conversation={conversation}
+        onBack={onBack}
+        onToggleVoiceCall={onToggleVoiceCall}
+        isVoiceCallActive={isVoiceCallActive}
+        voiceCallPhase={voiceCallPhase}
+      />
 
-        {/* DM sesli arama — backend zil/kabul durum makinesini yönetir. */}
-        {isDm && onToggleVoiceCall && (
-          <div className="chat-area__header-actions">
-            <button
-              type="button"
-              className={`chat-area__call-btn ${isVoiceCallActive ? 'chat-area__call-btn--active' : ''}`}
-              onClick={() => onToggleVoiceCall(conversation)}
-              title={isVoiceCallActive ? 'Görüşmeyi bitir' : 'Sesli arama başlat'}
-            >
-              <span className="material-symbols-outlined">
-                {isVoiceCallActive ? 'call_end' : 'call'}
-              </span>
-              <span className="chat-area__call-btn-label">
-                {isVoiceCallActive
-                  ? 'Bitir'
-                  : ['starting', 'ringing'].includes(voiceCallPhase)
-                    ? 'Aranıyor...'
-                    : 'Sesli Ara'}
-              </span>
-            </button>
-          </div>
-        )}
-      </header>
-
-      {/* Messages */}
       <div className="chat-area__body">
-        <div className="chat-area__messages" ref={chatContainerRef}>
-          {hasMore && !loading && messages.length > 0 && (
-            <div ref={observerTargetRef} className="chat-area__load-more-trigger">
-              {loadingMore && <div className="chat-area__loading-spinner chat-area__loading-spinner--small" />}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="chat-area__loading">
-              <div className="chat-area__loading-spinner" />
-              <span>Loading messages...</span>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="chat-area__empty">
-              <span className="material-symbols-outlined chat-area__empty-icon">chat_bubble</span>
-              <h3 className="chat-area__empty-title">
-                {isDm ? targetName : `Welcome to #${targetName}`}
-              </h3>
-              <p className="chat-area__empty-subtitle">
-                {isDm
-                  ? 'Bu sohbetin başlangıcı. İlk mesajı gönder!'
-                  : 'This is the start of the channel. Send a message to begin!'}
-              </p>
-            </div>
-          ) : (
-            groupedMessages.map((group, gi) => {
-              const currentUserId = user?.id || user?.sub || '';
-              const isOwn = group.senderId === currentUserId || group.userName === (user?.userName || user?.name);
-              return (
-                <div key={`${gi}-${group.messages[0].messageId}`} className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}>
-                  {!isOwn && (
-                    <div className="chat-area__message-avatar">
-                      {group.avatarUrl ? (
-                        <img src={group.avatarUrl} alt="" className="chat-area__message-avatar-img" />
-                      ) : (
-                        <span>{group.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                      )}
-                    </div>
-                  )}
-                  <div className="chat-area__message-content">
-                    <div className="chat-area__message-header">
-                      <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
-                      <p className="chat-area__message-time">
-                        {group.createdAt
-                          ? new Date(group.createdAt).toLocaleTimeString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : ''}
-                      </p>
-                    </div>
-                    {group.messages.map((msg) => (
-                      <div 
-                        key={msg.messageId}
-                        className="chat-area__message-item"
-                        onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
-                      >
-                        {editingMessageId === msg.messageId ? (
-                          <form
-                            className="chat-area__edit-form"
-                            onSubmit={handleSubmitEdit}
-                          >
-                            <input
-                              ref={editInputRef}
-                              className="chat-area__edit-input"
-                              value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Escape') handleCancelEdit(); }}
-                            />
-                            <div className="chat-area__edit-actions">
-                              <span className="chat-area__edit-hint">Enter kaydet • Esc iptal</span>
-                              <button type="button" className="chat-area__edit-cancel-btn" onClick={handleCancelEdit}>
-                                <span className="material-symbols-outlined">close</span>
-                              </button>
-                              <button type="submit" className="chat-area__edit-save-btn" disabled={!editingContent.trim()}>
-                                <span className="material-symbols-outlined">check</span>
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <div className="chat-area__message-text">
-                            {renderMessageContent(msg.content)}
-                            {msg._edited && <span className="chat-area__edited-tag">(düzenlendi)</span>}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {isOwn && (
-                    <div className="chat-area__message-avatar">
-                      {group.avatarUrl ? (
-                        <img src={group.avatarUrl} alt="" className="chat-area__message-avatar-img" />
-                      ) : (
-                        <span>{group.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        <ChatMessageList
+          messages={messages}
+          groupedMessages={groupedMessages}
+          user={user}
+          isDm={isDm}
+          targetName={targetName}
+          loading={loading}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          chatContainerRef={chatContainerRef}
+          observerTargetRef={observerTargetRef}
+          messagesEndRef={messagesEndRef}
+          editingMessageId={editingMessageId}
+          editingContent={editingContent}
+          editInputRef={editInputRef}
+          onEditingContentChange={setEditingContent}
+          onCancelEdit={handleCancelEdit}
+          onSubmitEdit={handleSubmitEdit}
+          onContextMenu={handleContextMenu}
+        />
 
         {/* Sağ tık Context Menu */}
         {contextMenu && (
@@ -1026,144 +781,32 @@ function ChatArea({
           </div>
         )}
 
-        {/* Message Input Wrapper (relative for anchoring) */}
-        <div className="chat-area__input-wrapper">
-          {/* Emoji Picker "Kutucuk" */}
-          {showEmojiPicker && (
-            <div className="chat-area__emoji-picker">
-              <div className="chat-area__emoji-picker-header">
-                <span className="material-symbols-outlined chat-area__emoji-picker-icon">sentiment_satisfied</span>
-                <span className="chat-area__emoji-picker-title">Emoji Seç</span>
-                <button
-                  type="button"
-                  className="chat-area__emoji-picker-close"
-                  onClick={() => setShowEmojiPicker(false)}
-                >
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-              <div className="chat-area__emoji-picker-grid">
-                {COMMON_EMOJIS.map((emoji, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="chat-area__emoji-item"
-                    onClick={() => handleSelectEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* GIF Picker "Kutucuk" */}
-          {showGifPicker && (
-            <div className="chat-area__gif-picker">
-              <div className="chat-area__gif-picker-header">
-                <span className="material-symbols-outlined chat-area__gif-picker-icon">gif_box</span>
-                <input
-                  className="chat-area__gif-picker-search"
-                  type="text"
-                  placeholder="GIF ara..."
-                  value={gifSearch}
-                  onChange={handleGifSearch}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="chat-area__gif-picker-close"
-                  onClick={() => setShowGifPicker(false)}
-                >
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-              <div className="chat-area__gif-picker-grid">
-                {gifLoading ? (
-                  <div className="chat-area__gif-picker-loading">
-                    <div className="chat-area__loading-spinner chat-area__loading-spinner--small" />
-                  </div>
-                ) : gifs.length === 0 ? (
-                  <p className="chat-area__gif-picker-empty">GIF bulunamadı.</p>
-                ) : (
-                  gifs.map((gif) => (
-                    <button
-                      key={gif.id}
-                      type="button"
-                      className="chat-area__gif-item"
-                      onClick={() => handleSelectGif(gif)}
-                      title={gif.title}
-                    >
-                      <img
-                        src={gif.media_formats?.tinygif?.url || gif.media_formats?.gif?.url}
-                        alt={gif.title}
-                        loading="lazy"
-                      />
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="chat-area__gif-picker-footer">
-                Powered by Tenor
-              </div>
-            </div>
-          )}
-
-          <form className="chat-area__input-bar" onSubmit={handleSendMessage}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              accept="image/*"
-              multiple
-              onChange={handleFileChange}
-            />
-            <button
-                type="button"
-                className="chat-area__input-action-btn"
-                title="Dosya Ekle"
-                onClick={handleFileUploadClick}
-                disabled={isUploading}
-            >
-                {isUploading ? (
-                    <div className="chat-area__loading-spinner chat-area__loading-spinner--small" style={{ width: '20px', height: '20px' }} />
-                ) : (
-                    <span className="material-symbols-outlined">add_circle</span>
-                )}
-            </button>
-
-            <textarea
-              ref={composerRef}
-              className="chat-area__input"
-              placeholder={isDm ? `@${targetName} kullanıcısına mesaj gönder` : `Message #${targetName}`}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              rows={1}
-            />
-            <div className="chat-area__input-actions">
-              <button
-                type="button"
-                className={`chat-area__input-action-btn${showGifPicker ? ' chat-area__input-action-btn--active' : ''}`}
-                title="GIF"
-                onClick={handleToggleGifPicker}
-              >
-                <span className="material-symbols-outlined">gif_box</span>
-              </button>
-              <button
-                type="button"
-                className={`chat-area__input-action-btn${showEmojiPicker ? ' chat-area__input-action-btn--active' : ''}`}
-                title="Emoji"
-                onClick={handleToggleEmojiPicker}
-              >
-                <span className="material-symbols-outlined">sentiment_satisfied</span>
-              </button>
-              <button type="submit" className="chat-area__input-action-btn" title="Gönder">
-                <span className="material-symbols-outlined">send</span>
-              </button>
-            </div>
-          </form>
-        </div>
+        <ChatComposer
+          showEmojiPicker={showEmojiPicker}
+          onCloseEmojiPicker={() => setShowEmojiPicker(false)}
+          onSelectEmoji={handleSelectEmoji}
+          showGifPicker={showGifPicker}
+          gifSearch={gifSearch}
+          onGifSearch={handleGifSearch}
+          onCloseGifPicker={() => setShowGifPicker(false)}
+          gifLoading={gifLoading}
+          gifs={gifs}
+          onSelectGif={handleSelectGif}
+          onSubmit={handleSendMessage}
+          fileInputRef={fileInputRef}
+          onFileChange={handleFileChange}
+          onFileUploadClick={handleFileUploadClick}
+          isUploading={isUploading}
+          composerRef={composerRef}
+          placeholder={isDm
+            ? `@${targetName} kullanıcısına mesaj gönder`
+            : `Message #${targetName}`}
+          value={newMessage}
+          onChange={setNewMessage}
+          onKeyDown={handleComposerKeyDown}
+          onToggleGifPicker={handleToggleGifPicker}
+          onToggleEmojiPicker={handleToggleEmojiPicker}
+        />
 
       </div>
     </main>
