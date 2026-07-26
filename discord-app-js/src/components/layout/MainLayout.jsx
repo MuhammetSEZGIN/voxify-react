@@ -20,7 +20,6 @@ import AccountSettings from '../account/AccountSettings';
 import FriendsMemberList from '../friends/FriendsMemberList';
 import UserBar from './UserBar';
 import DmService from '../../services/DmService';
-import FriendService from '../../services/FriendService';
 import VoiceService from '../../services/VoiceService';
 import * as PresenceService from '../../services/PresenceService';
 import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
@@ -30,6 +29,8 @@ import FriendsNotificationSidebar from '../notifications/FriendsNotificationSide
 import DmCallOverlay from '../calls/DmCallOverlay';
 import useDmCall from '../../hooks/useDmCall';
 import useNotifications from '../../hooks/useNotifications';
+import useFriendships from '../../hooks/useFriendships';
+import useVoicePreferences from '../../hooks/useVoicePreferences';
 import {
   getMutedClanIds,
   getMutedUserIds,
@@ -37,6 +38,8 @@ import {
   setUserMuted as persistUserMuted,
 } from '../../utils/messageNotifications';
 import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import { playScreenShareFeedback } from '../../utils/screenShareFeedback';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 function upsertById(items, incoming, idKey) {
   const incomingId = incoming?.[idKey];
@@ -110,32 +113,25 @@ function MainLayout() {
   const [activeDmConversation, setActiveDmConversation] = useState(null);
   const [dmError, setDmError] = useState(null);
   const [isFriendsActive, setIsFriendsActive] = useState(false);
-  // Arkadaş listesi ve bekleyen istekler — sağdaki FriendsMemberList okur.
-  const [friends, setFriends] = useState([]);
-  const [friendRequests, setFriendRequests] = useState([]);
-  const [friendsLoading, setFriendsLoading] = useState(true);
-  const [friendsError, setFriendsError] = useState(null);
+  const {
+    friends,
+    friendRequests,
+    loading: friendsLoading,
+    error: friendsError,
+    refresh: handleRefreshFriends,
+    handleNotificationReceived,
+    sendRequest: handleSendFriendRequest,
+    acceptRequest: handleAcceptFriendRequest,
+    rejectRequest: handleRejectFriendRequest,
+    removeFriend: handleRemoveFriend,
+  } = useFriendships(user);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const [mutedClanIds, setMutedClanIds] = useState(() => getMutedClanIds());
   const [mutedUserIds, setMutedUserIds] = useState(() => getMutedUserIds());
 
-  // Global Audio Settings
-  const [inputVolume, setInputVolume] = useState(100);
-  const [outputVolume, setOutputVolume] = useState(100);
-  const [isMicMuted, setIsMicMuted] = useState(false);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
-  const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(true);
-  // Deafen (sağırlaştırma) artık UserBar global olduğu için burada tutuluyor —
-  // sayfa değiştirince durumun sıfırlanmaması gerekir.
-  const [isDeafened, setIsDeafened] = useState(false);
-
-  // Per-user volume overrides: { [identity]: number (0-100) }
-  const [userVolumes, setUserVolumes] = useState({});
-  // Context menu state for right-click user volume
-  const [volumeCtxMenu, setVolumeCtxMenu] = useState({ visible: false, x: 0, y: 0, participant: null });
   const [kickingVoiceUserId, setKickingVoiceUserId] = useState(null);
+  const [pendingVoiceKick, setPendingVoiceKick] = useState(null);
   // Context menu state for right-click on a clan member (add friend / message)
   const [memberCtxMenu, setMemberCtxMenu] = useState({ visible: false, x: 0, y: 0, member: null, isSelf: false });
   // Profile popup state — small card shown above a clicked member
@@ -189,6 +185,53 @@ function MainLayout() {
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const {
+    inputVolume,
+    setInputVolume,
+    outputVolume,
+    setOutputVolume,
+    isMicMuted,
+    selectedInputDevice,
+    setSelectedInputDevice,
+    selectedOutputDevice,
+    setSelectedOutputDevice,
+    noiseSuppressionEnabled,
+    setNoiseSuppressionEnabled,
+    isDeafened,
+    userVolumes,
+    volumeMenu: volumeCtxMenu,
+    setVolumeMenu: setVolumeCtxMenu,
+    toggleMic: handleToggleMic,
+    toggleDeafen: handleToggleDeafen,
+    handleMicrophoneUnavailable,
+    openVolumeMenu: handleParticipantContextMenu,
+    setUserVolume: handleUserVolumeChange,
+    closeVolumeMenu: handleCloseVolumeCtx,
+  } = useVoicePreferences(showToast);
+  const effectiveOutputVolume = isDeafened ? 0 : outputVolume;
+  const isActiveDmMuted = Boolean(
+    activeDmConversation?.otherUserId
+    && mutedUserIds.includes(activeDmConversation.otherUserId)
+  );
+  const volumeTargetClanId = volumeCtxMenu.participant?.clanId
+    || activeVoiceChannel?.clanId
+    || selectedClan?.clanId;
+  const canKickVolumeParticipant = Boolean(
+    canManage
+    && volumeCtxMenu.participant
+    && !volumeCtxMenu.participant.isLocal
+    && volumeTargetClanId
+    && String(volumeTargetClanId).toLowerCase()
+      === String(selectedClan?.clanId || '').toLowerCase()
+  );
+  const canAdjustParticipantVolume = Boolean(
+    !volumeCtxMenu.participant?.presenceOnly
+    && (
+      !volumeCtxMenu.participant?.voiceChannelId
+      || volumeCtxMenu.participant.voiceChannelId === activeVoiceChannel?.voiceChannelId
+    )
+  );
+
   const handleToggleClanMute = useCallback((clan) => {
     const clanId = clan?.clanId;
     if (!clanId) return;
@@ -216,6 +259,10 @@ function MainLayout() {
     } catch (error) {
       console.warn('[Voice] presence notification could not play', error);
     }
+  }, [outputVolume]);
+
+  const handleScreenShareStarted = useCallback(() => {
+    playScreenShareFeedback('started', outputVolume);
   }, [outputVolume]);
 
   // Klanları yükle
@@ -327,46 +374,6 @@ function MainLayout() {
     navigate('/app');
   }, [navigate]);
 
-  const loadFriendsList = useCallback(async () => {
-    try {
-      const data = await FriendService.getFriends();
-      setFriends(data || []);
-      setFriendsError(null);
-    } catch (err) {
-      setFriendsError(err.message);
-    }
-  }, []);
-
-  const loadFriendRequests = useCallback(async () => {
-    try {
-      const data = await FriendService.getRequests();
-      setFriendRequests(data || []);
-      setFriendsError(null);
-    } catch (err) {
-      setFriendsError(err.message);
-    }
-  }, []);
-
-  // Arkadaş verisini giriş sonrası bir kez yükle — sadece Arkadaşlar sayfasına
-  // gidince değil, çünkü sidebar rozet/durum göstergeleri her yerden görünür olmalı.
-  useEffect(() => {
-    if (!user) return;
-    setFriendsLoading(true);
-    Promise.all([loadFriendsList(), loadFriendRequests()]).finally(() => setFriendsLoading(false));
-  }, [user, loadFriendsList, loadFriendRequests]);
-
-  const handleRefreshFriends = useCallback(async () => {
-    await Promise.all([loadFriendsList(), loadFriendRequests()]);
-  }, [loadFriendsList, loadFriendRequests]);
-
-  const handleNotificationReceived = useCallback((notification) => {
-    if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
-      handleRefreshFriends().catch((error) => {
-        console.error('[Notification] Arkadaş verisi yenilenemedi', error);
-      });
-    }
-  }, [handleRefreshFriends]);
-
   // Bildirim merkezi ile Arkadaşlar sidebar'ı aynı listeyi ve SignalR
   // bağlantısını paylaşır; okundu durumu iki yerde de anında eşleşir.
   const notifications = useNotifications(token, handleNotificationReceived, outputVolume);
@@ -390,26 +397,6 @@ function MainLayout() {
       navigate('/app');
     }
   }, [handleSelectFriends, navigate]);
-
-  const handleSendFriendRequest = useCallback(async (addresseeId) => {
-    await FriendService.sendRequest(addresseeId);
-    await loadFriendRequests();
-  }, [loadFriendRequests]);
-
-  const handleAcceptFriendRequest = useCallback(async (requestId) => {
-    await FriendService.acceptRequest(requestId);
-    await Promise.all([loadFriendsList(), loadFriendRequests()]);
-  }, [loadFriendsList, loadFriendRequests]);
-
-  const handleRejectFriendRequest = useCallback(async (requestId) => {
-    await FriendService.rejectRequest(requestId);
-    await loadFriendRequests();
-  }, [loadFriendRequests]);
-
-  const handleRemoveFriend = useCallback(async (friendUserId) => {
-    await FriendService.removeFriend(friendUserId);
-    await loadFriendsList();
-  }, [loadFriendsList]);
 
   const handleOpenDm = useCallback(async (friend) => {
     setDmError(null);
@@ -495,76 +482,51 @@ function MainLayout() {
     const share = voiceState.remoteScreenShares.find(
       (s) => s.participantIdentity === identity
     );
-    if (share) setWatchingScreenShare(share);
-  }, [voiceState]);
-
-  // Right-click handler for voice participant volume adjustment
-  const handleParticipantContextMenu = useCallback((e, participant) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVolumeCtxMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      participant,
-    });
-  }, []);
-
-  const handleUserVolumeChange = useCallback((identity, volume) => {
-    setUserVolumes(prev => ({ ...prev, [identity]: volume }));
-  }, []);
-
-  const handleCloseVolumeCtx = useCallback(() => {
-    setVolumeCtxMenu(prev => ({ ...prev, visible: false }));
-  }, []);
+    if (share) {
+      setWatchingScreenShare(share);
+      playScreenShareFeedback('joined', outputVolume);
+    }
+  }, [outputVolume, voiceState]);
 
   const handleKickVoiceParticipant = useCallback(async (participant) => {
     const channel = activeVoiceChannelRef.current;
-    const clanId = channel?.clanId || selectedClanRef.current?.clanId;
+    const clanId = participant?.clanId || channel?.clanId || selectedClanRef.current?.clanId;
+    const voiceChannelId = participant?.voiceChannelId || channel?.voiceChannelId;
     const targetUserId = participant?.identity;
 
-    if (!channel || channel.isDirect || !clanId || !targetUserId) return;
-    if (!window.confirm(`${participant.name || 'Kullanıcı'} ses kanalından çıkarılsın mı?`)) return;
+    if (!voiceChannelId || !clanId || !targetUserId || (channel?.isDirect && !participant?.clanId)) return;
+    setVolumeCtxMenu((current) => ({ ...current, visible: false }));
+    setPendingVoiceKick({
+      ...participant,
+      identity: targetUserId,
+      voiceChannelId,
+      clanId,
+    });
+  }, [setVolumeCtxMenu]);
+
+  const handleConfirmVoiceKick = useCallback(async () => {
+    const participant = pendingVoiceKick;
+    if (!participant || kickingVoiceUserId) return;
+
+    const { identity: targetUserId, voiceChannelId, clanId } = participant;
 
     setKickingVoiceUserId(targetUserId);
     try {
-      await VoiceService.kickParticipant(channel.voiceChannelId, clanId, targetUserId);
-      setVolumeCtxMenu((prev) => ({ ...prev, visible: false }));
+      await VoiceService.kickParticipant(voiceChannelId, clanId, targetUserId);
+      setVoicePresence((current) => ({
+        ...current,
+        [voiceChannelId]: (current[voiceChannelId] || []).filter(
+          (presence) => presence.userId !== targetUserId
+        ),
+      }));
       showToast(`${participant.name || 'Kullanıcı'} ses kanalından çıkarıldı.`, 'info');
+      setPendingVoiceKick(null);
     } catch (error) {
       showToast(error.message || 'Kullanıcı ses kanalından çıkarılamadı.', 'error');
     } finally {
       setKickingVoiceUserId(null);
     }
-  }, [showToast]);
-
-  // ── UserBar callback'leri ────────────────────────────────────────────────
-  // Hepsi stabil referans: UserBar memo'lu, satır içi lambda geçersek her
-  // MainLayout render'ında (mesaj geldi, presence değişti...) yeniden çizilir.
-  const handleToggleMic = useCallback(() => setIsMicMuted((prev) => !prev), []);
-
-  const handleMicrophoneUnavailable = useCallback((error) => {
-    setIsMicMuted(true);
-    const permissionDenied = ['NotAllowedError', 'PermissionDeniedError'].includes(error?.name);
-    showToast(
-      permissionDenied
-        ? 'Mikrofon izni kapalı. Ses kanalına dinleyici olarak bağlandınız.'
-        : 'Mikrofon açılamadı. Ses kanalına dinleyici olarak bağlandınız.',
-      'info'
-    );
-    console.warn('[Voice] microphone unavailable; continuing in listen-only mode', error);
-  }, [showToast]);
-
-  const handleToggleDeafen = useCallback(() => {
-    setIsDeafened((prev) => {
-      const next = !prev;
-      // Sayfadaki tüm ses/video elemanlarını sustur/aç
-      document.querySelectorAll('audio, video').forEach((el) => {
-        el.muted = next;
-      });
-      return next;
-    });
-  }, []);
+  }, [kickingVoiceUserId, pendingVoiceKick, showToast]);
 
   const handleOpenProfileSettings = useCallback(() => {
     setAccountSettingsTab('profile');
@@ -1196,6 +1158,7 @@ function MainLayout() {
       outputVolume={outputVolume}
       voiceState={activeVoiceChannel?.isDirect ? voiceState : null}
       onWatchScreenShare={handleWatchScreenShare}
+      onParticipantVolume={handleParticipantContextMenu}
       onAccept={acceptDmCall}
       onReject={rejectDmCall}
       onCancel={cancelDmCall}
@@ -1254,6 +1217,7 @@ function MainLayout() {
             <NotificationCenter
               notifications={notifications}
               onOpen={handleOpenNotification}
+              isMuted={isActiveDmMuted}
             />
           )}
         />
@@ -1277,6 +1241,7 @@ function MainLayout() {
           onDisconnectVoice={handleDisconnectVoice}
           voicePresence={voicePresence}
           canManage={canManage}
+          currentUserId={user?.id || user?.sub || user?.userId || ''}
           userRole={userRole}
           onLeaveClan={handleLeaveClan}
           onOpenClanSettings={() => setShowClanSettings(true)}
@@ -1284,6 +1249,7 @@ function MainLayout() {
             <NotificationCenter
               notifications={notifications}
               onOpen={handleOpenNotification}
+              isMuted={mutedClanIds.includes(selectedClan?.clanId)}
             />
           )}
           onWatchScreenShare={handleWatchScreenShare}
@@ -1302,6 +1268,11 @@ function MainLayout() {
           conversation={activeDmConversation}
           onBack={activeDmConversation ? handleCloseDm : undefined}
           onToggleVoiceCall={handleToggleDmVoice}
+          onToggleNotifications={() => handleToggleUserMute({
+            userId: activeDmConversation?.otherUserId,
+            userName: activeDmConversation?.otherUserName,
+          })}
+          isNotificationsMuted={isActiveDmMuted}
           isVoiceCallActive={
             !!activeDmConversation &&
             activeVoiceChannel?.voiceChannelId ===
@@ -1340,10 +1311,11 @@ function MainLayout() {
           onLeaveRoom={handleDisconnectVoice}
           onVoiceStateChange={handleVoiceStateChange}
           onMicrophoneUnavailable={handleMicrophoneUnavailable}
+          onScreenShareStarted={handleScreenShareStarted}
           inputDevice={selectedInputDevice}
           outputDevice={selectedOutputDevice}
           inputVolume={inputVolume}
-          outputVolume={outputVolume}
+          outputVolume={effectiveOutputVolume}
           isMicMuted={isMicMuted}
           userVolumes={userVolumes}
           noiseSuppressionEnabled={noiseSuppressionEnabled}
@@ -1432,6 +1404,17 @@ function MainLayout() {
         </div>
       )}
 
+      {pendingVoiceKick && (
+        <ConfirmDialog
+          title="Ses kanalından çıkar"
+          message={`${pendingVoiceKick.name || 'Kullanıcı'} ses kanalından çıkarılsın mı?`}
+          confirmLabel="Kanaldan Çıkar"
+          loading={kickingVoiceUserId === pendingVoiceKick.identity}
+          onConfirm={handleConfirmVoiceKick}
+          onCancel={() => setPendingVoiceKick(null)}
+        />
+      )}
+
       {/* Ekran Paylaşımı İzleme Penceresi */}
       {watchingScreenShare && (
         <ScreenShareViewer
@@ -1449,12 +1432,8 @@ function MainLayout() {
         y={volumeCtxMenu.y}
         participant={volumeCtxMenu.participant}
         currentVolume={volumeCtxMenu.participant ? (userVolumes[volumeCtxMenu.participant.identity] ?? 100) : 100}
-        canKick={
-          canManage
-          && !activeVoiceChannel?.isDirect
-          && activeVoiceChannel?.clanId?.toLowerCase() === selectedClan?.clanId?.toLowerCase()
-          && !volumeCtxMenu.participant?.isLocal
-        }
+        canAdjustVolume={canAdjustParticipantVolume}
+        canKick={canKickVolumeParticipant}
         isKicking={kickingVoiceUserId === volumeCtxMenu.participant?.identity}
         onKick={handleKickVoiceParticipant}
         onVolumeChange={handleUserVolumeChange}

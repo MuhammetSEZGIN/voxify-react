@@ -26,6 +26,7 @@ function ChannelSidebar({
   onDisconnectVoice,
   voicePresence,
   canManage,
+  currentUserId,
   userRole,
   onLeaveClan,
   onOpenClanSettings,
@@ -313,7 +314,11 @@ function ChannelSidebar({
                                 className={`voice-participants__item ${p.isSpeaking ? 'voice-participants__item--speaking' : ''}`}
                                 onContextMenu={(e) => {
                                   if (!p.isLocal) {
-                                    onParticipantContextMenu?.(e, p);
+                                    onParticipantContextMenu?.(e, {
+                                      ...p,
+                                      voiceChannelId: vc.voiceChannelId,
+                                      clanId: vc.clanId || clan?.clanId,
+                                    });
                                   }
                                 }}
                                 style={{ cursor: p.isLocal ? 'default' : 'context-menu' }}
@@ -343,7 +348,29 @@ function ChannelSidebar({
                               </div>
                             ))
                             : participants.map((p) => (
-                              <div key={p.userId} className="voice-participants__item">
+                              <div
+                                key={p.userId}
+                                className="voice-participants__item"
+                                onContextMenu={(event) => {
+                                  const isCurrentUser = String(p.userId || '').toLowerCase()
+                                    === String(currentUserId || '').toLowerCase();
+                                  if (!canManage || isCurrentUser) return;
+                                  onParticipantContextMenu?.(event, {
+                                    identity: p.userId,
+                                    name: p.userName,
+                                    isLocal: false,
+                                    presenceOnly: true,
+                                    voiceChannelId: vc.voiceChannelId,
+                                    clanId: vc.clanId || clan?.clanId,
+                                  });
+                                }}
+                                style={{
+                                  cursor: canManage && String(p.userId || '').toLowerCase()
+                                    !== String(currentUserId || '').toLowerCase()
+                                    ? 'context-menu'
+                                    : 'default',
+                                }}
+                              >
                                 <div className="voice-participants__avatar">
                                   <span>{(p.userName || '?').charAt(0).toUpperCase()}</span>
                                 </div>

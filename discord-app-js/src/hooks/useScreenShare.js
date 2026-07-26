@@ -17,7 +17,7 @@ const QUALITY_BY_VALUE = Object.fromEntries(
  * LiveKit room içinde ekran paylaşımı yönetimi.
  * Bu hook yalnızca LiveKitRoom bağlamı içinde kullanılabilir.
  */
-export function useScreenShare() {
+export function useScreenShare({ onStarted } = {}) {
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -102,6 +102,7 @@ export function useScreenShare() {
           : [{ maxBitrate: preset.maxBitrate, maxFramerate: preset.maxFramerate }];
         await sender.setParameters(parameters).catch(() => {});
       }
+      onStarted?.();
       return true;
     } catch (err) {
       if (err.name !== 'NotAllowedError') {
@@ -112,7 +113,7 @@ export function useScreenShare() {
     } finally {
       setIsStartingScreenShare(false);
     }
-  }, [isStartingScreenShare, localParticipant]);
+  }, [isStartingScreenShare, localParticipant, onStarted]);
 
   const stopScreenShare = useCallback(async () => {
     if (!localParticipant) return;

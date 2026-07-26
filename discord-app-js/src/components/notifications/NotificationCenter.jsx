@@ -18,7 +18,7 @@ function formatRelativeTime(value) {
   return new Date(value).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-function NotificationCenter({ notifications, onOpen }) {
+function NotificationCenter({ notifications, onOpen, isMuted = false }) {
   const [open, setOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
   const containerRef = useRef(null);
@@ -77,11 +77,13 @@ function NotificationCenter({ notifications, onOpen }) {
       <button
         type="button"
         className={`notification-center__trigger ${open ? 'notification-center__trigger--active' : ''}`}
-        aria-label={`Bildirimler${unreadCount ? `, ${unreadCount} okunmamış` : ''}`}
+        aria-label={`${isMuted ? 'Bildirimler sessizde' : 'Bildirimler'}${unreadCount ? `, ${unreadCount} okunmamış` : ''}`}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="material-symbols-outlined">notifications</span>
+        <span className="material-symbols-outlined">
+          {isMuted ? 'notifications_off' : 'notifications'}
+        </span>
         {unreadCount > 0 && (
           <span className="notification-center__badge">
             {unreadCount > 99 ? '99+' : unreadCount}

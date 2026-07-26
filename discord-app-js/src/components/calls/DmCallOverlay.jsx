@@ -21,6 +21,7 @@ function DmCallOverlay({
   outputVolume = 100,
   voiceState,
   onWatchScreenShare,
+  onParticipantVolume,
   onAccept,
   onReject,
   onCancel,
@@ -57,6 +58,7 @@ function DmCallOverlay({
   const incoming = call.phase === 'incoming';
   const name = displayName || call.otherUserName || 'Bir kullanıcı';
   const remoteShare = voiceState?.remoteScreenShares?.[0];
+  const remoteParticipant = voiceState?.participants?.find((participant) => !participant.isLocal);
 
   return (
     <section
@@ -96,9 +98,23 @@ function DmCallOverlay({
             </button>
           )}
           {call.phase === 'accepted' && (
-            <button type="button" className="dm-call__action dm-call__action--reject" onClick={onEnd} title="Görüşmeyi bitir">
-              <span className="material-symbols-outlined">call_end</span>
-            </button>
+            <>
+              {remoteParticipant && onParticipantVolume && (
+                <button
+                  type="button"
+                  className="dm-call__action dm-call__action--volume"
+                  onClick={(event) => onParticipantVolume(event, remoteParticipant)}
+                  onContextMenu={(event) => onParticipantVolume(event, remoteParticipant)}
+                  title={`${remoteParticipant.name || name} ses seviyesini ayarla`}
+                  aria-label={`${remoteParticipant.name || name} ses seviyesini ayarla`}
+                >
+                  <span className="material-symbols-outlined">volume_up</span>
+                </button>
+              )}
+              <button type="button" className="dm-call__action dm-call__action--reject" onClick={onEnd} title="Görüşmeyi bitir">
+                <span className="material-symbols-outlined">call_end</span>
+              </button>
+            </>
           )}
           {terminal && (
             <button type="button" className="dm-call__dismiss" onClick={onDismiss}>Kapat</button>

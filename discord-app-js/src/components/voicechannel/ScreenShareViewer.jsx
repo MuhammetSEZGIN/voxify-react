@@ -1,4 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+const isTauriRuntime = () =>
+  typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
 
 /**
  * ScreenShareViewer
@@ -10,10 +14,54 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const containerRef = useRef(null);
+  const fullscreenRef = useRef(false);
   // Yayın sesi bağımsız — başlangıç 80% 
   const [screenVolume, setScreenVolume] = useState(80);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
+  const [areControlsVisible, setAreControlsVisible] = useState(true);
+
+  const setFullscreen = useCallback(async (fullscreen) => {
+    if (isTauriRuntime()) {
+      await getCurrentWindow().setFullscreen(fullscreen);
+      fullscreenRef.current = fullscreen;
+      setIsFullscreen(fullscreen);
+      return;
+    }
+
+    if (fullscreen) {
+      await containerRef.current?.requestFullscreen();
+    } else if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (isTauriRuntime()) {
+        const fullscreen = await getCurrentWindow().isFullscreen();
+        await setFullscreen(!fullscreen);
+      } else {
+        await setFullscreen(!document.fullscreenElement);
+      }
+    } catch (err) {
+      console.error(`Fullscreen hatası: ${err.message}`);
+    }
+  }, [setFullscreen]);
+
+  const handleClose = useCallback(async () => {
+    try {
+      if (isTauriRuntime() && fullscreenRef.current) {
+        await setFullscreen(false);
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('[ScreenShareViewer] Tam ekrandan çıkılamadı:', err);
+    } finally {
+      onClose?.();
+    }
+  }, [onClose, setFullscreen]);
 
   // Video track'ı video elementine bağla
   useEffect(() => {
@@ -85,7 +133,12 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   // Esc tuşu ve Fullscreen/PiP dinleyicileri
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !document.fullscreenElement) {
+      if (e.key !== 'Escape') return;
+      if (isTauriRuntime() && fullscreenRef.current) {
+        setFullscreen(false).catch((err) => {
+          console.warn('[ScreenShareViewer] Tam ekrandan çıkılamadı:', err);
+        });
+      } else if (!document.fullscreenElement) {
         onClose?.();
       }
     };
@@ -114,20 +167,18 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
         videoEl.removeEventListener('leavepictureinpicture', handleLeavePiP);
       }
     };
-  }, [onClose]);
+  }, [onClose, setFullscreen]);
+
+  // Yayın tam ekrandayken sona ererse uygulama penceresini tam ekranda bırakma.
+  useEffect(() => () => {
+    if (isTauriRuntime() && fullscreenRef.current) {
+      getCurrentWindow().setFullscreen(false).catch(() => {});
+    } else if (document.fullscreenElement === containerRef.current) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   if (!share) return null;
-
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch((err) => {
-        console.error(`Fullscreen hatası: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
 
   const togglePiP = async () => {
     if (!videoRef.current) return;
@@ -144,9 +195,6 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
 
   return (
     <div className="screenshare-viewer" role="dialog" aria-modal="true">
-      {/* Arkaplan tıklaması kapatmasın */}
-      <div className="screenshare-viewer__backdrop" onClick={onClose} />
-
       <div
         ref={containerRef}
         className={`screenshare-viewer__window ${isFullscreen ? 'screenshare-viewer__window--fullscreen' : ''}`}
@@ -163,6 +211,19 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
           </div>
 
           <div className="screenshare-viewer__topbar-actions">
+            <button
+              type="button"
+              className={`screenshare-viewer__action-btn ${!areControlsVisible ? 'screenshare-viewer__action-btn--active' : ''}`}
+              onClick={() => setAreControlsVisible((visible) => !visible)}
+              title={areControlsVisible ? 'Alt kontrolleri gizle' : 'Alt kontrolleri göster'}
+              aria-label={areControlsVisible ? 'Alt kontrolleri gizle' : 'Alt kontrolleri göster'}
+              aria-expanded={areControlsVisible}
+            >
+              <span className="material-symbols-outlined">
+                {areControlsVisible ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}
+              </span>
+            </button>
+
             {/* PiP Butonu */}
             <button
               className={`screenshare-viewer__action-btn ${isPiP ? 'screenshare-viewer__action-btn--active' : ''}`}
@@ -186,7 +247,7 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
             {/* Kapat Butonu */}
             <button
               className="screenshare-viewer__close-btn"
-              onClick={onClose}
+              onClick={handleClose}
               title="Kapat (Esc)"
               aria-label="Kapat"
             >
@@ -209,7 +270,11 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
         </div>
 
         {/* Alt Kontrol Barı */}
-        <div className="screenshare-viewer__controls">
+        <div
+          className={`screenshare-viewer__controls ${!areControlsVisible ? 'screenshare-viewer__controls--hidden' : ''}`}
+          aria-hidden={!areControlsVisible}
+          inert={!areControlsVisible}
+        >
           {/* Yayın Ses Kontrolü (mikrofon sesinden bağımsız!) */}
           <div className="screenshare-viewer__volume-group">
             <button
@@ -247,7 +312,7 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
           {/* Yayından Çık */}
           <button
             className="screenshare-viewer__disconnect-btn"
-            onClick={onClose}
+            onClick={handleClose}
             title="Yayından Çık"
           >
             <span className="material-symbols-outlined">cancel_presentation</span>

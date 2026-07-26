@@ -7,6 +7,8 @@ function ChatHeader({
   conversation,
   onBack,
   onToggleVoiceCall,
+  onToggleNotifications,
+  isNotificationsMuted,
   isVoiceCallActive,
   voiceCallPhase,
 }) {
@@ -37,6 +39,20 @@ function ChatHeader({
 
       {isDm && onToggleVoiceCall && (
         <div className="chat-area__header-actions">
+          {onToggleNotifications && (
+            <button
+              type="button"
+              className={`chat-area__notification-btn ${isNotificationsMuted ? 'chat-area__notification-btn--muted' : ''}`}
+              onClick={() => onToggleNotifications(conversation)}
+              title={isNotificationsMuted ? 'Bildirimleri aç' : 'Bildirimleri kapat'}
+              aria-label={isNotificationsMuted ? 'Bildirimleri aç' : 'Bildirimleri kapat'}
+              aria-pressed={isNotificationsMuted}
+            >
+              <span className="material-symbols-outlined">
+                {isNotificationsMuted ? 'notifications_off' : 'notifications'}
+              </span>
+            </button>
+          )}
           <button
             type="button"
             className={`chat-area__call-btn ${isVoiceCallActive ? 'chat-area__call-btn--active' : ''}`}

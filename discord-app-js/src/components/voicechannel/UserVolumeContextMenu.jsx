@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
  *  - x, y          : number — menü pozisyonu (viewport-relative)
  *  - participant    : { identity, name } — hedef kullanıcı
  *  - currentVolume  : number (0-200) — mevcut ses seviyesi
+ *  - canAdjustVolume: boolean — hedef aynı LiveKit odasındaysa ses ayarı gösterilir
  *  - canKick        : boolean — ses kanalından çıkarma yetkisi var mı
  *  - isKicking      : boolean — çıkarma isteği sürüyor mu
  *  - onKick         : (participant) => void
@@ -22,6 +23,7 @@ function UserVolumeContextMenu({
   y,
   participant,
   currentVolume,
+  canAdjustVolume = true,
   canKick,
   isKicking,
   onKick,
@@ -111,35 +113,39 @@ function UserVolumeContextMenu({
         <span className="user-volume-ctx__name">{participant.name}</span>
       </div>
 
-      <div className="user-volume-ctx__divider" />
+      {canAdjustVolume && (
+        <>
+          <div className="user-volume-ctx__divider" />
 
-      {/* Ses Seviyesi Kontrolü */}
-      <div className="user-volume-ctx__section">
-        <div className="user-volume-ctx__section-title">
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{volumeIcon}</span>
-          <span>Kullanıcı Sesi</span>
-        </div>
+          {/* Ses Seviyesi Kontrolü */}
+          <div className="user-volume-ctx__section">
+            <div className="user-volume-ctx__section-title">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{volumeIcon}</span>
+              <span>Kullanıcı Sesi</span>
+            </div>
 
-        <div className="user-volume-ctx__slider-row">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={localVolume}
-            onChange={handleChange}
-            className="user-volume-ctx__slider"
-            title={`${localVolume}%`}
-          />
-          <span className="user-volume-ctx__value">{localVolume}%</span>
-        </div>
+            <div className="user-volume-ctx__slider-row">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={localVolume}
+                onChange={handleChange}
+                className="user-volume-ctx__slider"
+                title={`${localVolume}%`}
+              />
+              <span className="user-volume-ctx__value">{localVolume}%</span>
+            </div>
 
-        {localVolume !== 100 && (
-          <button className="user-volume-ctx__reset-btn" onClick={handleReset}>
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>restart_alt</span>
-            Sıfırla
-          </button>
-        )}
-      </div>
+            {localVolume !== 100 && (
+              <button className="user-volume-ctx__reset-btn" onClick={handleReset}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>restart_alt</span>
+                Sıfırla
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {canKick && (
         <>

@@ -30,6 +30,8 @@ function ChatArea({
   conversation,
   onBack,
   onToggleVoiceCall,
+  onToggleNotifications,
+  isNotificationsMuted = false,
   isVoiceCallActive = false,
   voiceCallPhase = null,
   notificationVolume = 100,
@@ -362,6 +364,8 @@ function ChatArea({
         conversation={conversation}
         onBack={onBack}
         onToggleVoiceCall={onToggleVoiceCall}
+        onToggleNotifications={onToggleNotifications}
+        isNotificationsMuted={isNotificationsMuted}
         isVoiceCallActive={isVoiceCallActive}
         voiceCallPhase={voiceCallPhase}
       />

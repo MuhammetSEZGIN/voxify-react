@@ -1,3 +1,5 @@
+import api from './api';
+
 const VoiceService = {
   /**
    * Joins a voice room and retrieves the token.
@@ -74,28 +76,36 @@ const VoiceService = {
     const normalizedBaseUrl = (rawBaseUrl || '').replace(/\/+$/, '');
     const requestUrl = `${normalizedBaseUrl}/voice/rooms/${encodeURIComponent(roomId)}`
       + `/participants/${encodeURIComponent(userId)}/clanId/${encodeURIComponent(clanId)}`;
-    const token = localStorage.getItem('token');
-
     try {
-      const response = await fetch(requestUrl, {
-        method: 'DELETE',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+      const response = await api.delete(requestUrl);
+
+      if (response.status === 204) {
+        return { message: 'Kullanıcı ses kanalından çıkarıldı.' };
+      }
+      return response.data || { message: 'Kullanıcı ses kanalından çıkarıldı.' };
+    } catch (error) {
+      const status = error.response?.status;
+      const body = error.response?.data;
+      console.error('[VoiceService] kickParticipant hatası:', {
+        status,
+        roomId,
+        clanId,
+        userId,
+        message: error.message,
       });
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || `Kullanıcı ses kanalından çıkarılamadı (${response.status}).`);
+      if (status === 403) {
+        throw new Error('Bu işlem için klan sahibi veya admin yetkisi gerekli.');
       }
-
-      return await response.json();
-    } catch (error) {
-      console.error('[VoiceService] kickParticipant hatası:', error);
-      if (error instanceof TypeError) {
+      if (!error.response || error.code === 'ERR_NETWORK') {
         throw new Error('Ses sunucusuna ulaşılamadı. Lütfen tekrar deneyin.');
       }
-      throw error;
+      throw new Error(
+        body?.message
+        || body?.detail
+        || body?.error
+        || `Kullanıcı ses kanalından çıkarılamadı (${status || 'bilinmeyen hata'}).`
+      );
     }
   }
 };

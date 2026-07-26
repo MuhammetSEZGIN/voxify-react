@@ -75,6 +75,7 @@ class RnnoiseAudioProcessor {
 function VoiceRoomBridge({
   onVoiceStateChange,
   onMicrophoneUnavailable,
+  onScreenShareStarted,
   inputDevice,
   outputDevice,
   inputVolume,
@@ -96,7 +97,7 @@ function VoiceRoomBridge({
     screenShareError,
     startScreenShare,
     stopScreenShare,
-  } = useScreenShare();
+  } = useScreenShare({ onStarted: onScreenShareStarted });
 
   // Odaya önce mikrofonsuz bağlanılır. ICE bağlantısı tamamlandıktan sonra
   // global mute durumu LiveKit'e uygulanır. Böylece tarayıcı mikrofon iznini
@@ -264,6 +265,7 @@ function VoiceRoomBridge({
 const VoiceChannel = ({
   roomId, clanId, userId, userName, onLeaveRoom, onVoiceStateChange,
   onMicrophoneUnavailable,
+  onScreenShareStarted,
   inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted,
   userVolumes, noiseSuppressionEnabled,
 }) => {
@@ -342,6 +344,7 @@ const VoiceChannel = ({
       <VoiceRoomBridge
         onVoiceStateChange={onVoiceStateChange}
         onMicrophoneUnavailable={onMicrophoneUnavailable}
+        onScreenShareStarted={onScreenShareStarted}
         inputDevice={inputDevice}
         outputDevice={outputDevice}
         inputVolume={inputVolume}
