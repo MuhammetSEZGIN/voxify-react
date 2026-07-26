@@ -104,32 +104,35 @@ function ChatArea({
   const messagesEndRef = useRef(null);
   const observerTargetRef = useRef(null);
   const chatContainerRef = useRef(null);
-  const prevChannelIdRef = useRef(null);
+  const prevChannelRef = useRef({ channelId: null, clanId: null });
   const { showDesktopNotification } = useDesktopMessageNotifications(targetName);
   
 
   // SignalR bağlantısını başlat (singleton — cleanup'ta kapatma)
   useEffect(() => {
     // DM modunda `clan` yok; bağlantı yine de gerekli.
-    if (!token || (!clan && !isDm)) return;
+    if (!token || (!targetClanId && !isDm)) return;
 
-    SignalRService.startConnection(token).catch((err) => {
+    SignalRService.startConnection(token, targetClanId).catch((err) => {
       console.error('SignalR connection failed:', err);
     });
     // Bağlantıyı burada kapatmıyoruz: modül seviyesinde singleton,
     // Strict Mode cleanup'ı negotiation'ı yarıda kesiyor.
-  }, [token, clan, isDm]);
+  }, [token, targetClanId, isDm]);
 
   // Hedef (kanal ya da DM) değiştiğinde: eskisinden ayrıl, yenisine katıl, yükle
   useEffect(() => {
-    const prevId = prevChannelIdRef.current;
+    const previous = prevChannelRef.current;
     const newId = targetId;
 
-    if (prevId && prevId !== newId) {
-      SignalRService.leaveChannel(prevId);
+    if (
+      previous.channelId
+      && (previous.channelId !== newId || previous.clanId !== targetClanId)
+    ) {
+      SignalRService.leaveChannel(previous.channelId);
     }
 
-    prevChannelIdRef.current = newId;
+    prevChannelRef.current = { channelId: newId, clanId: targetClanId };
 
     if (!newId) {
       setMessages([]);
@@ -138,7 +141,7 @@ function ChatArea({
       return;
     }
 
-    SignalRService.joinChannel(newId).catch((err) => {
+    SignalRService.joinChannel(newId, targetClanId).catch((err) => {
       console.error('Failed to join channel:', err);
     });
 
@@ -148,7 +151,7 @@ function ChatArea({
     // Mesaj yükleme bu effect'in içinde hedef değişiminde çalışmalı; render-başına
     // yeniden oluşan yardımcı fonksiyon dependency olursa gereksiz REST döngüsü oluşur.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId]);
+  }, [isDm, targetClanId, targetId]);
 
     // SignalR'dan gelen mesajları dinle
     useEffect(() => {
@@ -418,7 +421,7 @@ function ChatArea({
 
     try {
       if (isDm) {
-        await SignalRService.deleteMessage(messageId, targetId);
+        await SignalRService.deleteMessage(messageId, targetId, null);
       } else {
         await MessageService.deleteMessage(messageId, targetClanId);
         setMessages((prev) => prev.filter((m) => m.messageId !== messageId));
@@ -462,7 +465,7 @@ function ChatArea({
 
     try {
       if (isDm) {
-        await SignalRService.updateMessage(messageId, trimmed);
+        await SignalRService.updateMessage(messageId, null, trimmed);
       } else {
         await MessageService.editMessage({
           messageId,

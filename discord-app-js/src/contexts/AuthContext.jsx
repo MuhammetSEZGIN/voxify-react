@@ -196,6 +196,10 @@ function AuthProvider({ children }) {
       const tkn = data.accessToken || data.token;
       const rtkn = data.refreshToken;
 
+      if (!tkn || !decodeJwt(tkn)) {
+        throw new Error('Giriş yanıtında geçerli bir erişim tokenı bulunamadı.');
+      }
+
       setToken(tkn);
       await persistSet("token", tkn);
       if (rtkn) await persistSet("refreshToken", rtkn);

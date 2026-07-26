@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { areMessageNotificationsMuted, getMessageNotificationsMuted } from '../utils/messageNotifications';
+import { areMessageNotificationsMuted } from '../utils/messageNotifications';
 import {
-  requestDesktopNotificationPermission,
   sendDesktopNotification,
 } from '../utils/desktopNotifications';
 
@@ -84,10 +83,6 @@ function useDesktopMessageNotifications(channelName) {
     }
 
     setupWindowTracking();
-    if (!getMessageNotificationsMuted()) {
-      requestDesktopNotificationPermission().catch(() => {});
-    }
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);

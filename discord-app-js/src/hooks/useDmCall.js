@@ -7,7 +7,17 @@ const TERMINAL_PHASES = {
   CallTimedOut: 'timed-out',
   CallBusy: 'busy',
   CallEnded: 'ended',
+  CallAnsweredElsewhere: 'answered-elsewhere',
   CallFailed: 'failed',
+};
+
+const CALL_FAILURE_MESSAGES = {
+  'not-a-participant': 'Bu konuşma için arama yetkiniz yok.',
+  'not-friends': 'Yalnızca arkadaşlarınızı arayabilirsiniz.',
+  'authorization-unavailable': 'Arama yetkisi şu anda doğrulanamıyor.',
+  'invalid-state': 'Çağrı durumu bu işlem için artık geçerli değil.',
+  'not-found': 'Çağrı artık aktif değil.',
+  forbidden: 'Bu çağrı işlemi için yetkiniz yok.',
 };
 
 function normalizeCall(payload, fallback = {}) {
@@ -20,7 +30,10 @@ function normalizeCall(payload, fallback = {}) {
     callerUserId: raw.callerUserId || raw.callerId || fallback.callerUserId || null,
     calleeUserId: raw.calleeUserId || raw.calleeId || fallback.calleeUserId || null,
     roomId: raw.roomId || fallback.roomId || null,
-    serverMessage: typeof payload === 'string' ? payload : raw.message || null,
+    code: raw.code || fallback.code || null,
+    serverMessage: typeof payload === 'string'
+      ? payload
+      : raw.message || CALL_FAILURE_MESSAGES[raw.code] || null,
   };
 }
 
@@ -78,10 +91,19 @@ export default function useDmCall({ onAccepted, onEnded } = {}) {
     const handleTerminal = (event) => (payload) => {
       const current = callRef.current || pendingRef.current || {};
       const next = normalizeCall(payload, current);
+      if (
+        event === 'CallFailed'
+        && ['accepted', 'ended'].includes(current.phase)
+        && ['invalid-state', 'not-found'].includes(next.code)
+      ) {
+        console.warn('[DM Call] Eski çağrı işlemi yok sayıldı:', next);
+        return;
+      }
       pendingRef.current = null;
       if (next.callId) acceptedIdsRef.current.delete(next.callId);
       setCall({ ...current, ...next, phase: TERMINAL_PHASES[event] });
       if (event === 'CallFailed') {
+        console.error('[DM Call] Çağrı işlemi başarısız:', next);
         setError(next.serverMessage || 'Çağrı başlatılamadı.');
       }
       if (event === 'CallEnded') callbacksRef.current.onEnded?.(next);

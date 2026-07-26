@@ -57,10 +57,17 @@ export const deleteNotification = (notificationId) =>
     'Bildirim silinemedi'
   ).then((response) => response.data);
 
+export const clearNotifications = () =>
+  request(
+    () => api.delete('/notification'),
+    'Bildirimler temizlenemedi'
+  ).then((response) => response.data);
+
 export default {
   getNotifications,
   getUnreadCount,
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  clearNotifications,
 };

@@ -152,9 +152,18 @@ async function searchUsers(query, page = 1, limit = 20, signal) {
       params: { q: query, page, limit },
       signal,
     });
-    return unwrap(response.data, "Kullanıcı arama başarısız");
+    const result = unwrap(response.data, "Kullanıcı arama başarısız");
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result?.items)) return result.items;
+    if (Array.isArray(result?.$values)) return result.$values;
+    return [];
   } catch (error) {
     if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') throw error;
+    console.error('[UserService] Kullanıcı arama isteği başarısız:', {
+      status: error.response?.status,
+      response: error.response?.data,
+      message: error.message,
+    });
     const msg = error.response?.data?.message || error.message || "Kullanıcı aranırken bir hata oluştu";
     throw new Error(msg);
   }

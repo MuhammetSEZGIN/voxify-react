@@ -1,16 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NotificationService from '../services/NotificationService';
 import NotificationHubService from '../services/NotificationHubService';
+import { playMessageNotificationSound } from '../utils/messageNotifications';
 
 const PAGE_SIZE = 20;
+const NOTIFICATION_TYPES = [
+  'FriendRequestReceived',
+  'FriendRequestAccepted',
+  'DirectMessageReceived',
+  'ClanInvite',
+  'MissedCall',
+];
 
-function mergeNotification(items, incoming) {
-  if (!incoming?.id) return items;
-  const withoutDuplicate = items.filter((item) => item.id !== incoming.id);
-  return [incoming, ...withoutDuplicate];
+function normalizeNotification(notification) {
+  if (!notification) return notification;
+
+  const numericType = typeof notification.type === 'number'
+    ? notification.type
+    : Number.isInteger(Number(notification.type)) ? Number(notification.type) : null;
+
+  return {
+    ...notification,
+    type: numericType === null
+      ? notification.type
+      : (NOTIFICATION_TYPES[numericType] || notification.type),
+  };
 }
 
-export default function useNotifications(token, onReceive) {
+function mergeNotification(items, incoming) {
+  const normalized = normalizeNotification(incoming);
+  if (!normalized?.id) return items;
+  const withoutDuplicate = items.filter((item) => item.id !== normalized.id);
+  return [normalized, ...withoutDuplicate];
+}
+
+export default function useNotifications(token, onReceive, notificationVolume = 100) {
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -19,10 +43,15 @@ export default function useNotifications(token, onReceive) {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const receiveRef = useRef(onReceive);
+  const notificationVolumeRef = useRef(notificationVolume);
 
   useEffect(() => {
     receiveRef.current = onReceive;
   }, [onReceive]);
+
+  useEffect(() => {
+    notificationVolumeRef.current = notificationVolume;
+  }, [notificationVolume]);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -33,7 +62,7 @@ export default function useNotifications(token, onReceive) {
         NotificationService.getNotifications({ page: 1, limit: PAGE_SIZE }),
         NotificationService.getUnreadCount(),
       ]);
-      setItems(list.items);
+      setItems(list.items.map(normalizeNotification));
       setTotal(list.total);
       setPage(1);
       setUnreadCount(count);
@@ -50,16 +79,29 @@ export default function useNotifications(token, onReceive) {
 
     const handleNotification = (notification) => {
       if (!active) return;
-      setItems((current) => mergeNotification(current, notification));
+      const normalized = normalizeNotification(notification);
+      setItems((current) => mergeNotification(current, normalized));
       setTotal((current) => current + 1);
-      receiveRef.current?.(notification);
+      playMessageNotificationSound({
+        senderId: normalized?.actorUserId,
+        volume: (notificationVolumeRef.current / 100) * 0.5,
+      });
+      receiveRef.current?.(normalized);
     };
     const handleCount = (count) => {
       if (active) setUnreadCount(Math.max(0, Number(count) || 0));
     };
+    const handleCleared = () => {
+      if (!active) return;
+      setItems([]);
+      setTotal(0);
+      setPage(1);
+      setUnreadCount(0);
+    };
 
     NotificationHubService.on('ReceiveNotification', handleNotification);
     NotificationHubService.on('UnreadCountChanged', handleCount);
+    NotificationHubService.on('NotificationsCleared', handleCleared);
     refresh();
     NotificationHubService.startConnection(token).catch((err) => {
       if (active) setError(err.message || 'Bildirim bağlantısı kurulamadı');
@@ -69,6 +111,7 @@ export default function useNotifications(token, onReceive) {
       active = false;
       NotificationHubService.off('ReceiveNotification', handleNotification);
       NotificationHubService.off('UnreadCountChanged', handleCount);
+      NotificationHubService.off('NotificationsCleared', handleCleared);
       NotificationHubService.stopConnection();
     };
   }, [token, refresh]);
@@ -83,9 +126,10 @@ export default function useNotifications(token, onReceive) {
         page: nextPage,
         limit: PAGE_SIZE,
       });
+      const normalizedItems = result.items.map(normalizeNotification);
       setItems((current) => {
         const known = new Set(current.map((item) => item.id));
-        return [...current, ...result.items.filter((item) => !known.has(item.id))];
+        return [...current, ...normalizedItems.filter((item) => !known.has(item.id))];
       });
       setTotal(result.total);
       setPage(nextPage);
@@ -123,6 +167,14 @@ export default function useNotifications(token, onReceive) {
     if (target && !target.isRead) setUnreadCount((current) => Math.max(0, current - 1));
   }, [items]);
 
+  const clearAll = useCallback(async () => {
+    await NotificationService.clearNotifications();
+    setItems([]);
+    setTotal(0);
+    setPage(1);
+    setUnreadCount(0);
+  }, []);
+
   return {
     items,
     unreadCount,
@@ -135,5 +187,6 @@ export default function useNotifications(token, onReceive) {
     markRead,
     markAllRead,
     remove,
+    clearAll,
   };
 }

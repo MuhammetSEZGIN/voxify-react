@@ -3864,6 +3864,37 @@ body {
   color: var(--text-light);
 }
 
+.user-volume-ctx__kick-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #f23f42;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.user-volume-ctx__kick-btn:hover:not(:disabled) {
+  background: #da373c;
+  color: #fff;
+}
+
+.user-volume-ctx__kick-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.user-volume-ctx__kick-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
 /* ============================
    Member Context Menu (right-click on a clan member)
    ============================ */
@@ -4123,13 +4154,17 @@ body {
   pointer-events: auto;
 }
 
-.user-bar__identity {
+.user-bar__identity-container {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.user-bar__identity {
+  width: 100%;
   border: none;
   background: none;
   cursor: pointer;
-  position: relative;
   text-align: left;
   font: inherit;
   color: inherit;
@@ -4525,6 +4560,16 @@ body {
   cursor: pointer;
 }
 
+.notification-center__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notification-center__header .notification-center__clear-all {
+  color: var(--red);
+}
+
 .notification-center__error {
   margin: 10px 12px 0;
   padding: 8px 10px;
@@ -4813,4 +4858,51 @@ body {
 
 @media (max-width: 900px) {
   .dm-call { right: 16px; }
+}
+
+/* DM çağrı kartı sol panelde UserBar'ın hemen üstünde, normal akışta yer alır. */
+.dm-call.dm-call--sidebar {
+  position: static;
+  right: auto;
+  bottom: auto;
+  z-index: 1;
+  width: auto;
+  margin: 8px 8px 0;
+  padding: 10px;
+  gap: 8px;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+}
+
+.dm-call--sidebar .dm-call__main {
+  gap: 8px;
+}
+
+.dm-call--sidebar .dm-call__avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+}
+
+.dm-call--sidebar .dm-call__content strong {
+  font-size: 13px;
+}
+
+.dm-call--sidebar .dm-call__actions {
+  gap: 5px;
+}
+
+.dm-call--sidebar .dm-call__action {
+  width: 32px;
+  height: 32px;
+}
+
+.dm-call--sidebar .dm-call__screen-share {
+  padding-top: 8px;
+}
+
+.dm-call--sidebar .screenshare-controls {
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }

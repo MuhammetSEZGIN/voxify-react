@@ -10,10 +10,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
  *  - x, y          : number — menü pozisyonu (viewport-relative)
  *  - participant    : { identity, name } — hedef kullanıcı
  *  - currentVolume  : number (0-200) — mevcut ses seviyesi
+ *  - canKick        : boolean — ses kanalından çıkarma yetkisi var mı
+ *  - isKicking      : boolean — çıkarma isteği sürüyor mu
+ *  - onKick         : (participant) => void
  *  - onVolumeChange : (identity, volume) => void
  *  - onClose        : () => void
  */
-function UserVolumeContextMenu({ visible, x, y, participant, currentVolume, onVolumeChange, onClose }) {
+function UserVolumeContextMenu({
+  visible,
+  x,
+  y,
+  participant,
+  currentVolume,
+  canKick,
+  isKicking,
+  onKick,
+  onVolumeChange,
+  onClose,
+}) {
   const menuRef = useRef(null);
   const [localVolume, setLocalVolume] = useState(currentVolume ?? 100);
 
@@ -126,6 +140,21 @@ function UserVolumeContextMenu({ visible, x, y, participant, currentVolume, onVo
           </button>
         )}
       </div>
+
+      {canKick && (
+        <>
+          <div className="user-volume-ctx__divider" />
+          <button
+            type="button"
+            className="user-volume-ctx__kick-btn"
+            disabled={isKicking}
+            onClick={() => onKick?.(participant)}
+          >
+            <span className="material-symbols-outlined">person_remove</span>
+            {isKicking ? 'Çıkarılıyor...' : 'Ses kanalından çıkar'}
+          </button>
+        </>
+      )}
     </div>
   );
 }

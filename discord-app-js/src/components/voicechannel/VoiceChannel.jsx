@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LiveKitRoom,
+  useConnectionState,
   useLocalParticipant,
   useParticipants,
   useRoomContext,
 } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { ConnectionState, Track } from 'livekit-client';
 import '@livekit/components-styles';
 import VoiceService from '../../services/VoiceService';
 import { useScreenShare } from '../../hooks/useScreenShare';
@@ -71,10 +72,19 @@ class RnnoiseAudioProcessor {
 /**
  * ── MİKROFON, KONTROL VE EKRAN PAYLAŞIMI KÖPRÜSÜ ──
  */
-function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputVolume, isMicMuted, noiseSuppressionEnabled }) {
+function VoiceRoomBridge({
+  onVoiceStateChange,
+  onMicrophoneUnavailable,
+  inputDevice,
+  outputDevice,
+  inputVolume,
+  isMicMuted,
+  noiseSuppressionEnabled,
+}) {
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const participants = useParticipants();
   const room = useRoomContext();
+  const connectionState = useConnectionState(room);
 
   const processorRef = useRef(null);
   const setupTokenRef = useRef(null);
@@ -88,14 +98,30 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     stopScreenShare,
   } = useScreenShare();
 
-  // Global Mute durumunu LiveKit'e senkronize et
+  // Odaya önce mikrofonsuz bağlanılır. ICE bağlantısı tamamlandıktan sonra
+  // global mute durumu LiveKit'e uygulanır. Böylece tarayıcı mikrofon iznini
+  // reddetse bile kullanıcı kanala dinleyici olarak katılabilir.
   useEffect(() => {
-    if (localParticipant) {
-      if (isMicrophoneEnabled === isMicMuted) {
-        localParticipant.setMicrophoneEnabled(!isMicMuted);
-      }
-    }
-  }, [localParticipant, isMicMuted, isMicrophoneEnabled]);
+    if (!localParticipant || connectionState !== ConnectionState.Connected) return undefined;
+
+    const shouldEnable = !isMicMuted;
+    if (isMicrophoneEnabled === shouldEnable) return undefined;
+
+    let cancelled = false;
+    localParticipant.setMicrophoneEnabled(shouldEnable).catch((error) => {
+      if (!cancelled && shouldEnable) onMicrophoneUnavailable?.(error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    connectionState,
+    isMicMuted,
+    isMicrophoneEnabled,
+    localParticipant,
+    onMicrophoneUnavailable,
+  ]);
 
   // 1. GİRİŞ CİHAZI (MİKROFON) DEĞİŞİMİ
   useEffect(() => {
@@ -180,6 +206,14 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
   useEffect(() => {
     if (!onVoiceStateChange) return;
 
+    // LocalParticipant nesnesi sinyalleşme sırasında da oluşur. Presence'a
+    // katılımı ancak ICE/peer connection gerçekten kurulduktan sonra bildir;
+    // aksi halde başarısız bir bağlantı kısa süreliğine "bağlandı" görünür.
+    if (connectionState !== ConnectionState.Connected) {
+      onVoiceStateChange(null);
+      return;
+    }
+
     const participantInfo = participants.map((p) => ({
       identity: p.identity,
       name: p.name || p.identity,
@@ -218,6 +252,7 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
     isStartingScreenShare,
     screenShareError,
     isMicMuted,
+    connectionState,
   ]);
 
   return null;
@@ -227,7 +262,8 @@ function VoiceRoomBridge({ onVoiceStateChange, inputDevice, outputDevice, inputV
  * ── ANA VOICE CHANNEL BİLEŞENİ ──
  */
 const VoiceChannel = ({
-  roomId, userId, userName, onLeaveRoom, onVoiceStateChange,
+  roomId, clanId, userId, userName, onLeaveRoom, onVoiceStateChange,
+  onMicrophoneUnavailable,
   inputDevice, outputDevice, inputVolume, outputVolume, isMicMuted,
   userVolumes, noiseSuppressionEnabled,
 }) => {
@@ -244,7 +280,7 @@ const VoiceChannel = ({
       try {
         setLoading(true);
         setError(null);
-        const data = await VoiceService.joinRoom(roomId, abortController.signal);
+        const data = await VoiceService.joinRoom(roomId, clanId, abortController.signal);
         if (data && data.token) setToken(data.token);
         else throw new Error('Odadan geçerli bir token alınamadı.');
       } catch (err) {
@@ -261,7 +297,7 @@ const VoiceChannel = ({
     }
 
     return () => abortController.abort();
-  }, [roomId, userId, userName]);
+  }, [roomId, clanId, userId, userName]);
 
   const handleDisconnect = () => {
     setToken(null);
@@ -276,13 +312,7 @@ const VoiceChannel = ({
   return (
     <LiveKitRoom
       video={false}
-      audio={!isMicMuted ? {
-        deviceId: inputDevice || undefined,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false,
-        suppressLocalAudioPlayback: true,
-      } : false}
+      audio={false}
       token={token}
       serverUrl={serverUrl}
       connect={true}
@@ -311,6 +341,7 @@ const VoiceChannel = ({
 
       <VoiceRoomBridge
         onVoiceStateChange={onVoiceStateChange}
+        onMicrophoneUnavailable={onMicrophoneUnavailable}
         inputDevice={inputDevice}
         outputDevice={outputDevice}
         inputVolume={inputVolume}

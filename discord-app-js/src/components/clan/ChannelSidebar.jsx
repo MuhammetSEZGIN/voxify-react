@@ -34,6 +34,7 @@ function ChannelSidebar({
   onParticipantContextMenu,
   isClanMuted = false,
   onToggleClanMute,
+  callPanel,
 }) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
@@ -66,6 +67,7 @@ function ChannelSidebar({
           onDisconnectVoice={onDisconnectVoice}
           onWatchScreenShare={onWatchScreenShare}
         />
+        {callPanel}
       </aside>
     );
   }
@@ -392,6 +394,7 @@ function ChannelSidebar({
         onDisconnectVoice={onDisconnectVoice}
         onWatchScreenShare={onWatchScreenShare}
       />
+      {callPanel}
 
     </aside>
   );

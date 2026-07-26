@@ -7,23 +7,23 @@ function VoiceSessionPanel({
   onDisconnectVoice,
   onWatchScreenShare,
 }) {
-  if (!activeVoiceChannel || !voiceState) return null;
+  // DM görüşmesinin kimlik, çağrı durumu, ekran paylaşımı ve kapatma
+  // kontrolleri DmCallOverlay içinde birlikte gösterilir.
+  if (!activeVoiceChannel || !voiceState || activeVoiceChannel.isDirect) return null;
 
   return (
     <>
-      {!activeVoiceChannel.isDirect && (
-        <ScreenShareStatusBar
-          activeVoiceChannel={activeVoiceChannel}
-          voiceState={voiceState}
-          onWatchScreenShare={onWatchScreenShare}
-        />
-      )}
+      <ScreenShareStatusBar
+        activeVoiceChannel={activeVoiceChannel}
+        voiceState={voiceState}
+        onWatchScreenShare={onWatchScreenShare}
+      />
       <div className="voice-status-panel">
         <div className="voice-status-panel__info">
           <div className="voice-status-panel__signal">
             <span className="material-symbols-outlined voice-status-panel__signal-icon">cell_tower</span>
             <span className="voice-status-panel__label">
-              {activeVoiceChannel.isDirect ? 'Sesli Görüşme' : 'Ses Bağlantısı'}
+              Ses Bağlantısı
             </span>
           </div>
           <p className="voice-status-panel__channel-name">{activeVoiceChannel.name}</p>

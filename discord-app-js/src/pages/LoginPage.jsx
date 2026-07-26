@@ -19,7 +19,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await auth.login(userName, password);
-      navigate("/app");
+      navigate("/app", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {

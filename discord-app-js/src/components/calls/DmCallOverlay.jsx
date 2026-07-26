@@ -10,6 +10,7 @@ const STATUS_TEXT = {
   'timed-out': 'Yanıt verilmedi',
   busy: 'Kullanıcı meşgul',
   ended: 'Görüşme sona erdi',
+  'answered-elsewhere': 'Arama başka bir cihazda yanıtlandı',
   failed: 'Çağrı başarısız',
 };
 
@@ -25,6 +26,7 @@ function DmCallOverlay({
   onCancel,
   onEnd,
   onDismiss,
+  compact = false,
 }) {
   const audioRef = useRef(null);
 
@@ -43,13 +45,25 @@ function DmCallOverlay({
   }, [call?.phase, call?.callId, outputVolume]);
 
   if (!call) return null;
-  const terminal = ['rejected', 'cancelled', 'timed-out', 'busy', 'ended', 'failed'].includes(call.phase);
+  const terminal = [
+    'rejected',
+    'cancelled',
+    'timed-out',
+    'busy',
+    'ended',
+    'failed',
+    'answered-elsewhere',
+  ].includes(call.phase);
   const incoming = call.phase === 'incoming';
   const name = displayName || call.otherUserName || 'Bir kullanıcı';
   const remoteShare = voiceState?.remoteScreenShares?.[0];
 
   return (
-    <section className={`dm-call ${incoming ? 'dm-call--incoming' : ''}`} role="dialog" aria-live="assertive">
+    <section
+      className={`dm-call ${incoming ? 'dm-call--incoming' : ''} ${compact ? 'dm-call--sidebar' : ''}`}
+      role="dialog"
+      aria-live="assertive"
+    >
       <div className="dm-call__main">
         <div className="dm-call__avatar">
           {call.otherAvatarUrl ? <img src={call.otherAvatarUrl} alt="" /> : name.charAt(0).toUpperCase()}
@@ -97,6 +111,7 @@ function DmCallOverlay({
           <ScreenShareControls
             voiceState={voiceState}
             onWatchScreenShare={onWatchScreenShare}
+            compact={compact}
           />
         </div>
       )}

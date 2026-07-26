@@ -31,6 +31,7 @@ function FriendsNotificationSidebar({
   voiceState,
   onDisconnectVoice,
   onWatchScreenShare,
+  callPanel,
 }) {
   const [actionError, setActionError] = useState(null);
   const {
@@ -50,9 +51,9 @@ function FriendsNotificationSidebar({
 
   const handleOpen = useCallback(async (notification) => {
     setActionError(null);
+    onOpenNotification?.(notification);
     try {
       await markRead(notification.id);
-      onOpenNotification?.(notification);
     } catch (err) {
       setActionError(err.message);
     }
@@ -131,6 +132,7 @@ function FriendsNotificationSidebar({
         onDisconnectVoice={onDisconnectVoice}
         onWatchScreenShare={onWatchScreenShare}
       />
+      {callPanel}
     </aside>
   );
 }

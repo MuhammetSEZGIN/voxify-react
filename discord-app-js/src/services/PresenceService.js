@@ -13,6 +13,11 @@ let connectionPromise = null;
 const listeners = new Map();
 const reconnectedListeners = new Set();
 
+export function isExpectedConnectionStop(error) {
+  return error?.name === 'AbortError'
+    || /stopped during negotiation|connection (?:was )?stopped/i.test(error?.message || '');
+}
+
 function registerListeners(target) {
   for (const [event, callbacks] of listeners) {
     for (const callback of callbacks) target.on(event, callback);
@@ -119,8 +124,11 @@ const eventAccessors = {
   UserJoinedVoice: ['onUserJoinedVoice', 'offUserJoinedVoice'],
   UserLeftVoice: ['onUserLeftVoice', 'offUserLeftVoice'],
   VoiceChannelParticipants: ['onVoiceChannelParticipants', 'offVoiceChannelParticipants'],
+  OnChannelUpserted: ['onChannelUpserted', 'offChannelUpserted'],
+  OnVoiceChannelUpserted: ['onVoiceChannelUpserted', 'offVoiceChannelUpserted'],
   OnChannelDeleted: ['onChannelDeleted', 'offChannelDeleted'],
   OnVoiceChannelDeleted: ['onVoiceChannelDeleted', 'offVoiceChannelDeleted'],
+  OnClanMembershipChanged: ['onClanMembershipChanged', 'offClanMembershipChanged'],
   OnClanDeleted: ['onClanDeleted', 'offClanDeleted'],
   IncomingCall: ['onIncomingCall', 'offIncomingCall'],
   CallRinging: ['onCallRinging', 'offCallRinging'],
@@ -130,6 +138,7 @@ const eventAccessors = {
   CallTimedOut: ['onCallTimedOut', 'offCallTimedOut'],
   CallBusy: ['onCallBusy', 'offCallBusy'],
   CallEnded: ['onCallEnded', 'offCallEnded'],
+  CallAnsweredElsewhere: ['onCallAnsweredElsewhere', 'offCallAnsweredElsewhere'],
   CallFailed: ['onCallFailed', 'offCallFailed'],
 };
 
@@ -144,12 +153,16 @@ export const {
   onSubscriptionFailed, offSubscriptionFailed,
   onUserJoinedVoice, offUserJoinedVoice, onUserLeftVoice, offUserLeftVoice,
   onVoiceChannelParticipants, offVoiceChannelParticipants,
+  onChannelUpserted, offChannelUpserted,
+  onVoiceChannelUpserted, offVoiceChannelUpserted,
   onChannelDeleted, offChannelDeleted, onVoiceChannelDeleted, offVoiceChannelDeleted,
+  onClanMembershipChanged, offClanMembershipChanged,
   onClanDeleted, offClanDeleted, onIncomingCall, offIncomingCall,
   onCallRinging, offCallRinging, onCallAccepted, offCallAccepted,
   onCallRejected, offCallRejected, onCallCancelled, offCallCancelled,
   onCallTimedOut, offCallTimedOut, onCallBusy, offCallBusy,
   onCallEnded, offCallEnded, onCallFailed, offCallFailed,
+  onCallAnsweredElsewhere, offCallAnsweredElsewhere,
 } = exportedAccessors;
 
 export function onReconnected(callback) {

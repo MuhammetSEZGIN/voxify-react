@@ -33,6 +33,7 @@ function NotificationCenter({ notifications, onOpen }) {
     markRead,
     markAllRead,
     remove,
+    clearAll,
   } = notifications;
 
   useEffect(() => {
@@ -61,12 +62,15 @@ function NotificationCenter({ notifications, onOpen }) {
   }, []);
 
   const handleOpen = useCallback((notification) => {
-    runAction(async () => {
-      await markRead(notification.id);
-      onOpen?.(notification);
-      setOpen(false);
-    });
+    onOpen?.(notification);
+    setOpen(false);
+    runAction(() => markRead(notification.id));
   }, [markRead, onOpen, runAction]);
+
+  const handleClearAll = useCallback(() => {
+    if (!window.confirm('Tüm bildirimler kalıcı olarak silinsin mi?')) return;
+    runAction(clearAll);
+  }, [clearAll, runAction]);
 
   return (
     <div className="notification-center" ref={containerRef}>
@@ -92,11 +96,22 @@ function NotificationCenter({ notifications, onOpen }) {
               <h2>Bildirimler</h2>
               <p>{unreadCount ? `${unreadCount} okunmamış` : 'Tümü okundu'}</p>
             </div>
-            {unreadCount > 0 && (
-              <button type="button" onClick={() => runAction(markAllRead)}>
-                Tümünü oku
-              </button>
-            )}
+            <div className="notification-center__header-actions">
+              {unreadCount > 0 && (
+                <button type="button" onClick={() => runAction(markAllRead)}>
+                  Tümünü oku
+                </button>
+              )}
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="notification-center__clear-all"
+                  onClick={handleClearAll}
+                >
+                  Temizle
+                </button>
+              )}
+            </div>
           </header>
 
           {(error || actionError) && (

@@ -213,44 +213,51 @@ function UserBar({
     onOpenAccountSettings?.();
   }, [onOpenAccountSettings]);
 
+  const handleLogout = useCallback(() => {
+    setOpenMenu(null);
+    onLogout?.();
+  }, [onLogout]);
+
   if (!user) return null;
 
   return (
     <div className="user-bar" ref={rootRef}>
       <div className="user-bar__inner">
-        <button
-          type="button"
-          className="channel-sidebar__user-info user-bar__identity"
-          onClick={() => toggleMenu('user')}
-          aria-haspopup="menu"
-          aria-expanded={openMenu === 'user'}
-        >
-          <div className="channel-sidebar__user-avatar-wrapper">
-            <div className="channel-sidebar__user-avatar">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt=""
-                  className="channel-sidebar__user-avatar-img"
-                />
-              ) : (
-                <span>{user.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-              )}
+        <div className="user-bar__identity-container">
+          <button
+            type="button"
+            className="channel-sidebar__user-info user-bar__identity"
+            onClick={() => toggleMenu('user')}
+            aria-haspopup="menu"
+            aria-expanded={openMenu === 'user'}
+          >
+            <div className="channel-sidebar__user-avatar-wrapper">
+              <div className="channel-sidebar__user-avatar">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    className="channel-sidebar__user-avatar-img"
+                  />
+                ) : (
+                  <span>{user.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                )}
+              </div>
+              <div className="channel-sidebar__user-status-dot" />
             </div>
-            <div className="channel-sidebar__user-status-dot" />
-          </div>
-          <div className="user-bar__identity-text">
-            <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
-            <p className="channel-sidebar__user-status">Çevrimiçi</p>
-          </div>
+            <div className="user-bar__identity-text">
+              <p className="channel-sidebar__user-name">{user.userName || 'User'}</p>
+              <p className="channel-sidebar__user-status">Çevrimiçi</p>
+            </div>
+          </button>
 
           {openMenu === 'user' && (
             <UserMenu
               onOpenAccountSettings={handleOpenAccountSettings}
-              onLogout={onLogout}
+              onLogout={handleLogout}
             />
           )}
-        </button>
+        </div>
 
         <div className="channel-sidebar__user-actions">
           {/* Mikrofon */}

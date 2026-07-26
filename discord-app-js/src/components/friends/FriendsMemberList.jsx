@@ -57,8 +57,10 @@ function FriendsMemberList({
   useEffect(() => {
     if (!showAddPanel || !searchQuery.trim()) {
       setSearchResults([]);
+      setAddFeedback(null);
       return undefined;
     }
+    setAddFeedback(null);
     setSearching(true);
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -70,8 +72,10 @@ function FriendsMemberList({
           controller.signal
         );
         setSearchResults((results || []).filter((u) => u.id !== currentUserId));
+        setAddFeedback(null);
       } catch (err) {
         if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+          console.error('[Friends] Kullanıcı arama başarısız:', err);
           setAddFeedback(err.message);
         }
       } finally {
