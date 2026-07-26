@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 
 const isTauriRuntime = () =>
   typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
@@ -22,9 +22,11 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const [areControlsVisible, setAreControlsVisible] = useState(true);
 
   const setFullscreen = useCallback(async (fullscreen) => {
+    fullscreenRef.current = fullscreen;
     if (isTauriRuntime()) {
-      await getCurrentWindow().setFullscreen(fullscreen);
-      fullscreenRef.current = fullscreen;
+      // Şeffaf/çerçevesiz Tauri penceresini native fullscreen yapmak bazı
+      // WebView'larda çıkışta boş yüzey bırakıyor. Masaüstünde yalnızca viewer
+      // katmanını pencere boyutuna büyüt.
       setIsFullscreen(fullscreen);
       return;
     }
@@ -39,8 +41,7 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const toggleFullscreen = useCallback(async () => {
     try {
       if (isTauriRuntime()) {
-        const fullscreen = await getCurrentWindow().isFullscreen();
-        await setFullscreen(!fullscreen);
+        await setFullscreen(!fullscreenRef.current);
       } else {
         await setFullscreen(!document.fullscreenElement);
       }
@@ -50,10 +51,15 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   }, [setFullscreen]);
 
   const handleClose = useCallback(async () => {
+    if (isTauriRuntime()) {
+      fullscreenRef.current = false;
+      setIsFullscreen(false);
+      onClose?.();
+      return;
+    }
+
     try {
-      if (isTauriRuntime() && fullscreenRef.current) {
-        await setFullscreen(false);
-      } else if (document.fullscreenElement) {
+      if (document.fullscreenElement) {
         await document.exitFullscreen();
       }
     } catch (err) {
@@ -61,7 +67,7 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
     } finally {
       onClose?.();
     }
-  }, [onClose, setFullscreen]);
+  }, [onClose]);
 
   // Video track'ı video elementine bağla
   useEffect(() => {
@@ -144,7 +150,9 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
     };
 
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const fullscreen = !!document.fullscreenElement;
+      fullscreenRef.current = fullscreen;
+      setIsFullscreen(fullscreen);
     };
 
     const handleEnterPiP = () => setIsPiP(true);
@@ -169,11 +177,32 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
     };
   }, [onClose, setFullscreen]);
 
+  // Tauri penceresi kapatılıp tepsiye gönderilirken viewer state'ini temizle.
+  useEffect(() => {
+    if (!isTauriRuntime()) return undefined;
+
+    let disposed = false;
+    let unlistenWindowHide = null;
+    listen('voxify:window-hide', () => {
+      fullscreenRef.current = false;
+      setIsFullscreen(false);
+      onClose?.();
+    }).then((unlisten) => {
+      if (disposed) unlisten();
+      else unlistenWindowHide = unlisten;
+    }).catch((error) => {
+      console.warn('[ScreenShareViewer] Pencere kapanış olayı dinlenemedi:', error);
+    });
+
+    return () => {
+      disposed = true;
+      unlistenWindowHide?.();
+    };
+  }, [onClose]);
+
   // Yayın tam ekrandayken sona ererse uygulama penceresini tam ekranda bırakma.
   useEffect(() => () => {
-    if (isTauriRuntime() && fullscreenRef.current) {
-      getCurrentWindow().setFullscreen(false).catch(() => {});
-    } else if (document.fullscreenElement === containerRef.current) {
+    if (!isTauriRuntime() && document.fullscreenElement === containerRef.current) {
       document.exitFullscreen().catch(() => {});
     }
   }, []);
@@ -194,7 +223,11 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   };
 
   return (
-    <div className="screenshare-viewer" role="dialog" aria-modal="true">
+    <div
+      className={`screenshare-viewer ${isFullscreen ? 'screenshare-viewer--fullscreen' : ''}`}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         ref={containerRef}
         className={`screenshare-viewer__window ${isFullscreen ? 'screenshare-viewer__window--fullscreen' : ''}`}

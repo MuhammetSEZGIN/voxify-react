@@ -22,7 +22,10 @@ import UserBar from './UserBar';
 import DmService from '../../services/DmService';
 import VoiceService from '../../services/VoiceService';
 import * as PresenceService from '../../services/PresenceService';
-import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
+import {
+  VOICE_JOIN_NOTIFICATION_SOUND,
+  VOICE_LEAVE_NOTIFICATION_SOUND,
+} from '../../utils/constants';
 import { directVoiceRoomId } from '../../utils/space';
 import NotificationCenter from '../notifications/NotificationCenter';
 import FriendsNotificationSidebar from '../notifications/FriendsNotificationSidebar';
@@ -249,9 +252,9 @@ function MainLayout() {
     showToast(shouldMute ? `${name} sessize alındı` : `${name} bildirimleri açıldı`);
   }, [mutedUserIds, showToast]);
 
-  const playVoicePresenceNotification = useCallback(() => {
+  const playVoicePresenceNotification = useCallback((source) => {
     try {
-      const audio = new Audio(VOICE_JOIN_NOTIFICATION_SOUND);
+      const audio = new Audio(source);
       audio.volume = Math.max(0, Math.min(outputVolume / 100, 1));
       audio.play().catch(() => {
         // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
@@ -567,7 +570,7 @@ function MainLayout() {
         PresenceService.endCall(channel.callId)
           .catch((err) => console.error('[Presence] end call failed', err));
       }
-      playVoicePresenceNotification();
+      playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
       activeVoiceChannelRef.current = null;
       voiceConnectedRef.current = false;
       setActiveVoiceChannel(null);
@@ -576,7 +579,7 @@ function MainLayout() {
     }
     if (channel && user) {
       const userId = user.id || user.sub || '';
-      playVoicePresenceNotification();
+      playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
       PresenceService.leaveVoiceChannel()
         .catch((err) => console.error('[Presence] leave voice failed', err));
       // Remove from local presence state immediately — server removes caller from the group
@@ -687,7 +690,7 @@ function MainLayout() {
             activeVoiceChannel.voiceChannelId,
             userName
           ))
-          .then(playVoicePresenceNotification)
+          .then(() => playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND))
           .catch((err) => {
             voiceConnectedRef.current = false;
             console.error('[Presence] join DM voice failed', err);
@@ -704,7 +707,7 @@ function MainLayout() {
         userName
       )
         .then(() => {
-          playVoicePresenceNotification();
+          playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND);
         })
         .catch((err) => {
           voiceConnectedRef.current = false;
@@ -738,7 +741,7 @@ function MainLayout() {
       const currentUserId = user?.id || user?.sub || user?.userId || '';
       const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
       if (userId !== currentUserId && activeChannelId && activeChannelId === voiceChannelId) {
-        playVoicePresenceNotification();
+        playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND);
       }
     };
 
@@ -750,7 +753,7 @@ function MainLayout() {
 
       const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
       if (activeChannelId && activeChannelId === voiceChannelId) {
-        playVoicePresenceNotification();
+        playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
       }
     };
 

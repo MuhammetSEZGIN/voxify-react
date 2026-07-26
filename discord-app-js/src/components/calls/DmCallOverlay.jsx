@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import ScreenShareControls from '../voicechannel/ScreenShareControls';
+import { CALL_RINGTONE_SOUND } from '../../utils/constants';
 
 const STATUS_TEXT = {
   starting: 'Arama başlatılıyor...',
@@ -33,7 +34,7 @@ function DmCallOverlay({
 
   useEffect(() => {
     if (call?.phase !== 'incoming') return undefined;
-    const audio = new Audio('/voicechannelnotification.wav');
+    const audio = new Audio(CALL_RINGTONE_SOUND);
     audio.loop = true;
     audio.volume = Math.max(0, Math.min(outputVolume / 100, 1));
     audio.play().catch(() => {});

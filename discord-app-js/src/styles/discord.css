@@ -3637,6 +3637,11 @@ body {
   border-radius: 0 !important;
 }
 
+.screenshare-viewer--fullscreen {
+  padding: 0;
+  backdrop-filter: none;
+}
+
 
 .screenshare-viewer__video-wrap {
   flex: 1;
