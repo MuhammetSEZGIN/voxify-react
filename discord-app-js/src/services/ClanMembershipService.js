@@ -50,6 +50,7 @@ const ClanMembershipService = {
   getClanMembers,
   getUserMemberships,
   removeUserFromClan,
+  leaveClan,
   createInvitation,
   joinClan,
   updateMemberRole,

@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ConfirmEmailPage from "./pages/ConfirmEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import MainLayout from "./components/layout/MainLayout";
@@ -20,8 +23,8 @@ function App() {
   }, []);
 
   return (
-    <>
-     <TitleBar />
+    <div className="app-shell">
+      <TitleBar />
       <UpdateNotification
         updateInfo={updateInfo}
         status={status}
@@ -30,7 +33,7 @@ function App() {
         onInstall={installUpdate}
         onDismiss={dismiss}
       />
-      <div className="app-container">
+      <main className="app-container">
         <Routes>
           <Route
             path="/"
@@ -44,6 +47,9 @@ function App() {
             path="/register"
             element={isAuthenticated ? <Navigate to="/app" replace /> : <RegisterPage />}
           />
+          <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/app"
             element={
@@ -69,8 +75,8 @@ function App() {
             }
           />
         </Routes>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
 

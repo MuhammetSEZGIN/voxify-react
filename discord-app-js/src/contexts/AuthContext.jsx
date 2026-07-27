@@ -1,35 +1,51 @@
 import React, { createContext, useMemo, useState, useEffect, useCallback } from "react";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import AuthService from "../services/AuthService";
+import UserService from "../services/UserService";
 
 const AuthContext = createContext(null);
 
 // AppData/Roaming/com.voxify.desktop/auth.json — installer tarafından silinmez
 const authStore = new LazyStore("auth.json", { autoSave: true });
 
+// Tauri store yalnızca gerçek Tauri runtime'ında çalışır; `npm run dev` gibi
+// düz tarayıcı ortamında window.__TAURI_INTERNALS__ yok, çağrı her zaman patlar.
+const isTauriRuntime = () =>
+  typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
+
 // Hem store hem localStorage'a yaz (servisler localStorage'dan okur)
 async function persistSet(key, value) {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  localStorage.setItem(key, serialized);
+  if (!isTauriRuntime()) return;
   try {
-    const serialized = typeof value === "string" ? value : JSON.stringify(value);
-    localStorage.setItem(key, serialized);
     await authStore.set(key, value);
-  } catch { /* ignore */ }
+  } catch (error) {
+    // localStorage yazımı başarılı oldu ama Tauri store diskte diverge etti —
+    // bir sonraki restart'ta persistGet localStorage'a düşer, ama en azından loglanmalı.
+    console.error(`[Auth] authStore.set("${key}") başarısız, localStorage ile senkron değil:`, error);
+  }
 }
 
 async function persistRemove(key) {
+  localStorage.removeItem(key);
+  if (!isTauriRuntime()) return;
   try {
-    localStorage.removeItem(key);
     await authStore.delete(key);
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Auth] authStore.delete("${key}") başarısız, localStorage ile senkron değil:`, error);
+  }
 }
 
 // Store'dan oku; boşsa localStorage'a bak (update sonrası kurtarma)
 async function persistGet(key) {
-  try {
-    const storeVal = await authStore.get(key);
-    if (storeVal !== null && storeVal !== undefined) return storeVal;
-  } catch { /* ignore */ }
-  // Store boş — localStorage'dan oku (ilk migration veya kurtarma)
+  if (isTauriRuntime()) {
+    try {
+      const storeVal = await authStore.get(key);
+      if (storeVal !== null && storeVal !== undefined) return storeVal;
+    } catch { /* ignore */ }
+  }
+  // Store boş/yok — localStorage'dan oku (ilk migration, kurtarma veya tarayıcı ortamı)
   const lsVal = localStorage.getItem(key);
   return lsVal ?? null;
 }
@@ -61,6 +77,8 @@ function mapClaimsToUser(decoded) {
     'email': 'email',
     'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'role',
     'role': 'role',
+    'picture': 'avatarUrl',
+    'IsEmailConfirmed': 'emailConfirmed',
   };
 
   const user = {};
@@ -71,7 +89,24 @@ function mapClaimsToUser(decoded) {
   }
 
   if (!user.userName) user.userName = user.email || user.id || 'User';
+  if (typeof user.emailConfirmed === 'string') {
+    user.emailConfirmed = user.emailConfirmed.toLowerCase() === 'true';
+  }
   return user;
+}
+
+// JWT yalnızca oturum kimliği için yeterlidir; avatar, biyografi ve değişmiş
+// e-posta gibi güncel profil alanlarının tek kaynağı `/identity/user/me`'dir.
+// İstek geçici olarak başarısız olursa oturum açmayı engellemeden claim verisine
+// geri düşeriz.
+async function hydrateUserProfile(baseUser) {
+  try {
+    const profile = await UserService.getMe();
+    return { ...baseUser, ...profile };
+  } catch (error) {
+    console.warn('[Auth] Profil başlangıçta eşitlenemedi:', error.message);
+    return baseUser;
+  }
 }
 
 function AuthProvider({ children }) {
@@ -117,9 +152,10 @@ function AuthProvider({ children }) {
           setToken(newToken);
 
           const newDecoded = decodeJwt(newToken);
-          const refreshedUser = mapClaimsToUser(newDecoded);
+          let refreshedUser = mapClaimsToUser(newDecoded);
           if (storedUser?.id) refreshedUser.id = storedUser.id;
           if (storedUser?.sessionId) refreshedUser.sessionId = storedUser.sessionId;
+          refreshedUser = await hydrateUserProfile(refreshedUser);
           setUser(refreshedUser);
           await persistSet("user", refreshedUser);
           console.info("[Auth] Token refreshed successfully");
@@ -142,8 +178,9 @@ function AuthProvider({ children }) {
         setToken(storedToken);
         const resolvedUser = storedUser
           ?? mapClaimsToUser(decoded?.user ? decoded.user : decoded);
-        setUser(resolvedUser);
-        if (resolvedUser && !storedUser) await persistSet("user", resolvedUser);
+        const hydratedUser = await hydrateUserProfile(resolvedUser);
+        setUser(hydratedUser);
+        if (hydratedUser) await persistSet("user", hydratedUser);
       }
 
       setLoading(false);
@@ -159,14 +196,19 @@ function AuthProvider({ children }) {
       const tkn = data.accessToken || data.token;
       const rtkn = data.refreshToken;
 
+      if (!tkn || !decodeJwt(tkn)) {
+        throw new Error('Giriş yanıtında geçerli bir erişim tokenı bulunamadı.');
+      }
+
       setToken(tkn);
       await persistSet("token", tkn);
       if (rtkn) await persistSet("refreshToken", rtkn);
 
       const decoded = decodeJwt(tkn);
-      const nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
+      let nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
       if (nextUser && data.userID) nextUser.id = data.userID;
       if (nextUser && data.sessionId) nextUser.sessionId = data.sessionId;
+      nextUser = await hydrateUserProfile(nextUser);
       setUser(nextUser);
       if (nextUser) await persistSet("user", nextUser);
     } catch (error) {
@@ -185,14 +227,24 @@ function AuthProvider({ children }) {
       await persistSet("token", tkn);
       if (rtkn) await persistSet("refreshToken", rtkn);
 
-      const rawUser = data.user ?? decodeJwt(data.token)?.user ?? decodeJwt(data.token);
-      const nextUser = mapClaimsToUser(rawUser);
+      const decoded = decodeJwt(tkn);
+      const rawUser = data.user ?? decoded?.user ?? decoded;
+      const nextUser = await hydrateUserProfile(mapClaimsToUser(rawUser));
       setUser(nextUser);
       if (nextUser) await persistSet("user", nextUser);
     } catch (error) {
       console.error("Registration error", error);
       throw error;
     }
+  }, []);
+
+  // Profil güncellemesi gibi backend'den dönen kısmi verilerle in-memory user'ı yeniler.
+  const updateUser = useCallback(async (updates) => {
+    setUser((prev) => {
+      const next = { ...prev, ...updates };
+      persistSet("user", next);
+      return next;
+    });
   }, []);
 
   const logout = useCallback(async () => {
@@ -209,8 +261,8 @@ function AuthProvider({ children }) {
   }, [user?.sessionId]);
 
   const value = useMemo(
-    () => ({ user, token, isAuthenticated: !!token, loading, login, register, logout }),
-    [user, token, loading, login, register, logout]
+    () => ({ user, token, isAuthenticated: !!token, loading, login, register, logout, updateUser }),
+    [user, token, loading, login, register, logout, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

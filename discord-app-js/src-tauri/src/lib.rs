@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -12,6 +12,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -83,6 +84,7 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // Pencereyi kapatmak yerine gizle
                 api.prevent_close();
+                let _ = window.emit("voxify:window-hide", ());
                 let _ = window.hide();
             }
         })

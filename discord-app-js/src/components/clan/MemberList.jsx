@@ -6,21 +6,32 @@ import {
   CLAN_ROLE_COLORS,
   normalizeClanRole,
 } from '../../utils/constants';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import AvatarContent from '../common/AvatarContent';
 
-function MemberList({ members, clanId, onlineUserIds = new Set() }) {
+function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId, onMemberContextMenu, onMemberClick, onRefresh }) {
   const [search, setSearch] = useState('');
   const [visible, setVisible] = useState(true);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   if (!clanId || !members) return null;
 
-  const getName = (m) => m.userName || m.username || m.UserName || 'Unknown';
-  const getUserId = (m) => m.userId || m.user?.id || m.id || '';
+  /** Yalnızca bu sütunu yeniler — üye listesi + online durumları. */
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await onRefresh?.();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const getRole = (m) => normalizeClanRole(m.role);
 
   const filtered = members.filter((m) =>
-    getName(m).toLowerCase().includes(search.toLowerCase())
+    getMemberName(m).toLowerCase().includes(search.toLowerCase())
   );
   // Group by role, then sort within each group by online status
   const grouped = {};
@@ -38,8 +49,8 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   // Within each role, online first
   for (const role of sortedRoles) {
     grouped[role].sort((a, b) => {
-      const aOnline = onlineUserIds.has(getUserId(a)) ? 0 : 1;
-      const bOnline = onlineUserIds.has(getUserId(b)) ? 0 : 1;
+      const aOnline = onlineUserIds.has(getMemberId(a)) ? 0 : 1;
+      const bOnline = onlineUserIds.has(getMemberId(b)) ? 0 : 1;
       return aOnline - bOnline;
     });
   }
@@ -80,7 +91,9 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
   );
 
   if (!visible) {
-    return renderToggleButton();
+    // Katlanmış hâlde de bir kapsayıcı gerekli: aksi halde çıplak <button>
+    // .discord-app'in flex çocuğu olur ve yükseklik/hizalama bozulur.
+    return <div className="member-list--collapsed">{renderToggleButton()}</div>;
   }
 
   return (
@@ -88,7 +101,18 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
       {/* Header */}
       <div className="member-list__header">
         <h2 className="member-list__title">Clan Members</h2>
-        {renderToggleButton()}
+        <div className="member-list__header-actions">
+          <button
+            type="button"
+            className={`member-list__refresh-btn ${refreshing ? 'member-list__refresh-btn--spinning' : ''}`}
+            title="Listeyi Yenile"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <span className="material-symbols-outlined">refresh</span>
+          </button>
+          {renderToggleButton()}
+        </div>
       </div>
 
       {/* Search */}
@@ -114,20 +138,32 @@ function MemberList({ members, clanId, onlineUserIds = new Set() }) {
             </p>
             <ul className="member-list__list">
               {grouped[role].map((member) => {
-                const isOnline = onlineUserIds.has(getUserId(member));
+                const isOnline = onlineUserIds.has(getMemberId(member));
+                const memberId = getMemberId(member);
+                const memberName = getMemberName(member);
+                const avatarUrl = getMemberAvatarUrl(member);
+                const isSelf = currentUserId && memberId === currentUserId;
                 return (
-                  <li key={member.userId || member.id} className={`member-list__item ${!isOnline ? 'member-list__item--offline' : ''}`}>
+                  <li
+                    key={member.userId || member.id}
+                    className={`member-list__item ${!isOnline ? 'member-list__item--offline' : ''}`}
+                    onClick={(e) => onMemberClick?.(member, e.currentTarget.getBoundingClientRect())}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onMemberContextMenu?.(e, member, isSelf);
+                    }}
+                  >
                     <div className="member-list__avatar-wrapper">
                       <div className={`member-list__avatar ${!isOnline ? 'member-list__avatar--offline' : ''}`}>
-                        {member.avatarUrl ? (
-                          <img src={member.avatarUrl} alt="" className={`member-list__avatar-img ${!isOnline ? 'member-list__avatar-img--offline' : ''}`} />
-                        ) : (
-                          <span>{getName(member).charAt(0).toUpperCase()}</span>
-                        )}
+                        <AvatarContent
+                          src={avatarUrl}
+                          name={memberName}
+                          imgClassName={`member-list__avatar-img ${!isOnline ? 'member-list__avatar-img--offline' : ''}`}
+                        />
                       </div>
                       <div className={`member-list__status-dot ${isOnline ? 'member-list__status-dot--online' : 'member-list__status-dot--offline'}`} />
                     </div>
-                    <span className="member-list__name">{getName(member)}</span>
+                    <span className="member-list__name">{memberName}</span>
                     {CLAN_ROLE_COLORS[role] && (
                       <span className="member-list__role-badge" style={{ color: CLAN_ROLE_COLORS[role], borderColor: CLAN_ROLE_COLORS[role] }}>
                         {CLAN_ROLE_LABELS[role]}

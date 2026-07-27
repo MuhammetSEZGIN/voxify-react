@@ -1,176 +1,174 @@
-/**
- * SignalR bağlantı servisi - PresenceHub entegrasyonu.
- * Hem online durum hem de ses kanalı katılım bilgisini tek hub üzerinden yönetir.
- *
- * Backend Hub metotları (Client → Server):
- *   - SubscribeToClans(clanIds: string[])
- *   - GetOnlineUsers(userIds: string[])
- *   - JoinVoiceChannel(clanId, voiceChannelId, userName)
- *   - LeaveVoiceChannel()
- *   - GetVoiceChannelParticipants(clanId)
- *
- * Sunucudan gelen olaylar (Server → Client):
- *   - UserOnline       → userId
- *   - UserOffline      → userId
- *   - OnlineUsers      → string[]
- *   - UserJoinedVoice  → { clanId, voiceChannelId, userId, userName }
- *   - UserLeftVoice    → { clanId, voiceChannelId, userId }
- *   - VoiceChannelParticipants → { clanId, participants: [{ voiceChannelId, userId, userName }] }
- *   - OnChannelDeleted      → channelId
- *   - OnVoiceChannelDeleted → voiceChannelId
- *   - OnClanDeleted         → clanId
- */
-
 import * as signalR from '@microsoft/signalr';
+import { resolveHubUrl } from '../utils/hubUrl';
 
-const HUB_URL =
-  import.meta.env.VITE_PRESENCE_HUB_URL ||
-  (import.meta.env.VITE_BASE_URL
-    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/hubs/presence'
-    : 'http://localhost:5074/hubs/presence');
-
-console.info('[PresenceService] HUB_URL:', HUB_URL);
+const HUB_URL = resolveHubUrl({
+  explicitUrl: import.meta.env.VITE_PRESENCE_HUB_URL,
+  baseUrl: import.meta.env.VITE_BASE_URL,
+  localPort: 5241,
+  path: '/hubs/presence',
+});
 
 let connection = null;
+let connectionPromise = null;
+const listeners = new Map();
+const reconnectedListeners = new Set();
 
-/**
- * SignalR bağlantısını başlat.
- * @param {string} token - JWT token
- * @returns {Promise<signalR.HubConnection>}
- */
+export function isExpectedConnectionStop(error) {
+  return error?.name === 'AbortError'
+    || /stopped during negotiation|connection (?:was )?stopped/i.test(error?.message || '');
+}
+
+function registerListeners(target) {
+  for (const [event, callbacks] of listeners) {
+    for (const callback of callbacks) target.on(event, callback);
+  }
+}
+
+function addListener(event, callback) {
+  let callbacks = listeners.get(event);
+  if (!callbacks) {
+    callbacks = new Set();
+    listeners.set(event, callbacks);
+  }
+  if (callbacks.has(callback)) return;
+  callbacks.add(callback);
+  connection?.on(event, callback);
+}
+
+function removeListener(event, callback) {
+  connection?.off(event, callback);
+  const callbacks = listeners.get(event);
+  callbacks?.delete(callback);
+  if (callbacks?.size === 0) listeners.delete(event);
+}
+
+async function invoke(method, ...args) {
+  if (connectionPromise) await connectionPromise;
+  if (connection?.state !== signalR.HubConnectionState.Connected) {
+    throw new Error('Presence bağlantısı hazır değil.');
+  }
+  return connection.invoke(method, ...args);
+}
+
 export async function startConnection(token) {
-  if (connection?.state === signalR.HubConnectionState.Connected) {
-    return connection;
-  }
+  if (connection?.state === signalR.HubConnectionState.Connected) return connection;
+  if (connectionPromise) return connectionPromise;
 
-  if (connection) {
-    await connection.stop().catch(() => {});
-    connection = null;
-  }
+  const startPromise = (async () => {
+    const nextConnection = new signalR.HubConnectionBuilder()
+      .withUrl(HUB_URL, { accessTokenFactory: () => token })
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
 
-  connection = new signalR.HubConnectionBuilder()
-    .withUrl(HUB_URL, {
-      accessTokenFactory: () => token,
-    })
-    .withAutomaticReconnect()
-    .configureLogging(signalR.LogLevel.Warning)
-    .build();
+    registerListeners(nextConnection);
+    nextConnection.onreconnected((connectionId) => {
+      for (const callback of reconnectedListeners) callback(connectionId);
+    });
+    nextConnection.onclose(() => {
+      if (connection === nextConnection) {
+        connection = null;
+        connectionPromise = null;
+      }
+    });
 
-  await connection.start();
-  console.info('[PresenceService] Connected');
-  return connection;
+    connection = nextConnection;
+    try {
+      await nextConnection.start();
+      return nextConnection;
+    } catch (error) {
+      if (connection === nextConnection) connection = null;
+      throw error;
+    } finally {
+      if (connectionPromise === startPromise) connectionPromise = null;
+    }
+  })();
+
+  connectionPromise = startPromise;
+
+  return startPromise;
 }
 
-/**
- * SignalR bağlantısını durdur.
- */
 export async function stopConnection() {
-  if (connection) {
-    await connection.stop().catch(() => {});
-    connection = null;
-    console.info('[PresenceService] Disconnected');
-  }
+  const current = connection;
+  connection = null;
+  connectionPromise = null;
+  if (current) await current.stop().catch(() => {});
 }
 
-// ─── Online Presence ───────────────────────────────────────────────────────
+// Online ve abonelik metotları
+export const subscribeToClans = (clanIds) => invoke('SubscribeToClans', clanIds);
+export const subscribeToConversations = (conversationIds) =>
+  invoke('SubscribeToConversations', conversationIds);
+export const subscribeToUsers = (userIds) => invoke('SubscribeToUsers', userIds);
+export const getOnlineUsers = (userIds) => invoke('GetOnlineUsers', userIds);
 
-/** Klanlara abone ol (online/offline eventlerini almak için). */
-export async function subscribeToClans(clanIds) {
-  if (connection?.state !== signalR.HubConnectionState.Connected) return;
-  await connection.invoke('SubscribeToClans', clanIds);
-}
+// Ses presence metotları
+export const joinVoiceChannel = (clanId, voiceChannelId, userName) =>
+  invoke('JoinVoiceChannel', clanId, voiceChannelId, userName);
+export const leaveVoiceChannel = () => invoke('LeaveVoiceChannel');
+export const getParticipants = (clanId) => invoke('GetVoiceChannelParticipants', clanId);
 
-/** Verilen userId listesinden hangilerinin online olduğunu iste (sunucu OnlineUsers ile yanıt verir). */
-export async function getOnlineUsers(userIds) {
-  if (connection?.state !== signalR.HubConnectionState.Connected) return;
-  await connection.invoke('GetOnlineUsers', userIds);
-}
+// DM arama durum makinesi
+export const callUser = (conversationId) => invoke('CallUser', conversationId);
+export const acceptCall = (callId) => invoke('AcceptCall', callId);
+export const rejectCall = (callId) => invoke('RejectCall', callId);
+export const cancelCall = (callId) => invoke('CancelCall', callId);
+export const endCall = (callId) => invoke('EndCall', callId);
 
-// ─── Voice Channel Presence ────────────────────────────────────────────────
+const eventAccessors = {
+  UserOnline: ['onUserOnline', 'offUserOnline'],
+  UserOffline: ['onUserOffline', 'offUserOffline'],
+  OnlineUsers: ['onOnlineUsers', 'offOnlineUsers'],
+  SubscriptionFailed: ['onSubscriptionFailed', 'offSubscriptionFailed'],
+  UserJoinedVoice: ['onUserJoinedVoice', 'offUserJoinedVoice'],
+  UserLeftVoice: ['onUserLeftVoice', 'offUserLeftVoice'],
+  VoiceChannelParticipants: ['onVoiceChannelParticipants', 'offVoiceChannelParticipants'],
+  OnChannelUpserted: ['onChannelUpserted', 'offChannelUpserted'],
+  OnVoiceChannelUpserted: ['onVoiceChannelUpserted', 'offVoiceChannelUpserted'],
+  OnChannelDeleted: ['onChannelDeleted', 'offChannelDeleted'],
+  OnVoiceChannelDeleted: ['onVoiceChannelDeleted', 'offVoiceChannelDeleted'],
+  OnClanMembershipChanged: ['onClanMembershipChanged', 'offClanMembershipChanged'],
+  OnClanDeleted: ['onClanDeleted', 'offClanDeleted'],
+  IncomingCall: ['onIncomingCall', 'offIncomingCall'],
+  CallRinging: ['onCallRinging', 'offCallRinging'],
+  CallAccepted: ['onCallAccepted', 'offCallAccepted'],
+  CallRejected: ['onCallRejected', 'offCallRejected'],
+  CallCancelled: ['onCallCancelled', 'offCallCancelled'],
+  CallTimedOut: ['onCallTimedOut', 'offCallTimedOut'],
+  CallBusy: ['onCallBusy', 'offCallBusy'],
+  CallEnded: ['onCallEnded', 'offCallEnded'],
+  CallAnsweredElsewhere: ['onCallAnsweredElsewhere', 'offCallAnsweredElsewhere'],
+  CallFailed: ['onCallFailed', 'offCallFailed'],
+};
 
-/** Kullanıcıyı ses kanalına kaydet. userId sunucu tarafından token'dan alınır. */
-export async function joinVoiceChannel(clanId, voiceChannelId, userName) {
-  if (connection?.state !== signalR.HubConnectionState.Connected) return;
-  await connection.invoke('JoinVoiceChannel', clanId, voiceChannelId, userName);
-}
-
-/** Kullanıcıyı ses kanalından çıkar. Sunucu connection üzerinden tespit eder. */
-export async function leaveVoiceChannel() {
-  if (connection?.state !== signalR.HubConnectionState.Connected) return;
-  await connection.invoke('LeaveVoiceChannel');
-}
-
-/** Klandaki mevcut ses kanalı katılımcılarını iste. */
-export async function getParticipants(clanId) {
-  if (connection?.state !== signalR.HubConnectionState.Connected) return;
-  await connection.invoke('GetVoiceChannelParticipants', clanId);
-}
-
-// ─── Event Registration ────────────────────────────────────────────────────
-
-// Online presence events
-export function onUserOnline(callback) {
-  connection?.on('UserOnline', callback);
-}
-export function onUserOffline(callback) {
-  connection?.on('UserOffline', callback);
-}
-export function onOnlineUsers(callback) {
-  connection?.on('OnlineUsers', callback);
-}
-
-export function offUserOnline(callback) {
-  connection?.off('UserOnline', callback);
-}
-export function offUserOffline(callback) {
-  connection?.off('UserOffline', callback);
-}
-export function offOnlineUsers(callback) {
-  connection?.off('OnlineUsers', callback);
+const exportedAccessors = {};
+for (const [event, [onName, offName]] of Object.entries(eventAccessors)) {
+  exportedAccessors[onName] = (callback) => addListener(event, callback);
+  exportedAccessors[offName] = (callback) => removeListener(event, callback);
 }
 
-// Voice presence events
-export function onUserJoinedVoice(callback) {
-  connection?.on('UserJoinedVoice', callback);
-}
-export function onUserLeftVoice(callback) {
-  connection?.on('UserLeftVoice', callback);
-}
-export function onVoiceChannelParticipants(callback) {
-  connection?.on('VoiceChannelParticipants', callback);
-}
+export const {
+  onUserOnline, offUserOnline, onUserOffline, offUserOffline, onOnlineUsers, offOnlineUsers,
+  onSubscriptionFailed, offSubscriptionFailed,
+  onUserJoinedVoice, offUserJoinedVoice, onUserLeftVoice, offUserLeftVoice,
+  onVoiceChannelParticipants, offVoiceChannelParticipants,
+  onChannelUpserted, offChannelUpserted,
+  onVoiceChannelUpserted, offVoiceChannelUpserted,
+  onChannelDeleted, offChannelDeleted, onVoiceChannelDeleted, offVoiceChannelDeleted,
+  onClanMembershipChanged, offClanMembershipChanged,
+  onClanDeleted, offClanDeleted, onIncomingCall, offIncomingCall,
+  onCallRinging, offCallRinging, onCallAccepted, offCallAccepted,
+  onCallRejected, offCallRejected, onCallCancelled, offCallCancelled,
+  onCallTimedOut, offCallTimedOut, onCallBusy, offCallBusy,
+  onCallEnded, offCallEnded, onCallFailed, offCallFailed,
+  onCallAnsweredElsewhere, offCallAnsweredElsewhere,
+} = exportedAccessors;
 
-export function offUserJoinedVoice(callback) {
-  connection?.off('UserJoinedVoice', callback);
-}
-export function offUserLeftVoice(callback) {
-  connection?.off('UserLeftVoice', callback);
-}
-export function offVoiceChannelParticipants(callback) {
-  connection?.off('VoiceChannelParticipants', callback);
-}
-
-// Channel / Clan deletion events
-export function onChannelDeleted(callback) {
-  connection?.on('OnChannelDeleted', callback);
-}
-export function offChannelDeleted(callback) {
-  connection?.off('OnChannelDeleted', callback);
-}
-export function onVoiceChannelDeleted(callback) {
-  connection?.on('OnVoiceChannelDeleted', callback);
-}
-export function offVoiceChannelDeleted(callback) {
-  connection?.off('OnVoiceChannelDeleted', callback);
-}
-export function onClanDeleted(callback) {
-  connection?.on('OnClanDeleted', callback);
-}
-export function offClanDeleted(callback) {
-  connection?.off('OnClanDeleted', callback);
-}
-
-/** Reconnection hook — fires after SignalR auto-reconnects. */
 export function onReconnected(callback) {
-  connection?.onreconnected(callback);
+  reconnectedListeners.add(callback);
+}
+
+export function offReconnected(callback) {
+  reconnectedListeners.delete(callback);
 }

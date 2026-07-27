@@ -2,9 +2,9 @@
  * SignalR bağlantı servisi - MessageHub entegrasyonu.
  *
  * Backend Hub metotları:
- *   - SendMessage(channelId, senderId, userName, message)
- *   - UpdateMessage(messageId, newContent)
- *   - JoinChannel(channelId)
+ *   - SendMessage(channelId, clanId, message) — senderId/userName JWT'den (Context.UserIdentifier) türetilir
+ *   - UpdateMessage(messageId, clanId, newContent)
+ *   - JoinChannel(channelId, clanId)
  *   - LeaveChannel(channelId)
  *
  * Sunucudan gelen olaylar:
@@ -14,18 +14,34 @@
  */
 
 import * as signalR from '@microsoft/signalr';
+import { resolveHubUrl } from '../utils/hubUrl';
 
-const HUB_URL =
-  import.meta.env.VITE_HUB_URL ||
-  (import.meta.env.VITE_BASE_URL
-    ? import.meta.env.VITE_BASE_URL.replace(/\/api\/?$/, '') + '/messagehub'
-    : 'http://localhost:5074/hubs/message');
+const HUB_BASE_URL = resolveHubUrl({
+  explicitUrl: import.meta.env.VITE_HUB_URL,
+  baseUrl: import.meta.env.VITE_BASE_URL,
+  localPort: 5000,
+  path: '/messagehub',
+});
 
-console.info('[LiveMessageService] HUB_URL:', HUB_URL);
+console.info('[LiveMessageService] HUB_BASE_URL:', HUB_BASE_URL);
 let connection = null;
 let connectionPromise = null;
-// Bağlantı kurulmadan önce eklenen dinleyicileri saklayacak kuyruk
-const pendingListeners = [];
+let connectionScope = null;
+let pendingScope = null;
+let currentToken = null;
+let rejoinPromise = null;
+let rejoinError = null;
+const joinedChannels = new Map();
+const intentionalStops = new WeakSet();
+// Dinleyiciler bağlantıdan bağımsız tutulur. Böylece bağlantı kurulurken
+// kaydedilen callback'ler iki kez eklenmez ve yeni bağlantıya otomatik taşınır.
+const listeners = new Map();
+
+function attachListeners(target) {
+  for (const [event, callbacks] of listeners) {
+    for (const callback of callbacks) target.on(event, callback);
+  }
+}
 
 /**
  * Mevcut bağlantıyı döndürür (veya null).
@@ -34,102 +50,215 @@ export function getConnection() {
   return connection;
 }
 
+function normalizeClanId(clanId) {
+  return clanId ? String(clanId).toLowerCase() : null;
+}
+
+function getScope(clanId) {
+  const normalizedClanId = normalizeClanId(clanId);
+  return normalizedClanId ? `clan:${normalizedClanId}` : 'dm';
+}
+
+function getHubUrl(clanId) {
+  const normalizedClanId = normalizeClanId(clanId);
+  return normalizedClanId
+    ? `${HUB_BASE_URL.replace(/\/+$/, '')}/clanId/${encodeURIComponent(normalizedClanId)}`
+    : HUB_BASE_URL;
+}
+
+function channelSubscriptionKey(channelId, clanId) {
+  return `${getScope(clanId)}:${channelId}`;
+}
+
+async function restoreJoinedChannels(target, scope) {
+  const subscriptions = [...joinedChannels.values()].filter(
+    (subscription) => subscription.scope === scope
+  );
+  for (const subscription of subscriptions) {
+    await target.invoke('JoinChannel', subscription.channelId, subscription.clanId);
+  }
+}
+
+function scheduleChannelRestore(target, scope) {
+  rejoinError = null;
+  const pending = restoreJoinedChannels(target, scope).catch((error) => {
+    rejoinError = error;
+    throw error;
+  });
+  rejoinPromise = pending;
+  pending.catch(() => {}).finally(() => {
+    if (rejoinPromise === pending) rejoinPromise = null;
+  });
+  return pending;
+}
+
+async function stopActiveConnection() {
+  const current = connection;
+  connection = null;
+  connectionScope = null;
+  if (!current) return;
+
+  try {
+    intentionalStops.add(current);
+    await current.stop();
+  } catch (error) {
+    console.error('[SignalR] Bağlantı durdurma hatası:', error);
+  }
+}
+
+async function getReadyConnection(clanId) {
+  while (connectionPromise) {
+    await connectionPromise;
+  }
+  if (rejoinPromise) await rejoinPromise;
+  if (rejoinError) {
+    throw new Error('SignalR kanal aboneliği yeniden kurulamadı.');
+  }
+
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
+    throw new Error('SignalR bağlantısı yok');
+  }
+  if (connectionScope !== getScope(clanId)) {
+    throw new Error('SignalR bağlantısı farklı bir klana ait');
+  }
+
+  return connection;
+}
+
 /**
  * SignalR bağlantısını başlat.
  * Aynı anda birden fazla çağrıda yalnızca tek bağlantı kurulur.
  * @param {string} token - JWT token
+ * @param {string|null} clanId - Klan sohbetinde clanId, DM bağlantısında null
  * @returns {Promise<signalR.HubConnection>}
  */
-export async function startConnection(token) {
-  // Zaten bağlıysa tekrar kurma
-  if (connection?.state === signalR.HubConnectionState.Connected) {
+export async function startConnection(token, clanId = null) {
+  if (!token) throw new Error('SignalR bağlantısı için token gerekli');
+
+  currentToken = token;
+  const desiredScope = getScope(clanId);
+  rejoinError = null;
+
+  if (
+    connection?.state === signalR.HubConnectionState.Connected
+    && connectionScope === desiredScope
+  ) {
     return connection;
   }
 
-  // Devam eden bir bağlantı girişimi varsa onu bekle
   if (connectionPromise) {
-    return connectionPromise;
+    if (pendingScope === desiredScope) return connectionPromise;
+
+    try {
+      await connectionPromise;
+    } catch {
+      // Yeni scope kendi bağlantı hatasını ayrıca raporlayacak.
+    }
+    return startConnection(token, clanId);
   }
 
-  connectionPromise = (async () => {
+  const startPromise = (async () => {
+    let nextConnection;
     try {
-      connection = new signalR.HubConnectionBuilder()
-        .withUrl(HUB_URL, {
-          accessTokenFactory: () => token,
+      await stopActiveConnection();
+
+      nextConnection = new signalR.HubConnectionBuilder()
+        .withUrl(getHubUrl(clanId), {
+          accessTokenFactory: () => currentToken,
+          transport: signalR.HttpTransportType.WebSockets,
+          skipNegotiation: true,
         })
         .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-        .configureLogging(signalR.LogLevel.Information)
+        .configureLogging(signalR.LogLevel.Warning)
         .build();
 
+      connection = nextConnection;
+      connectionScope = desiredScope;
+      attachListeners(nextConnection);
+
       // Bağlantı durumu loglama
-      connection.onreconnecting((error) => {
+      nextConnection.onreconnecting((error) => {
         console.warn('[SignalR] Yeniden bağlanılıyor...', error);
       });
 
-      connection.onreconnected((connectionId) => {
-        console.info('[SignalR] Yeniden bağlandı:', connectionId);
+      nextConnection.onreconnected((connectionId) => {
+        if (connection !== nextConnection) return;
+        scheduleChannelRestore(nextConnection, desiredScope)
+          .then(() => console.info('[SignalR] Yeniden bağlandı ve kanal abonelikleri yenilendi:', connectionId))
+          .catch((error) => console.error('[SignalR] Kanal abonelikleri yenilenemedi:', error));
       });
 
-      connection.onclose((error) => {
-        console.warn('[SignalR] Bağlantı kapandı', error);
-        connection = null;
-        connectionPromise = null;
+      nextConnection.onclose((error) => {
+        if (intentionalStops.has(nextConnection)) {
+          intentionalStops.delete(nextConnection);
+          console.info('[SignalR] Bağlantı kapsam değişikliği için kapatıldı');
+        } else {
+          console.warn('[SignalR] Bağlantı kapandı', error);
+        }
+        if (connection === nextConnection) {
+          connection = null;
+          connectionScope = null;
+        }
       });
 
-      await connection.start();
+      await nextConnection.start();
+      await scheduleChannelRestore(nextConnection, desiredScope);
       console.info('[SignalR] Bağlantı kuruldu');
 
-      // Bağlantı kurulmadan önce kuyrukta bekleyen dinleyicileri kaydet
-      pendingListeners.forEach(({ event, callback }) => {
-        connection.on(event, callback);
-      });
-      // Kuyruğu temizleme — off ile eşleştirme gerekebilir
-
-      return connection;
+      return nextConnection;
     } catch (error) {
       console.error('[SignalR] Bağlantı hatası:', error);
-      connection = null;
-      connectionPromise = null;
+      if (connection === nextConnection) {
+        connection = null;
+        connectionScope = null;
+      }
       throw error;
+    } finally {
+      if (connectionPromise === startPromise) {
+        connectionPromise = null;
+        pendingScope = null;
+      }
     }
   })();
 
-  return connectionPromise;
+  connectionPromise = startPromise;
+  pendingScope = desiredScope;
+
+  return startPromise;
 }
 
 /**
  * Bağlantıyı durdur.
  */
 export async function stopConnection() {
-  if (connection) {
+  if (connectionPromise) {
     try {
-      await connection.stop();
-    } catch (error) {
-      console.error('[SignalR] Bağlantı durdurma hatası:', error);
+      await connectionPromise;
+    } catch {
+      // Başlatma başarısızsa durdurulacak aktif bağlantı yoktur.
     }
-    if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
-      await connection.stop();
-      console.info('[SignalR] Bağlantı güvenle kapatıldı.');
-    }
-    connection = null;
-    connectionPromise = null;
   }
+  await stopActiveConnection();
+  joinedChannels.clear();
+  rejoinPromise = null;
+  rejoinError = null;
 }
 
 /**
  * Bir kanala katıl (SignalR grubuna eklenme).
  * @param {string} channelId
+ * @param {string|null} clanId
  */
-export async function joinChannel(channelId) {
-  // Bağlantı kuruluyorsa bekle
-  if (connectionPromise) {
-    await connectionPromise;
-  }
-  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    console.warn('[SignalR] joinChannel çağrıldı ama bağlantı yok');
-    return;
-  }
-  await connection.invoke('JoinChannel', channelId);
+export async function joinChannel(channelId, clanId = null) {
+  const readyConnection = await getReadyConnection(clanId);
+  const normalizedClanId = normalizeClanId(clanId);
+  await readyConnection.invoke('JoinChannel', channelId, normalizedClanId);
+  joinedChannels.set(channelSubscriptionKey(channelId, normalizedClanId), {
+    channelId,
+    clanId: normalizedClanId,
+    scope: getScope(normalizedClanId),
+  });
+  rejoinError = null;
 }
 
 /**
@@ -137,6 +266,9 @@ export async function joinChannel(channelId) {
  * @param {string} channelId
  */
 export async function leaveChannel(channelId) {
+  for (const [key, subscription] of joinedChannels) {
+    if (subscription.channelId === channelId) joinedChannels.delete(key);
+  }
   if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
     return;
   }
@@ -149,45 +281,36 @@ export async function leaveChannel(channelId) {
 
 /**
  * Mesaj gönder (Hub üzerinden).
+ * senderId/userName artık backend'de JWT'den türetiliyor, client'tan alınmıyor.
  * @param {string} channelId
  * @param {string} clanId
- * @param {string} senderId
- * @param {string} userName
  * @param {string} message
  */
-export async function sendMessage(channelId, clanId, senderId, userName, message) {
-  // Bağlantı kuruluyorsa bekle
-  if (connectionPromise) {
-    await connectionPromise;
-  }
-  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    throw new Error('SignalR bağlantısı yok');
-  }
-  await connection.invoke('SendMessage', channelId, clanId, senderId, userName, message);
+export async function sendMessage(channelId, clanId, message) {
+  const readyConnection = await getReadyConnection(clanId);
+  await readyConnection.invoke('SendMessage', channelId, normalizeClanId(clanId), message);
 }
 
 /**
  * Mesajı güncelle (Hub üzerinden).
  * @param {string} messageId
+ * @param {string|null} clanId
  * @param {string} newContent
  */
-export async function updateMessage(messageId, newContent) {
-  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    throw new Error('SignalR bağlantısı yok');
-  }
-  await connection.invoke('UpdateMessage', messageId, newContent);
+export async function updateMessage(messageId, clanId, newContent) {
+  const readyConnection = await getReadyConnection(clanId);
+  await readyConnection.invoke('UpdateMessage', messageId, normalizeClanId(clanId), newContent);
 }
 
 /**
  * Mesajı sil (Hub üzerinden).
  * @param {string} messageId
  * @param {string} channelId
+ * @param {string|null} clanId
  */
-export async function deleteMessage(messageId, channelId) {
-  if (!connection || connection.state !== signalR.HubConnectionState.Connected) {
-    throw new Error('SignalR bağlantısı yok');
-  }
-  await connection.invoke('DeleteMessage', messageId, channelId);
+export async function deleteMessage(messageId, channelId, clanId) {
+  const readyConnection = await getReadyConnection(clanId);
+  await readyConnection.invoke('DeleteMessage', messageId, channelId, normalizeClanId(clanId));
 }
 
 /**
@@ -196,11 +319,14 @@ export async function deleteMessage(messageId, channelId) {
  * @param {Function} callback
  */
 export function on(event, callback) {
-  if (connection) {
-    connection.on(event, callback);
+  let callbacks = listeners.get(event);
+  if (!callbacks) {
+    callbacks = new Set();
+    listeners.set(event, callbacks);
   }
-  // Bağlantı henüz kurulmamışsa kuyruğa ekle
-  pendingListeners.push({ event, callback });
+  if (callbacks.has(callback)) return;
+  callbacks.add(callback);
+  connection?.on(event, callback);
 }
 
 /**
@@ -209,12 +335,10 @@ export function on(event, callback) {
  * @param {Function} callback
  */
 export function off(event, callback) {
-  if (connection) {
-    connection.off(event, callback);
-  }
-  // Kuyruktan da kaldır
-  const idx = pendingListeners.findIndex((l) => l.event === event && l.callback === callback);
-  if (idx !== -1) pendingListeners.splice(idx, 1);
+  connection?.off(event, callback);
+  const callbacks = listeners.get(event);
+  callbacks?.delete(callback);
+  if (callbacks?.size === 0) listeners.delete(event);
 }
 
 const SignalRService = {

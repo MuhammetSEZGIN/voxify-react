@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 let checkedOnce = false;
 
+const isTauriRuntime = () =>
+  typeof window !== 'undefined'
+  && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
+
 export function useUpdater() {
   const [updateInfo, setUpdateInfo] = useState(null); // { version, body, update }
   const [status, setStatus] = useState('idle'); // idle | checking | downloading | error
@@ -11,6 +15,7 @@ export function useUpdater() {
   const totalRef = useRef(0);
 
   const checkForUpdate = useCallback(async () => {
+    if (!isTauriRuntime()) return;
     if (status === 'checking' || status === 'downloading') return;
     try {
       setStatus('checking');
@@ -28,6 +33,7 @@ export function useUpdater() {
   }, [status]);
 
   const installUpdate = useCallback(async () => {
+    if (!isTauriRuntime()) return;
     if (!updateInfo?.update) return;
     try {
       setStatus('downloading');
@@ -66,11 +72,13 @@ export function useUpdater() {
   }, []);
 
   useEffect(() => {
-    if (checkedOnce) return;
-    checkedOnce = true;
-    const t = setTimeout(() => checkForUpdate(), 3000);
+    if (checkedOnce || !isTauriRuntime()) return undefined;
+    const t = setTimeout(() => {
+      checkedOnce = true;
+      checkForUpdate();
+    }, 3000);
     return () => clearTimeout(t);
-  }, []);
+  }, [checkForUpdate]);
 
   return { updateInfo, status, progress, errorMsg, checkForUpdate, installUpdate, dismiss };
 }

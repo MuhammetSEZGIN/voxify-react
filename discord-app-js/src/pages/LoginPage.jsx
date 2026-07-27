@@ -19,7 +19,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await auth.login(userName, password);
-      navigate("/app");
+      navigate("/app", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,7 +77,7 @@ function LoginPage() {
               </button>
 
             </div>
-            <button type="button" className="auth-field__forgot">Forgot Password?</button>
+            <Link to="/forgot-password" className="auth-field__forgot">Parolanı mı unuttun?</Link>
           </div>
 
           {/* Error */}

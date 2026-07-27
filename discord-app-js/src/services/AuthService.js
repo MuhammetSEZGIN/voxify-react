@@ -56,6 +56,43 @@ const register = async (userData) => {
 };
 
 /**
+ * Parola sıfırlama bağlantısı ister. Backend hesap varlığını açıklamamak için
+ * kayıtlı/kayıtsız her adres için aynı başarılı yanıtı döndürür.
+ */
+const forgotPassword = async (email) => {
+  try {
+    const response = await api.post('/identity/forgot-password', { email });
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message || 'Sıfırlama bağlantısı gönderilemedi';
+    throw new Error(msg);
+  }
+};
+
+/**
+ * E-postadaki tek kullanımlık token ile parolayı değiştirir. Token 6 saat
+ * geçerlidir; başarılı işlem bütün refresh-token oturumlarını sonlandırır.
+ */
+const resetPassword = async ({ email, token, newPassword, newPasswordConfirmation }) => {
+  try {
+    const response = await api.post('/identity/reset-password', {
+      email,
+      token,
+      newPassword,
+      newPasswordConfirmation,
+    });
+    const result = response.data;
+    if (result?.isSuccessfull === false) {
+      throw new Error(result.message || 'Parola sıfırlanamadı');
+    }
+    return result?.data ?? result;
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message || 'Parola sıfırlanırken bir hata oluştu';
+    throw new Error(msg);
+  }
+};
+
+/**
  * Refresh authentication token
  * @param {string} userId - User ID
  * @param {string} refreshToken - Refresh token
@@ -99,9 +136,11 @@ export const refreshToken = async (userId, refreshToken) => {
   const AuthService = {
     login,
     register,
+    forgotPassword,
+    resetPassword,
     logoutSession,
     refreshToken,
   };
 
-  export { AuthService };
+  export { AuthService, forgotPassword, resetPassword };
   export default AuthService;

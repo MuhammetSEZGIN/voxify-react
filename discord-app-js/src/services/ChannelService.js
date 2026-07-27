@@ -19,11 +19,11 @@ const getChannelsByClanId = async (clanId) => {
 
 /**
  * Get a specific channel
- * GET /channel/{channelId}
+ * GET /channel/channel/{channelId}/clanId/{clanId}
  */
 const getChannelById = async (channelId, clanId) => {
   try {
-    const response = await api.get(`/channel/${channelId}/clanId/${clanId}`);
+    const response = await api.get(`/channel/channel/${channelId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channel", error.response?.data || error.message);
@@ -61,11 +61,11 @@ const updateChannel = async (data) => {
 
 /**
  * Delete a channel
- * DELETE /channel/{channelId}/clanId/{clanId}
+ * DELETE /channel/channel/{channelId}/clanId/{clanId}
  */
 const deleteChannel = async (channelId, clanId) => {
   try {
-    const response = await api.delete(`/channel/${channelId}/clanId/${clanId}`);
+    const response = await api.delete(`/channel/channel/${channelId}/clanId/${clanId}`);
     return response.data;
   } catch (error) {
     console.error("Error deleting channel", error.response?.data || error.message);

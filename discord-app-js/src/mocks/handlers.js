@@ -5,7 +5,75 @@ const IDENTITY_URL = import.meta.env.VITE_IDENTITY_URL || 'http://localhost:5158
 
 // Mock data
 
-const mockMessages = {
+const mockFriends = [
+  { id: 'friendship-002', userId: 'user-002', userName: 'user2', avatarUrl: null, status: 'Accepted' },
+];
+
+const mockFriendRequests = [
+  {
+    id: 'req-001',
+    userId: 'user-003',
+    userName: 'gamer_ali',
+    avatarUrl: null,
+    createdAt: new Date().toISOString(),
+    respondedAt: null,
+    status: 'Pending',
+  },
+];
+
+// DM konuşmaları — stateful: aynı kullanıcı için tekrar istenirse aynı
+// conversationId döner (backend'in idempotent davranışını taklit eder).
+const mockConversations = [];
+
+// { [conversationId]: MessageDto[] } — DM mesaj geçmişi
+const mockDmMessages = {};
+
+const mockNotifications = [
+  {
+    id: 'notification-001',
+    type: 'FriendRequestReceived',
+    title: 'Yeni arkadaşlık isteği',
+    body: 'gamer_ali sana arkadaşlık isteği gönderdi.',
+    actorUserId: 'user-003',
+    targetId: 'req-001',
+    isRead: false,
+    createdAt: new Date().toISOString(),
+    readAt: null,
+  },
+];
+
+function getOrCreateMockConversation(otherUserId) {
+  const existing = mockConversations.find((c) => c.otherUserId === otherUserId);
+  if (existing) return existing;
+
+  const friend = mockFriends.find((f) => f.userId === otherUserId);
+  const conversation = {
+    // Gerçek backend'de conversationId'nin channelId ile aynı olduğu
+    // varsayılıyor (bkz. backend-gereksinimleri-dm.md madde 1.2).
+    conversationId: `dm-${otherUserId}`,
+    otherUserId,
+    otherUserName: friend?.userName || 'Bilinmeyen kullanıcı',
+    otherAvatarUrl: friend?.avatarUrl || null,
+    lastMessage: '',
+    lastMessageAt: null,
+  };
+  mockConversations.push(conversation);
+  mockDmMessages[conversation.conversationId] = [
+    {
+      id: `dm-msg-${Date.now()}`,
+      clanId: null,
+      channelId: conversation.conversationId,
+      userName: conversation.otherUserName,
+      senderId: otherUserId,
+      avatarUrl: conversation.otherAvatarUrl,
+      text: 'Selam! (mock DM mesajı)',
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  return conversation;
+}
+
+const _mockMessages = {
   'ch-1111-0001': [
     {
       messageId: 'msg-0001',
@@ -58,7 +126,7 @@ const mockMessages = {
     },
   ],
 };
-const mockClans = [
+const _mockClans = [
   {
     clanId: 'c1a1a1a1-1111-1111-1111-111111111111',
     name: 'Genel Sunucu',
@@ -88,7 +156,7 @@ const mockClans = [
   },
 ];
 
-const mockChannels = {
+const _mockChannels = {
   'c1a1a1a1-1111-1111-1111-111111111111': [
     { channelId: 'ch-1111-0001', name: 'genel', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
     { channelId: 'ch-1111-0002', name: 'duyurular', clanId: 'c1a1a1a1-1111-1111-1111-111111111111' },
@@ -104,7 +172,7 @@ const mockChannels = {
   ],
 };
 
-const mockVoiceChannels = {
+const _mockVoiceChannels = {
   'c1a1a1a1-1111-1111-1111-111111111111': [
     { voiceChannelId: 'vc-1111-0001', name: 'Sohbet 1', clanId: 'c1a1a1a1-1111-1111-1111-111111111111', isActive: true, maxParticipants: 10 },
   ],
@@ -170,5 +238,284 @@ export const handlers = [
     });
   }),
 
- 
+  // ===== Şifre değiştirme / e-posta doğrulama =====
+  http.post(`${API_URL}/identity/user/change-password`, async ({ request }) => {
+    const { currentPassword, newPassword } = await request.json();
+
+    if (!currentPassword || !newPassword) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Mevcut ve yeni şifre gereklidir' },
+        { status: 400 }
+      );
+    }
+    if (currentPassword !== 'password123') {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Mevcut şifre yanlış' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'Şifre başarıyla değiştirildi',
+      data: { message: 'Şifre başarıyla değiştirildi' },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/resend-confirmation-email`, async ({ request }) => {
+    const { email } = await request.json();
+
+    if (!email) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'email gereklidir' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'Doğrulama e-postası gönderildi',
+      data: { message: 'Doğrulama e-postası gönderildi' },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/forgot-password`, async ({ request }) => {
+    await request.json();
+    return HttpResponse.json({
+      isSuccessfull: true,
+      statusCode: 200,
+      message: 'Parola sıfırlama bağlantısı gönderildi',
+      data: null,
+    });
+  }),
+
+  http.post(`${API_URL}/identity/reset-password`, async ({ request }) => {
+    const data = await request.json();
+    if (!data.email || !data.token || !data.newPassword || data.newPassword !== data.newPasswordConfirmation) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Parola sıfırlama bilgileri geçersiz' },
+        { status: 400 }
+      );
+    }
+    return HttpResponse.json({
+      isSuccessfull: true,
+      statusCode: 200,
+      message: 'Parola başarıyla değiştirildi',
+      data: null,
+    });
+  }),
+
+  http.get(`${API_URL}/identity/confirm-email`, ({ request }) => {
+    const url = new URL(request.url);
+    const token = url.searchParams.get('token');
+    const userId = url.searchParams.get('userId');
+
+    if (!token || !userId) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Doğrulama bağlantısı eksik bilgi içeriyor' },
+        { status: 400 }
+      );
+    }
+    if (token === 'invalid-token') {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Doğrulama bağlantısının süresi dolmuş veya geçersiz' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'E-posta başarıyla doğrulandı',
+      data: { message: 'E-posta başarıyla doğrulandı', emailConfirmed: true },
+    });
+  }),
+
+  // ===== Kullanıcı profili =====
+  http.get(`${API_URL}/identity/user/me`, ({ request }) => {
+    const token = request.headers.get('Authorization');
+    if (!token) {
+      return HttpResponse.json({ isSuccessfull: false, message: 'Yetkisiz' }, { status: 401 });
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: {
+        id: 'user-001',
+        userName: 'testuser',
+        email: 'test@example.com',
+        emailConfirmed: false,
+        avatarUrl: null,
+        bio: '',
+      },
+    });
+  }),
+
+  http.put(`${API_URL}/identity/user/update`, async ({ request }) => {
+    const updates = await request.json();
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: {
+        id: 'user-001',
+        userName: updates.userName ?? 'testuser',
+        email: 'test@example.com',
+        emailConfirmed: false,
+        avatarUrl: updates.avatarUrl ?? null,
+        bio: updates.bio ?? '',
+      },
+    });
+  }),
+
+  http.put(`${API_URL}/identity/user/email`, async ({ request }) => {
+    const { email } = await request.json();
+    if (!email) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'E-posta adresi gereklidir' },
+        { status: 400 }
+      );
+    }
+
+    return HttpResponse.json({
+      isSuccessfull: true,
+      message: 'E-posta adresi güncellendi ve doğrulama bağlantısı gönderildi',
+      data: {
+        email,
+        emailConfirmed: false,
+      },
+    });
+  }),
+
+  // ===== Kullanıcı arama (arkadaş ekleme akışında da kullanılır) =====
+  http.get(`${API_URL}/identity/user/search`, ({ request }) => {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+
+    const allUsers = [
+      { id: 'user-001', userName: 'testuser', avatarUrl: null },
+      { id: 'user-002', userName: 'user2', avatarUrl: null },
+      { id: 'user-003', userName: 'gamer_ali', avatarUrl: null },
+    ];
+
+    const results = q
+      ? allUsers.filter((u) => u.userName.toLowerCase().includes(q))
+      : [];
+
+    return HttpResponse.json({ isSuccessfull: true, data: results });
+  }),
+
+  // ===== Arkadaşlık (stateful mock — accept/reject listeleri gerçekten günceller) =====
+  http.get(`${API_URL}/identity/friendship`, () => {
+    return HttpResponse.json({ isSuccessfull: true, data: mockFriends });
+  }),
+
+  http.get(`${API_URL}/identity/friendship/requests`, () => {
+    return HttpResponse.json({ isSuccessfull: true, data: mockFriendRequests });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests`, async ({ request }) => {
+    const { addresseeId } = await request.json();
+    if (!addresseeId) {
+      return HttpResponse.json({ isSuccessfull: false, message: 'addresseeId gereklidir' }, { status: 400 });
+    }
+    return HttpResponse.json({
+      isSuccessfull: true,
+      data: { id: `req-${Date.now()}`, addresseeId, status: 'Pending' },
+    });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests/:id/accept`, ({ params }) => {
+    const idx = mockFriendRequests.findIndex((r) => r.id === params.id);
+    if (idx !== -1) {
+      const [accepted] = mockFriendRequests.splice(idx, 1);
+      mockFriends.push({
+        id: `friendship-${accepted.userId}`,
+        userId: accepted.userId,
+        userName: accepted.userName,
+        avatarUrl: accepted.avatarUrl,
+        status: 'Accepted',
+      });
+    }
+    return HttpResponse.json({ isSuccessfull: true, data: { id: params.id, status: 'Accepted' } });
+  }),
+
+  http.post(`${API_URL}/identity/friendship/requests/:id/reject`, ({ params }) => {
+    const idx = mockFriendRequests.findIndex((r) => r.id === params.id);
+    if (idx !== -1) mockFriendRequests.splice(idx, 1);
+    return HttpResponse.json({ isSuccessfull: true, data: { id: params.id, status: 'Rejected' } });
+  }),
+
+  http.delete(`${API_URL}/identity/friendship/:friendUserId`, ({ params }) => {
+    const idx = mockFriends.findIndex((f) => f.userId === params.friendUserId);
+    if (idx !== -1) mockFriends.splice(idx, 1);
+    return HttpResponse.json({ isSuccessfull: true, data: { removed: params.friendUserId } });
+  }),
+
+  // ===== DM konuşmaları =====
+  http.post(`${API_URL}/message/dm/conversations`, async ({ request }) => {
+      const { otherUserId } = await request.json();
+      if (!otherUserId) {
+        return HttpResponse.json({ message: 'otherUserId gereklidir' }, { status: 400 });
+      }
+      return HttpResponse.json(getOrCreateMockConversation(otherUserId));
+  }),
+
+  http.get(`${API_URL}/message/dm/conversations`, () => {
+    return HttpResponse.json(mockConversations);
+  }),
+
+  // ===== DM mesaj geçmişi =====
+  http.get(`${API_URL}/message`, ({ request }) => {
+    const url = new URL(request.url);
+    const channelId = url.searchParams.get('channelId');
+    if (!channelId) {
+      return HttpResponse.json({ message: 'channelId gereklidir' }, { status: 400 });
+    }
+    return HttpResponse.json(mockDmMessages[channelId] || []);
+  }),
+
+  // ===== Kalıcı bildirimler =====
+  http.get(`${API_URL}/notification`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page')) || 1;
+    const limit = Number(url.searchParams.get('limit')) || 20;
+    const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
+    const filtered = unreadOnly
+      ? mockNotifications.filter((item) => !item.isRead)
+      : mockNotifications;
+    const start = (page - 1) * limit;
+    return HttpResponse.json({
+      items: filtered.slice(start, start + limit),
+      page,
+      limit,
+      total: filtered.length,
+    });
+  }),
+
+  http.get(`${API_URL}/notification/unread-count`, () =>
+    HttpResponse.json({ count: mockNotifications.filter((item) => !item.isRead).length })
+  ),
+
+  http.post(`${API_URL}/notification/:id/read`, ({ params }) => {
+    const item = mockNotifications.find((notification) => notification.id === params.id);
+    if (!item) return HttpResponse.json({}, { status: 404 });
+    item.isRead = true;
+    item.readAt = new Date().toISOString();
+    return HttpResponse.json(item);
+  }),
+
+  http.post(`${API_URL}/notification/read-all`, () => {
+    const readAt = new Date().toISOString();
+    mockNotifications.forEach((item) => {
+      item.isRead = true;
+      item.readAt = readAt;
+    });
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.delete(`${API_URL}/notification/:id`, ({ params }) => {
+    const index = mockNotifications.findIndex((item) => item.id === params.id);
+    if (index === -1) return HttpResponse.json({}, { status: 404 });
+    mockNotifications.splice(index, 1);
+    return HttpResponse.json({ success: true });
+  }),
 ];

@@ -1,27 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { getMessageNotificationsMuted } from '../utils/messageNotifications';
+import { areMessageNotificationsMuted } from '../utils/messageNotifications';
+import {
+  sendDesktopNotification,
+} from '../utils/desktopNotifications';
 
 function useDesktopMessageNotifications(channelName) {
   const appWindowRef = useRef(null);
   const isWindowFocusedRef = useRef(typeof document !== 'undefined' ? document.hasFocus() : true);
   const isWindowVisibleRef = useRef(typeof document !== 'undefined' ? !document.hidden : true);
-  const notificationPermissionRequestedRef = useRef(false);
-
-  const requestNotificationPermission = useCallback(async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
-    if (Notification.permission !== 'default') return Notification.permission;
-    if (notificationPermissionRequestedRef.current) return Notification.permission;
-
-    notificationPermissionRequestedRef.current = true;
-    try {
-      return await Notification.requestPermission();
-    } catch (error) {
-      console.warn('[Notifications] permission request failed:', error);
-      return 'denied';
-    }
-  }, []);
-
   const isAppInBackground = useCallback(async () => {
     const browserHidden = document.hidden || !document.hasFocus();
 
@@ -40,22 +27,18 @@ function useDesktopMessageNotifications(channelName) {
     }
   }, []);
 
-  const showDesktopNotification = useCallback(async (message) => {
-    if (getMessageNotificationsMuted()) return;
-
-    const permission = await requestNotificationPermission();
-    if (permission !== 'granted') return;
+  const showDesktopNotification = useCallback(async (message, options = {}) => {
+    const { clanId } = options;
+    if (areMessageNotificationsMuted({ clanId, senderId: message.senderId })) return;
     if (!(await isAppInBackground())) return;
 
-    const notification = new Notification(
-      `${message.userName || 'Bir kullanıcı'} • #${channelName || 'kanal'}`,
-      {
-        body: String(message.content || '').trim() || 'Yeni bir mesaj var.',
-        tag: `channel-${message.channelId || 'unknown'}`,
-      }
-    );
+    const notification = await sendDesktopNotification({
+      title: `${message.userName || 'Bir kullanıcı'} • #${channelName || 'kanal'}`,
+      body: String(message.content || '').trim() || 'Yeni bir mesaj var.',
+      tag: `channel-${message.channelId || 'unknown'}`,
+    });
 
-    notification.onclick = async () => {
+    if (notification) notification.onclick = async () => {
       notification.close();
       try {
         const appWindow = appWindowRef.current;
@@ -66,7 +49,7 @@ function useDesktopMessageNotifications(channelName) {
         console.warn('[Notifications] failed to focus app after click:', error);
       }
     };
-  }, [channelName, isAppInBackground, requestNotificationPermission]);
+  }, [channelName, isAppInBackground]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -100,8 +83,6 @@ function useDesktopMessageNotifications(channelName) {
     }
 
     setupWindowTracking();
-    requestNotificationPermission().catch(() => {});
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
@@ -110,7 +91,7 @@ function useDesktopMessageNotifications(channelName) {
         unlistenFocusChange();
       }
     };
-  }, [requestNotificationPermission]);
+  }, []);
 
   return {
     showDesktopNotification,

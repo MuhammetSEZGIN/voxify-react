@@ -11,14 +11,51 @@ import CreateClanModal from '../clan/CreateClanModal';
 import VoiceChannel from '../voicechannel/VoiceChannel';
 import ScreenShareViewer from '../voicechannel/ScreenShareViewer';
 import UserVolumeContextMenu from '../voicechannel/UserVolumeContextMenu';
+import MemberContextMenu from '../clan/MemberContextMenu';
+import UserProfilePopup from '../clan/UserProfilePopup';
 import '../../styles/discord.css';
 import MemberList from '../clan/MemberList';
 import ClanSettings from '../clan/ClanSettings';
+import AccountSettings from '../account/AccountSettings';
+import FriendsMemberList from '../friends/FriendsMemberList';
+import UserBar from './UserBar';
+import DmService from '../../services/DmService';
+import VoiceService from '../../services/VoiceService';
 import * as PresenceService from '../../services/PresenceService';
-import { VOICE_JOIN_NOTIFICATION_SOUND } from '../../utils/constants';
+import {
+  VOICE_JOIN_NOTIFICATION_SOUND,
+  VOICE_LEAVE_NOTIFICATION_SOUND,
+} from '../../utils/constants';
+import { directVoiceRoomId } from '../../utils/space';
+import NotificationCenter from '../notifications/NotificationCenter';
+import FriendsNotificationSidebar from '../notifications/FriendsNotificationSidebar';
+import DmCallOverlay from '../calls/DmCallOverlay';
+import useDmCall from '../../hooks/useDmCall';
+import useNotifications from '../../hooks/useNotifications';
+import useFriendships from '../../hooks/useFriendships';
+import useVoicePreferences from '../../hooks/useVoicePreferences';
+import {
+  getMutedClanIds,
+  getMutedUserIds,
+  setClanMuted as persistClanMuted,
+  setUserMuted as persistUserMuted,
+} from '../../utils/messageNotifications';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import { playScreenShareFeedback } from '../../utils/screenShareFeedback';
+import ConfirmDialog from '../common/ConfirmDialog';
+
+function upsertById(items, incoming, idKey) {
+  const incomingId = incoming?.[idKey];
+  if (!incomingId) return items;
+  const index = items.findIndex((item) => item?.[idKey] === incomingId);
+  if (index < 0) return [...items, incoming];
+  const next = [...items];
+  next[index] = { ...items[index], ...incoming };
+  return next;
+}
 
 function MainLayout() {
-  const { user, logout } = useAuth();
+  const { user, token, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const { clanId: urlClanId, channelId: urlChannelId } = useParams();
 
@@ -33,31 +70,75 @@ function MainLayout() {
   const [voicePresence, setVoicePresence] = useState({});
   // Set of online user IDs — populated by PresenceHub
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const [isPresenceReady, setIsPresenceReady] = useState(false);
   // Ekran paylaşımı izleme: { participantIdentity, name, track }
   const [watchingScreenShare, setWatchingScreenShare] = useState(null);
   // Refs for voice presence cleanup without stale closures
   const activeVoiceChannelRef = useRef(null);
   const voiceConnectedRef = useRef(false);
   const selectedClanRef = useRef(null);
+  const clansRef = useRef([]);
+  // PresenceHub bağlantısı kurulduğu anda o anki arkadaş listesi için de
+  // online-durum sorgusu atabilmek için (bkz. presence connect effect'i).
+  const friendsRef = useRef([]);
+  const friendIdsRef = useRef([]);
+  const awaitingFriendSnapshotRef = useRef(false);
+
+  /** Belirtilen ID'ler için sunucudan online durumu sorgular (ateşle-unut). */
+  const queryOnlineStatus = useCallback((userIds) => {
+    const ids = (userIds || []).filter(Boolean);
+    if (ids.length === 0) return;
+    PresenceService.getOnlineUsers(ids).catch((err) =>
+      console.error('[Presence] getOnlineUsers failed', err)
+    );
+  }, []);
+
+  /** Arkadaş listesinin tamamını push presence aboneliği olarak değiştirir. */
+  const subscribeFriendPresence = useCallback(async (userIds) => {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    friendIdsRef.current = ids;
+    awaitingFriendSnapshotRef.current = true;
+    try {
+      await PresenceService.subscribeToUsers(ids);
+    } catch (error) {
+      awaitingFriendSnapshotRef.current = false;
+      throw error;
+    }
+  }, []);
   const selectedChannelRef = useRef(null);
   const [memeberShips, setMemberships] = useState([]);
   const [loadingClans, setLoadingClans] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showClanSettings, setShowClanSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [accountSettingsTab, setAccountSettingsTab] = useState('profile');
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
+  const [activeDmConversation, setActiveDmConversation] = useState(null);
+  const [dmError, setDmError] = useState(null);
+  const [isFriendsActive, setIsFriendsActive] = useState(false);
+  const {
+    friends,
+    friendRequests,
+    loading: friendsLoading,
+    error: friendsError,
+    refresh: handleRefreshFriends,
+    handleNotificationReceived,
+    sendRequest: handleSendFriendRequest,
+    acceptRequest: handleAcceptFriendRequest,
+    rejectRequest: handleRejectFriendRequest,
+    removeFriend: handleRemoveFriend,
+  } = useFriendships(user);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const [mutedClanIds, setMutedClanIds] = useState(() => getMutedClanIds());
+  const [mutedUserIds, setMutedUserIds] = useState(() => getMutedUserIds());
 
-  // Global Audio Settings
-  const [inputVolume, setInputVolume] = useState(100);
-  const [outputVolume, setOutputVolume] = useState(100);
-  const [isMicMuted, setIsMicMuted] = useState(false);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
-
-  // Per-user volume overrides: { [identity]: number (0-200) }
-  const [userVolumes, setUserVolumes] = useState({});
-  // Context menu state for right-click user volume
-  const [volumeCtxMenu, setVolumeCtxMenu] = useState({ visible: false, x: 0, y: 0, participant: null });
+  const [kickingVoiceUserId, setKickingVoiceUserId] = useState(null);
+  const [pendingVoiceKick, setPendingVoiceKick] = useState(null);
+  // Context menu state for right-click on a clan member (add friend / message)
+  const [memberCtxMenu, setMemberCtxMenu] = useState({ visible: false, x: 0, y: 0, member: null, isSelf: false });
+  // Profile popup state — small card shown above a clicked member
+  const [profilePopup, setProfilePopup] = useState({ visible: false, anchorRect: null, member: null });
 
   // Kullanıcının seçili klandaki rolünü hesapla
   const userRole = useMemo(() => {
@@ -70,7 +151,36 @@ function MainLayout() {
     return membership?.role?.toLowerCase() || 'member';
   }, [selectedClan, memeberShips, user]);
 
+  // Klan ID'lerinin stabil bir anahtarı — sıralama/oluşturma/silme işlemlerinde
+  // `clans` referansı değişse bile içerik aynıysa presence effect'i tetiklememeli.
+  const clanIdsKey = useMemo(
+    () => clans.map((c) => c.clanId).join(','),
+    [clans]
+  );
+
   const canManage = userRole === 'owner' || userRole === 'admin';
+
+  // Klan servisi üyeleri düz veya iç içe kullanıcı alanlarıyla döndürebiliyor.
+  // Eksik profil alanlarını IdentityService'ten zaten alınmış mevcut kullanıcı ve
+  // arkadaş verisiyle tamamlayarak sağ panel, ayarlar ve profil kartını eşit tut.
+  const displayMemberships = useMemo(() => {
+    const friendProfiles = new Map(friends.map((friend) => [friend.id, friend]));
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+
+    return memeberShips.map((member) => {
+      const memberId = getMemberId(member);
+      const knownProfile = memberId === currentUserId ? user : friendProfiles.get(memberId);
+
+      return {
+        ...member,
+        userId: memberId,
+        userName: getMemberName(member) !== 'Unknown'
+          ? getMemberName(member)
+          : knownProfile?.userName || knownProfile?.username || 'Unknown',
+        avatarUrl: getMemberAvatarUrl(member) || knownProfile?.avatarUrl || null,
+      };
+    });
+  }, [friends, memeberShips, user]);
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type });
@@ -78,9 +188,73 @@ function MainLayout() {
     toastTimerRef.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  const playVoicePresenceNotification = useCallback(() => {
+  const {
+    inputVolume,
+    setInputVolume,
+    outputVolume,
+    setOutputVolume,
+    isMicMuted,
+    selectedInputDevice,
+    setSelectedInputDevice,
+    selectedOutputDevice,
+    setSelectedOutputDevice,
+    noiseSuppressionEnabled,
+    setNoiseSuppressionEnabled,
+    isDeafened,
+    userVolumes,
+    volumeMenu: volumeCtxMenu,
+    setVolumeMenu: setVolumeCtxMenu,
+    toggleMic: handleToggleMic,
+    toggleDeafen: handleToggleDeafen,
+    handleMicrophoneUnavailable,
+    openVolumeMenu: handleParticipantContextMenu,
+    setUserVolume: handleUserVolumeChange,
+    closeVolumeMenu: handleCloseVolumeCtx,
+  } = useVoicePreferences(showToast);
+  const effectiveOutputVolume = isDeafened ? 0 : outputVolume;
+  const isActiveDmMuted = Boolean(
+    activeDmConversation?.otherUserId
+    && mutedUserIds.includes(activeDmConversation.otherUserId)
+  );
+  const volumeTargetClanId = volumeCtxMenu.participant?.clanId
+    || activeVoiceChannel?.clanId
+    || selectedClan?.clanId;
+  const canKickVolumeParticipant = Boolean(
+    canManage
+    && volumeCtxMenu.participant
+    && !volumeCtxMenu.participant.isLocal
+    && volumeTargetClanId
+    && String(volumeTargetClanId).toLowerCase()
+      === String(selectedClan?.clanId || '').toLowerCase()
+  );
+  const canAdjustParticipantVolume = Boolean(
+    !volumeCtxMenu.participant?.presenceOnly
+    && (
+      !volumeCtxMenu.participant?.voiceChannelId
+      || volumeCtxMenu.participant.voiceChannelId === activeVoiceChannel?.voiceChannelId
+    )
+  );
+
+  const handleToggleClanMute = useCallback((clan) => {
+    const clanId = clan?.clanId;
+    if (!clanId) return;
+    const shouldMute = !mutedClanIds.includes(clanId);
+    setMutedClanIds(persistClanMuted(clanId, shouldMute));
+    showToast(shouldMute ? `${clan.name} sessize alındı` : `${clan.name} bildirimleri açıldı`);
+  }, [mutedClanIds, showToast]);
+
+  const handleToggleUserMute = useCallback((targetUser) => {
+    const targetUserId = targetUser?.userId || targetUser?.user?.id || targetUser?.id || '';
+    if (!targetUserId) return;
+    const shouldMute = !mutedUserIds.includes(targetUserId);
+    setMutedUserIds(persistUserMuted(targetUserId, shouldMute));
+    const name = targetUser?.userName || targetUser?.username || 'Kullanıcı';
+    showToast(shouldMute ? `${name} sessize alındı` : `${name} bildirimleri açıldı`);
+  }, [mutedUserIds, showToast]);
+
+  const playVoicePresenceNotification = useCallback((source) => {
     try {
-      const audio = new Audio(VOICE_JOIN_NOTIFICATION_SOUND);
+      const audio = new Audio(source);
       audio.volume = Math.max(0, Math.min(outputVolume / 100, 1));
       audio.play().catch(() => {
         // Tarayıcı kısıtlaması nedeniyle çalmayabilir, sessizce geç
@@ -88,6 +262,10 @@ function MainLayout() {
     } catch (error) {
       console.warn('[Voice] presence notification could not play', error);
     }
+  }, [outputVolume]);
+
+  const handleScreenShareStarted = useCallback(() => {
+    playScreenShareFeedback('started', outputVolume);
   }, [outputVolume]);
 
   // Klanları yükle
@@ -112,11 +290,6 @@ function MainLayout() {
         } catch { /* localStorage okuma hatası */ }
 
         setClans(ordered);
-
-        // URL'de klan seçili değilse ilk klanı otomatik seç
-        if (!urlClanId && ordered.length > 0) {
-          setSelectedClan(ordered[0]);
-        }
       } catch (error) {
         console.error('Failed to fetch clans', error);
       } finally {
@@ -128,11 +301,14 @@ function MainLayout() {
 
   // URL'deki clanId değiştiğinde selectedClan'ı güncelle
   useEffect(() => {
+    if (!urlClanId) {
+      setSelectedClan(null);
+      return;
+    }
+
     if (urlClanId && clans.length > 0) {
       const clan = clans.find((c) => c.clanId === urlClanId);
-      if (clan) {
-        setSelectedClan(clan);
-      }
+      setSelectedClan(clan || null);
     }
   }, [urlClanId, clans]);
 
@@ -140,21 +316,12 @@ function MainLayout() {
   useEffect(() => {
     if (urlChannelId && channels.length > 0) {
       const channel = channels.find((c) => c.channelId === urlChannelId);
-      if (channel) {
-        setSelectedChannel(channel);
-        return;
-      }
-    }
-
-    if (selectedClan && channels.length > 0) {
-      const firstChannel = channels[0];
-      setSelectedChannel(firstChannel);
-      navigate(`/app/clans/${selectedClan.clanId}/channels/${firstChannel.channelId}`);
+      setSelectedChannel(channel || null);
       return;
     }
 
     setSelectedChannel(null);
-  }, [urlChannelId, channels, navigate, selectedClan]);
+  }, [urlChannelId, channels]);
 
   // Seçilen klanın kanallarını yükle
   useEffect(() => {
@@ -173,13 +340,6 @@ function MainLayout() {
         setChannels(data.channels || []);
         setVoiceChannels(data.voiceChannels || []);
         setMemberships(data.clanMemberships || []);
-
-        // URL'de kanal seçili değilse ilk metin kanalını otomatik seç
-        if (!urlChannelId && data.channels?.length > 0) {
-          const first = data.channels[0];
-          setSelectedChannel(first);
-          navigate(`/app/clans/${selectedClan.clanId}/channels/${first.channelId}`);
-        }
       } catch (error) {
         console.error('Failed to fetch channels', error);
       }
@@ -187,12 +347,14 @@ function MainLayout() {
     fetchChannels();
   }, [selectedClan]);
 
-  const handleSelectClan = (clan) => {
+  const handleSelectClan = useCallback((clan) => {
     if (!clan) {
       setSelectedClan(null);
       setSelectedChannel(null);
       setChannels([]);
       setVoiceChannels([]);
+      setIsFriendsActive(false);
+      setActiveDmConversation(null);
       navigate('/app');
       return;
     }
@@ -200,7 +362,93 @@ function MainLayout() {
     setSelectedChannel(null);
     setChannels([]);
     setVoiceChannels([]);
+    setIsFriendsActive(false);
+    setActiveDmConversation(null);
+    navigate(`/app/clans/${clan.clanId}`);
+  }, [navigate]);
+
+  const handleSelectFriends = useCallback(() => {
+    setSelectedClan(null);
+    setSelectedChannel(null);
+    setChannels([]);
+    setVoiceChannels([]);
+    setIsFriendsActive(true);
+    setActiveDmConversation(null);
     navigate('/app');
+  }, [navigate]);
+
+  // Bildirim merkezi ile Arkadaşlar sidebar'ı aynı listeyi ve SignalR
+  // bağlantısını paylaşır; okundu durumu iki yerde de anında eşleşir.
+  const notifications = useNotifications(token, handleNotificationReceived, outputVolume);
+
+  const handleOpenNotification = useCallback((notification) => {
+    if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
+      handleSelectFriends();
+      return;
+    }
+    if (['DirectMessageReceived', 'MissedCall'].includes(notification?.type) && notification.targetId) {
+      const actor = friendsRef.current.find((friend) => friend.id === notification.actorUserId);
+      setSelectedClan(null);
+      setSelectedChannel(null);
+      setIsFriendsActive(true);
+      setActiveDmConversation({
+        conversationId: notification.targetId,
+        otherUserId: notification.actorUserId || actor?.id || '',
+        otherUserName: actor?.userName || notification.title || 'Doğrudan Mesaj',
+        otherAvatarUrl: actor?.avatarUrl || null,
+      });
+      navigate('/app');
+    }
+  }, [handleSelectFriends, navigate]);
+
+  const handleOpenDm = useCallback(async (friend) => {
+    setDmError(null);
+    try {
+      const conversation = await DmService.getOrCreateConversation(friend.id);
+      setActiveDmConversation({
+        conversationId: conversation.conversationId,
+        otherUserId: friend.id,
+        otherUserName: friend.userName,
+      });
+      // Sağ panelden bir arkadaşa tıklamak Arkadaşlar sekmesine geçirir —
+      // klan görünümündeyken DM açılırsa sohbet alanı boş kalmasın.
+      setIsFriendsActive(true);
+    } catch (err) {
+      setDmError(err.message);
+    }
+  }, []);
+
+  const handleCloseDm = useCallback(() => setActiveDmConversation(null), []);
+
+  const handleMemberContextMenu = useCallback((e, member, isSelf) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMemberCtxMenu({ visible: true, x: e.clientX, y: e.clientY, member, isSelf });
+  }, []);
+
+  const handleCloseMemberCtx = useCallback(() => {
+    setMemberCtxMenu((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleMemberClick = useCallback((member, anchorRect) => {
+    setProfilePopup({ visible: true, anchorRect, member });
+  }, []);
+
+  const handleCloseProfilePopup = useCallback(() => {
+    setProfilePopup((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleAddFriendFromMember = async (member) => {
+    try {
+      await handleSendFriendRequest(getMemberId(member));
+      showToast('Arkadaşlık isteği gönderildi', 'info');
+    } catch (err) {
+      showToast(err.message || 'Arkadaşlık isteği gönderilemedi', 'error');
+    }
+  };
+
+  const handleSendMessageFromMember = (member) => {
+    handleOpenDm({ id: getMemberId(member), userName: member.userName || member.username });
   };
 
   const handleSelectChannel = (channel) => {
@@ -213,14 +461,23 @@ function MainLayout() {
       handleDisconnectVoice();
     }
     if (!activeVoiceChannelRef.current || activeVoiceChannelRef.current.voiceChannelId !== channel.voiceChannelId) {
-      setActiveVoiceChannel(channel);
+      setActiveVoiceChannel({
+        ...channel,
+        clanId: channel.clanId || selectedClan?.clanId,
+      });
     }
   };
 
   const handleVoiceStateChange = useCallback((state) => {
     setVoiceState(state);
-    // Ekran paylaşımı izleme: state null olduğunda (bağlantı kesildi) viewer'u kapat
-    if (!state) setWatchingScreenShare(null);
+    // İzlenen yayın sona ererse veya track nesnesi yenilenirse viewer'u aynı
+    // state güncellemesinde kapat/güncelle; donmuş video penceresi bırakma.
+    setWatchingScreenShare((current) => {
+      if (!current || !state) return null;
+      return state.remoteScreenShares?.find(
+        (share) => share.participantIdentity === current.participantIdentity
+      ) || null;
+    });
   }, []);
 
   const handleWatchScreenShare = useCallback((identity) => {
@@ -228,35 +485,101 @@ function MainLayout() {
     const share = voiceState.remoteScreenShares.find(
       (s) => s.participantIdentity === identity
     );
-    if (share) setWatchingScreenShare(share);
-  }, [voiceState]);
+    if (share) {
+      setWatchingScreenShare(share);
+      playScreenShareFeedback('joined', outputVolume);
+    }
+  }, [outputVolume, voiceState]);
 
-  // Right-click handler for voice participant volume adjustment
-  const handleParticipantContextMenu = useCallback((e, participant) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVolumeCtxMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      participant,
-    });
-  }, []);
-
-  const handleUserVolumeChange = useCallback((identity, volume) => {
-    setUserVolumes(prev => ({ ...prev, [identity]: volume }));
-  }, []);
-
-  const handleCloseVolumeCtx = useCallback(() => {
-    setVolumeCtxMenu(prev => ({ ...prev, visible: false }));
-  }, []);
-
-  const handleDisconnectVoice = useCallback(() => {
-    // Report leaving to presence hub before clearing state
+  const handleKickVoiceParticipant = useCallback(async (participant) => {
     const channel = activeVoiceChannelRef.current;
+    const clanId = participant?.clanId || channel?.clanId || selectedClanRef.current?.clanId;
+    const voiceChannelId = participant?.voiceChannelId || channel?.voiceChannelId;
+    const targetUserId = participant?.identity;
+
+    if (!voiceChannelId || !clanId || !targetUserId || (channel?.isDirect && !participant?.clanId)) return;
+    setVolumeCtxMenu((current) => ({ ...current, visible: false }));
+    setPendingVoiceKick({
+      ...participant,
+      identity: targetUserId,
+      voiceChannelId,
+      clanId,
+    });
+  }, [setVolumeCtxMenu]);
+
+  const handleConfirmVoiceKick = useCallback(async () => {
+    const participant = pendingVoiceKick;
+    if (!participant || kickingVoiceUserId) return;
+
+    const { identity: targetUserId, voiceChannelId, clanId } = participant;
+
+    setKickingVoiceUserId(targetUserId);
+    try {
+      await VoiceService.kickParticipant(voiceChannelId, clanId, targetUserId);
+      setVoicePresence((current) => ({
+        ...current,
+        [voiceChannelId]: (current[voiceChannelId] || []).filter(
+          (presence) => presence.userId !== targetUserId
+        ),
+      }));
+      showToast(`${participant.name || 'Kullanıcı'} ses kanalından çıkarıldı.`, 'info');
+      setPendingVoiceKick(null);
+    } catch (error) {
+      showToast(error.message || 'Kullanıcı ses kanalından çıkarılamadı.', 'error');
+    } finally {
+      setKickingVoiceUserId(null);
+    }
+  }, [kickingVoiceUserId, pendingVoiceKick, showToast]);
+
+  const handleOpenProfileSettings = useCallback(() => {
+    setAccountSettingsTab('profile');
+    setShowAccountSettings(true);
+  }, []);
+
+  /** Sağ paneldeki yenile tuşu — yalnızca üye listesi ve online durumlarını tazeler. */
+  const handleRefreshMembers = useCallback(async () => {
+    const clanId = selectedClanRef.current?.clanId;
+    if (!clanId) return;
+    try {
+      const data = await ClanService.getClanById(clanId);
+      const memberships = data.clanMemberships || [];
+      setMemberships(memberships);
+
+      const memberUserIds = memberships
+        .map((m) => m.userId || m.user?.id || '')
+        .filter(Boolean);
+      await queryOnlineStatus(memberUserIds);
+    } catch (error) {
+      console.error('Failed to refresh members', error);
+    }
+  }, [queryOnlineStatus]);
+
+  const handleDisconnectVoice = useCallback((skipCallSignal = false) => {
+    // Report leaving to presence hub before clearing state.
+    const channel = activeVoiceChannelRef.current;
+    if (channel?.isDirect) {
+      const joinedPresence = voiceConnectedRef.current;
+      if (joinedPresence) {
+        // PresenceHub LeaveVoiceChannel DM çağrısını da sonlandırır. Aynı
+        // çağrı için ayrıca EndCall göndermek ikinci bir terminal geçiş üretir.
+        PresenceService.leaveVoiceChannel()
+          .catch((err) => console.error('[Presence] leave DM voice failed', err));
+      } else if (!skipCallSignal && channel.callId) {
+        // ICE kurulmadan ayrıldıysak Presence voice kaydı yoktur; bu durumda
+        // çağrıyı doğrudan kapatmak gerekir.
+        PresenceService.endCall(channel.callId)
+          .catch((err) => console.error('[Presence] end call failed', err));
+      }
+      playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
+      activeVoiceChannelRef.current = null;
+      voiceConnectedRef.current = false;
+      setActiveVoiceChannel(null);
+      setVoiceState(null);
+      return;
+    }
     if (channel && user) {
       const userId = user.id || user.sub || '';
-      playVoicePresenceNotification();
+      playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
       PresenceService.leaveVoiceChannel()
         .catch((err) => console.error('[Presence] leave voice failed', err));
       // Remove from local presence state immediately — server removes caller from the group
@@ -274,15 +597,107 @@ function MainLayout() {
     setVoiceState(null);
   }, [playVoicePresenceNotification, user]);
 
+  const handleCallAccepted = useCallback((acceptedCall) => {
+    if (!acceptedCall?.conversationId) return;
+    const roomId = acceptedCall.roomId || directVoiceRoomId(acceptedCall.conversationId);
+    const current = activeVoiceChannelRef.current;
+    if (current?.voiceChannelId !== roomId && current) handleDisconnectVoice();
+
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+    const otherUserId = acceptedCall.callerUserId === currentUserId
+      ? acceptedCall.calleeUserId
+      : acceptedCall.callerUserId;
+    const friend = friendsRef.current.find((item) => item.id === otherUserId);
+
+    setActiveVoiceChannel({
+      voiceChannelId: roomId,
+      name: acceptedCall.otherUserName || friend?.userName || 'Doğrudan Görüşme',
+      isDirect: true,
+      conversationId: acceptedCall.conversationId,
+      callId: acceptedCall.callId,
+    });
+  }, [handleDisconnectVoice, user]);
+
+  const handleCallEnded = useCallback((endedCall) => {
+    const active = activeVoiceChannelRef.current;
+    if (active?.isDirect && (!endedCall?.callId || active.callId === endedCall.callId)) {
+      handleDisconnectVoice(true);
+    }
+  }, [handleDisconnectVoice]);
+
+  const {
+    call: dmCallState,
+    error: dmCallError,
+    startCall,
+    accept: acceptDmCall,
+    reject: rejectDmCall,
+    cancel: cancelDmCall,
+    dismiss: dismissDmCall,
+  } = useDmCall({
+    onAccepted: handleCallAccepted,
+    onEnded: handleCallEnded,
+  });
+
+  /** DM butonu odaya doğrudan girmez; backend durum makinesinde zil başlatır. */
+  const handleToggleDmVoice = useCallback((conversation) => {
+    if (!conversation?.conversationId) return;
+    const currentCall = dmCallState;
+    if (currentCall?.conversationId === conversation.conversationId) {
+      if (currentCall.phase === 'accepted') {
+        handleDisconnectVoice();
+      } else if (['starting', 'ringing'].includes(currentCall.phase)) {
+        cancelDmCall();
+      }
+      return;
+    }
+    startCall(conversation);
+  }, [cancelDmCall, dmCallState, handleDisconnectVoice, startCall]);
+
+  const handleEndActiveDmCall = useCallback(() => {
+    handleDisconnectVoice();
+  }, [handleDisconnectVoice]);
+
+  const dmCallDisplayName = useMemo(() => {
+    if (!dmCallState) return '';
+    if (dmCallState.otherUserName) return dmCallState.otherUserName;
+    const currentUserId = user?.id || user?.sub || user?.userId || '';
+    const otherUserId = dmCallState.callerUserId === currentUserId
+      ? dmCallState.calleeUserId
+      : dmCallState.callerUserId;
+    return friends.find((friend) => friend.id === otherUserId)?.userName || 'Bir kullanıcı';
+  }, [dmCallState, friends, user]);
+
   // Keep ref in sync so handleDisconnectVoice always sees the latest channel
   useEffect(() => {
     activeVoiceChannelRef.current = activeVoiceChannel;
   }, [activeVoiceChannel]);
+  useEffect(() => { clansRef.current = clans; }, [clans]);
   useEffect(() => { selectedClanRef.current = selectedClan; }, [selectedClan]);
+  useEffect(() => { friendsRef.current = friends; }, [friends]);
   useEffect(() => { selectedChannelRef.current = selectedChannel; }, [selectedChannel]);
 
-  // Report joining to presence hub once LiveKit room connects (voiceState null → non-null)
+  // LiveKit bağlandığında Presence'a tek kez katılım bildir.
   useEffect(() => {
+    if (!isPresenceReady) return;
+
+    if (activeVoiceChannel?.isDirect) {
+      if (voiceState && !voiceConnectedRef.current && user) {
+        voiceConnectedRef.current = true;
+        const userName = user.userName || user.name || user.email || 'User';
+        PresenceService.subscribeToConversations([activeVoiceChannel.conversationId])
+          .then(() => PresenceService.joinVoiceChannel(
+            null,
+            activeVoiceChannel.voiceChannelId,
+            userName
+          ))
+          .then(() => playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND))
+          .catch((err) => {
+            voiceConnectedRef.current = false;
+            console.error('[Presence] join DM voice failed', err);
+          });
+      }
+      return;
+    }
     if (voiceState && !voiceConnectedRef.current && activeVoiceChannel && selectedClan && user) {
       voiceConnectedRef.current = true;
       const userName = user.userName || user.name || user.email || 'User';
@@ -292,21 +707,28 @@ function MainLayout() {
         userName
       )
         .then(() => {
-          playVoicePresenceNotification();
+          playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND);
         })
-        .catch((err) => console.error('[Presence] join voice failed', err));
+        .catch((err) => {
+          voiceConnectedRef.current = false;
+          console.error('[Presence] join voice failed', err);
+        });
     }
-    if (!voiceState) {
-      voiceConnectedRef.current = false;
-    }
-  }, [voiceState, activeVoiceChannel, selectedClan, user, playVoicePresenceNotification]);
+  }, [
+    voiceState,
+    activeVoiceChannel,
+    selectedClan,
+    user,
+    playVoicePresenceNotification,
+    isPresenceReady,
+  ]);
 
   // Connect to PresenceHub once and manage subscriptions across clan changes
   useEffect(() => {
-    if (!clans.length || loadingClans) return;
+    if (loadingClans || !token) return;
 
-    const token = localStorage.getItem('token');
     const clanIds = clans.map((c) => c.clanId);
+    let cancelled = false;
 
     // ── Voice presence handlers ─────────────────────────────────────────
     const handleUserJoined = ({ voiceChannelId, userId, userName }) => {
@@ -319,7 +741,7 @@ function MainLayout() {
       const currentUserId = user?.id || user?.sub || user?.userId || '';
       const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
       if (userId !== currentUserId && activeChannelId && activeChannelId === voiceChannelId) {
-        playVoicePresenceNotification();
+        playVoicePresenceNotification(VOICE_JOIN_NOTIFICATION_SOUND);
       }
     };
 
@@ -331,7 +753,7 @@ function MainLayout() {
 
       const activeChannelId = activeVoiceChannelRef.current?.voiceChannelId;
       if (activeChannelId && activeChannelId === voiceChannelId) {
-        playVoicePresenceNotification();
+        playVoicePresenceNotification(VOICE_LEAVE_NOTIFICATION_SOUND);
       }
     };
 
@@ -358,10 +780,99 @@ function MainLayout() {
     };
 
     const handleOnlineUsers = (userIds) => {
-      setOnlineUserIds(new Set(userIds));
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (awaitingFriendSnapshotRef.current) {
+          for (const friendId of friendIdsRef.current) next.delete(friendId);
+          awaitingFriendSnapshotRef.current = false;
+        }
+        for (const userId of userIds) next.add(userId);
+        return next;
+      });
     };
 
-    // ── Deletion event handlers ────────────────────────────────────────────────────
+    const handleSubscriptionFailed = (reason) => {
+      awaitingFriendSnapshotRef.current = false;
+      console.error('[Presence] Arkadaş aboneliği reddedildi:', reason);
+    };
+
+    const isSelectedClan = (clanId) => (
+      !!clanId
+      && selectedClanRef.current?.clanId?.toLowerCase() === clanId.toLowerCase()
+    );
+
+    const handleChannelUpserted = (channel) => {
+      if (!isSelectedClan(channel?.clanId) || !channel?.channelId) return;
+      setChannels((prev) => upsertById(prev, channel, 'channelId'));
+    };
+
+    const handleVoiceChannelUpserted = (channel) => {
+      if (!isSelectedClan(channel?.clanId) || !channel?.voiceChannelId) return;
+      setVoiceChannels((prev) => upsertById(prev, channel, 'voiceChannelId'));
+    };
+
+    const handleClanMembershipChanged = (change) => {
+      const clanId = change?.clanId;
+      const changedUserId = change?.userId;
+      if (!clanId || !changedUserId) return;
+
+      const changeType = change.changeType?.toLowerCase();
+      const currentUserId = user?.id || user?.sub || user?.userId || '';
+      const isCurrentUser = changedUserId === currentUserId;
+
+      if (changeType === 'removed') {
+        if (isSelectedClan(clanId)) {
+          setMemberships((prev) => prev.filter((member) => getMemberId(member) !== changedUserId));
+        }
+
+        if (isCurrentUser) {
+          setClans((prev) => prev.filter((clan) => clan.clanId !== clanId));
+          if (isSelectedClan(clanId)) {
+            const active = activeVoiceChannelRef.current;
+            if (active && !active.isDirect && active.clanId === clanId) handleDisconnectVoice();
+            setSelectedClan(null);
+            setSelectedChannel(null);
+            setChannels([]);
+            setVoiceChannels([]);
+            setMemberships([]);
+            navigate('/app');
+          }
+        }
+        return;
+      }
+
+      if (isSelectedClan(clanId)) {
+        setMemberships((prev) => {
+          const index = prev.findIndex((member) => (
+            member.id === change.membershipId || getMemberId(member) === changedUserId
+          ));
+          const existing = index >= 0 ? prev[index] : {};
+          const incoming = {
+            ...existing,
+            id: change.membershipId || existing.id,
+            clanId,
+            userId: changedUserId,
+            role: change.role || existing.role || 'MEMBER',
+            ...(change.userName ? { userName: change.userName, username: change.userName } : {}),
+            ...(change.avatarUrl ? { avatarUrl: change.avatarUrl } : {}),
+          };
+          if (index < 0) return [...prev, incoming];
+          const next = [...prev];
+          next[index] = incoming;
+          return next;
+        });
+      }
+
+      // Davetle katılma işlemi başka bir açık sekmede tamamlandıysa o sekmenin
+      // sunucu listesi de event üzerinden tetiklenen tek seferlik snapshot ile güncellenir.
+      if (isCurrentUser && !clansRef.current.some((clan) => clan.clanId === clanId)) {
+        ClanService.getMyClans()
+          .then((data) => setClans(data || []))
+          .catch((error) => console.error('[Presence] clan list refresh failed', error));
+      }
+    };
+
+    // ── Clan/channel lifecycle event handlers ──────────────────────────────────────
     const handleChannelDeleted = (channelId) => {
       setChannels((prev) => prev.filter((ch) => ch.channelId !== channelId));
       if (selectedChannelRef.current?.channelId === channelId) {
@@ -393,13 +904,21 @@ function MainLayout() {
     };
 
     const handleReconnected = async () => {
-      console.info('[Presence] Yeniden bağlandi — klan abonelikleri yenileniyor');
-      await PresenceService.subscribeToClans(clanIds).catch(() => { });
+      console.info('[Presence] Yeniden bağlandı — abonelikler yenileniyor');
+      await Promise.all([
+        PresenceService.subscribeToClans(clanIds),
+        subscribeFriendPresence(friendIdsRef.current),
+      ]).catch((error) => console.error('[Presence] resubscribe failed', error));
+      const active = activeVoiceChannelRef.current;
+      if (active?.isDirect) {
+        PresenceService.subscribeToConversations([active.conversationId]).catch(() => {});
+      }
     };
 
     const connect = async () => {
       try {
         await PresenceService.startConnection(token);
+        if (cancelled) return;
 
         // Register event listeners
         PresenceService.onUserJoinedVoice(handleUserJoined);
@@ -408,39 +927,53 @@ function MainLayout() {
         PresenceService.onUserOnline(handleUserOnline);
         PresenceService.onUserOffline(handleUserOffline);
         PresenceService.onOnlineUsers(handleOnlineUsers);
+        PresenceService.onSubscriptionFailed(handleSubscriptionFailed);
+        PresenceService.onChannelUpserted(handleChannelUpserted);
+        PresenceService.onVoiceChannelUpserted(handleVoiceChannelUpserted);
         PresenceService.onChannelDeleted(handleChannelDeleted);
         PresenceService.onVoiceChannelDeleted(handleVoiceChannelDeleted);
+        PresenceService.onClanMembershipChanged(handleClanMembershipChanged);
         PresenceService.onClanDeleted(handleClanDeleted);
         PresenceService.onReconnected(handleReconnected);
 
-        // Subscribe to all user's clans for presence events
         await PresenceService.subscribeToClans(clanIds);
+        if (!cancelled) setIsPresenceReady(true);
       } catch (err) {
-        console.error('[Presence] connection failed', err);
+        if (!cancelled) console.error('[Presence] connection failed', err);
       }
     };
 
     connect();
 
     return () => {
+      cancelled = true;
+      setIsPresenceReady(false);
       PresenceService.offUserJoinedVoice(handleUserJoined);
       PresenceService.offUserLeftVoice(handleUserLeft);
       PresenceService.offVoiceChannelParticipants(handleSnapshot);
       PresenceService.offUserOnline(handleUserOnline);
       PresenceService.offUserOffline(handleUserOffline);
       PresenceService.offOnlineUsers(handleOnlineUsers);
+      PresenceService.offSubscriptionFailed(handleSubscriptionFailed);
+      PresenceService.offChannelUpserted(handleChannelUpserted);
+      PresenceService.offVoiceChannelUpserted(handleVoiceChannelUpserted);
       PresenceService.offChannelDeleted(handleChannelDeleted);
       PresenceService.offVoiceChannelDeleted(handleVoiceChannelDeleted);
+      PresenceService.offClanMembershipChanged(handleClanMembershipChanged);
       PresenceService.offClanDeleted(handleClanDeleted);
+      PresenceService.offReconnected(handleReconnected);
       PresenceService.stopConnection();
       setVoicePresence({});
       setOnlineUserIds(new Set());
     };
-  }, [clans, loadingClans]);
+    // clans içeriği aynı kalırken referansı değişmesi bu effect'i tetiklememeli;
+    // bu yüzden clans yerine stabil clanIdsKey kullanılıyor (bkz. güncelleme planı #6).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clanIdsKey, loadingClans, queryOnlineStatus, subscribeFriendPresence, token]);
 
   // When the selected clan changes, fetch voice channel participants & online members
   useEffect(() => {
-    if (!selectedClan) {
+    if (!selectedClan || !isPresenceReady) {
       setVoicePresence({});
       return;
     }
@@ -449,15 +982,28 @@ function MainLayout() {
 
     // Fetch voice participants for this clan
     PresenceService.getParticipants(clanId)
-      .catch((err) => console.error('[Presence] getParticipants failed', err));
+      .catch((err) => {
+        // Vite HMR/unmount devam eden SignalR negotiation'ını bilinçli olarak
+        // durdurabilir. Bu, sunucu veya yetkilendirme hatası değildir.
+        if (!PresenceService.isExpectedConnectionStop(err)) {
+          console.error('[Presence] getParticipants failed', err);
+        }
+      });
 
     // Fetch online status for clan members
     if (memeberShips.length > 0) {
       const memberUserIds = memeberShips.map((m) => m.userId || m.user?.id || '').filter(Boolean);
-      PresenceService.getOnlineUsers(memberUserIds)
-        .catch((err) => console.error('[Presence] getOnlineUsers failed', err));
+      queryOnlineStatus(memberUserIds);
     }
-  }, [selectedClan?.clanId, memeberShips]);
+  }, [selectedClan, memeberShips, queryOnlineStatus, isPresenceReady]);
+
+  useEffect(() => {
+    if (!isPresenceReady || friendsLoading) return;
+
+    const friendIds = friends.map((f) => f.id).filter(Boolean);
+    subscribeFriendPresence(friendIds)
+      .catch((err) => console.error('[Presence] subscribe friends failed', err));
+  }, [friends, friendsLoading, isPresenceReady, subscribeFriendPresence]);
 
   const handleCreateClan = async ({ name, description }) => {
     const newClan = await ClanService.createClan({
@@ -471,7 +1017,7 @@ function MainLayout() {
   const handleCreateChannel = async (name) => {
     try {
       const newChannel = await ChannelService.createChannel({ name, clanId: selectedClan.clanId });
-      setChannels((prev) => [...prev, newChannel]);
+      setChannels((prev) => upsertById(prev, newChannel, 'channelId'));
     } catch (error) {
       console.error('Failed to create channel', error);
     }
@@ -480,7 +1026,7 @@ function MainLayout() {
   const handleCreateVoiceChannel = async (name) => {
     try {
       const newVoiceChannel = await ChannelService.createVoiceChannel({ name, clanId: selectedClan.clanId });
-      setVoiceChannels((prev) => [...prev, newVoiceChannel]);
+      setVoiceChannels((prev) => upsertById(prev, newVoiceChannel, 'voiceChannelId'));
     } catch (error) {
       console.error('Failed to create voice channel', error);
     }
@@ -540,7 +1086,6 @@ function MainLayout() {
 
   const handleLeaveClan = async () => {
     if (!selectedClan || !user) return;
-    const userId = user.id || user.sub || '';
     try {
       await ClanMembershipService.leaveClan(selectedClan.clanId);
       setClans((prev) => prev.filter((c) => c.clanId !== selectedClan.clanId));
@@ -608,75 +1153,175 @@ function MainLayout() {
     );
   }
 
+  const dmCallPanel = (
+    <DmCallOverlay
+      call={dmCallState}
+      error={dmCallError}
+      displayName={dmCallDisplayName}
+      outputVolume={outputVolume}
+      voiceState={activeVoiceChannel?.isDirect ? voiceState : null}
+      onWatchScreenShare={handleWatchScreenShare}
+      onParticipantVolume={handleParticipantContextMenu}
+      onAccept={acceptDmCall}
+      onReject={rejectDmCall}
+      onCancel={cancelDmCall}
+      onEnd={handleEndActiveDmCall}
+      onDismiss={dismissDmCall}
+      compact
+    />
+  );
+
   return (
     <div className="discord-app">
+      {user && user.emailConfirmed === false && !emailBannerDismissed && (
+        <div className="email-verify-banner">
+          <span className="material-symbols-outlined">mail</span>
+          <p className="email-verify-banner__text">
+            E-posta adresiniz henüz doğrulanmadı.
+          </p>
+          <button
+            className="email-verify-banner__action"
+            onClick={() => { setAccountSettingsTab('email'); setShowAccountSettings(true); }}
+          >
+            Doğrula
+          </button>
+          <button
+            className="email-verify-banner__dismiss"
+            onClick={() => setEmailBannerDismissed(true)}
+            aria-label="Kapat"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      )}
       <ServerList
         clans={clans}
         selectedClanId={selectedClan?.clanId}
         onSelectClan={handleSelectClan}
         onCreateClan={() => setShowCreateModal(true)}
         onReorder={handleReorderClans}
+        isFriendsActive={isFriendsActive}
+        onSelectFriends={handleSelectFriends}
       />
 
-      <ChannelSidebar
-        clan={selectedClan}
-        channels={channels}
-        voiceChannels={voiceChannels}
-        selectedChannelId={selectedChannel?.channelId}
-        activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
-        onSelectChannel={handleSelectChannel}
-        onSelectVoiceChannel={handleSelectVoiceChannel}
-        user={user}
-        onLogout={handleLogout}
-        onCreateChannel={handleCreateChannel}
-        onCreateVoiceChannel={handleCreateVoiceChannel}
-        onUpdateChannel={handleUpdateChannel}
-        onDeleteChannel={handleDeleteChannel}
-        onUpdateVoiceChannel={handleUpdateVoiceChannel}
-        onDeleteVoiceChannel={handleDeleteVoiceChannel}
-        voiceState={voiceState}
-        activeVoiceChannel={activeVoiceChannel}
-        onDisconnectVoice={handleDisconnectVoice}
-        voicePresence={voicePresence}
-        canManage={canManage}
-        userRole={userRole}
-        onLeaveClan={handleLeaveClan}
-        onOpenClanSettings={() => setShowClanSettings(true)}
-        inputVolume={inputVolume}
-        setInputVolume={setInputVolume}
-        outputVolume={outputVolume}
-        setOutputVolume={setOutputVolume}
-        selectedInputDevice={selectedInputDevice}
-        setSelectedInputDevice={setSelectedInputDevice}
-        selectedOutputDevice={selectedOutputDevice}
-        setSelectedOutputDevice={setSelectedOutputDevice}
-        onWatchScreenShare={handleWatchScreenShare}
-        isMicMuted={isMicMuted}
-        onToggleMic={() => setIsMicMuted(prev => !prev)}
-        onParticipantContextMenu={handleParticipantContextMenu}
-      />
+      {/* Sol panel — Arkadaşlar görünümünde sohbet bildirimleri, klan
+          görünümünde metin/ses kanalları gösterilir. */}
+      {isFriendsActive ? (
+        <FriendsNotificationSidebar
+          notifications={notifications}
+          activeConversationId={activeDmConversation?.conversationId}
+          onOpenNotification={handleOpenNotification}
+          activeVoiceChannel={activeVoiceChannel}
+          voiceState={voiceState}
+          onDisconnectVoice={handleDisconnectVoice}
+          onWatchScreenShare={handleWatchScreenShare}
+          callPanel={dmCallPanel}
+          headerAccessory={(
+            <NotificationCenter
+              notifications={notifications}
+              onOpen={handleOpenNotification}
+              isMuted={isActiveDmMuted}
+            />
+          )}
+        />
+      ) : (
+        <ChannelSidebar
+          clan={selectedClan}
+          channels={channels}
+          voiceChannels={voiceChannels}
+          selectedChannelId={selectedChannel?.channelId}
+          activeVoiceChannelId={activeVoiceChannel?.voiceChannelId}
+          onSelectChannel={handleSelectChannel}
+          onSelectVoiceChannel={handleSelectVoiceChannel}
+          onCreateChannel={handleCreateChannel}
+          onCreateVoiceChannel={handleCreateVoiceChannel}
+          onUpdateChannel={handleUpdateChannel}
+          onDeleteChannel={handleDeleteChannel}
+          onUpdateVoiceChannel={handleUpdateVoiceChannel}
+          onDeleteVoiceChannel={handleDeleteVoiceChannel}
+          voiceState={voiceState}
+          activeVoiceChannel={activeVoiceChannel}
+          onDisconnectVoice={handleDisconnectVoice}
+          voicePresence={voicePresence}
+          canManage={canManage}
+          currentUserId={user?.id || user?.sub || user?.userId || ''}
+          userRole={userRole}
+          onLeaveClan={handleLeaveClan}
+          onOpenClanSettings={() => setShowClanSettings(true)}
+          headerAccessory={(
+            <NotificationCenter
+              notifications={notifications}
+              onOpen={handleOpenNotification}
+              isMuted={mutedClanIds.includes(selectedClan?.clanId)}
+            />
+          )}
+          onWatchScreenShare={handleWatchScreenShare}
+          onParticipantContextMenu={handleParticipantContextMenu}
+          isClanMuted={mutedClanIds.includes(selectedClan?.clanId)}
+          onToggleClanMute={() => handleToggleClanMute(selectedClan)}
+          callPanel={dmCallPanel}
+        />
+      )}
 
-      <ChatArea
-        clan={selectedClan}
-        channel={selectedChannel}
-      />
+      {/* Orta alan — Arkadaşlar sekmesinde de klanlarda da aynı ChatArea.
+          DM modunda sohbet seçili değilse ChatArea kendi boş durumunu gösterir. */}
+      {isFriendsActive ? (
+        <ChatArea
+          variant="dm"
+          conversation={activeDmConversation}
+          onBack={activeDmConversation ? handleCloseDm : undefined}
+          onToggleVoiceCall={handleToggleDmVoice}
+          onToggleNotifications={() => handleToggleUserMute({
+            userId: activeDmConversation?.otherUserId,
+            userName: activeDmConversation?.otherUserName,
+          })}
+          isNotificationsMuted={isActiveDmMuted}
+          isVoiceCallActive={
+            !!activeDmConversation &&
+            activeVoiceChannel?.voiceChannelId ===
+              directVoiceRoomId(activeDmConversation.conversationId)
+          }
+          voiceCallPhase={
+            dmCallState &&
+            activeDmConversation &&
+            dmCallState.conversationId === activeDmConversation.conversationId
+              ? dmCallState.phase
+              : null
+          }
+          notificationVolume={outputVolume}
+        />
+      ) : (
+        <ChatArea
+          clan={selectedClan}
+          channel={selectedChannel}
+          notificationVolume={outputVolume}
+        />
+      )}
+      {dmError && (
+        <div className="app-toast app-toast--error" role="alert">
+          <span className="material-symbols-outlined">error</span>
+          <span>{dmError}</span>
+        </div>
+      )}
 
       {activeVoiceChannel && (
         <VoiceChannel
           key={activeVoiceChannel?.voiceChannelId}
           roomId={activeVoiceChannel?.voiceChannelId || 'unknown-room'}
+          clanId={activeVoiceChannel?.isDirect ? null : activeVoiceChannel?.clanId}
           userId={user?.id || user?.sub || user?.userId || 'unknown-user'}
           userName={user?.userName || user?.name || user?.email || 'User'}
           onLeaveRoom={handleDisconnectVoice}
           onVoiceStateChange={handleVoiceStateChange}
+          onMicrophoneUnavailable={handleMicrophoneUnavailable}
+          onScreenShareStarted={handleScreenShareStarted}
           inputDevice={selectedInputDevice}
           outputDevice={selectedOutputDevice}
           inputVolume={inputVolume}
-          outputVolume={outputVolume}
+          outputVolume={effectiveOutputVolume}
           isMicMuted={isMicMuted}
           userVolumes={userVolumes}
-          inputDevice={selectedInputDevice}
-          outputDevice={selectedOutputDevice}
+          noiseSuppressionEnabled={noiseSuppressionEnabled}
         />
       )}
 
@@ -691,12 +1336,41 @@ function MainLayout() {
         />
       )}
 
-      <MemberList members={memeberShips} clanId={selectedClan?.clanId} onlineUserIds={onlineUserIds} />
+      {/* Sağ panel — Arkadaşlar sekmesinde arkadaş listesi, klanda üye listesi */}
+      {isFriendsActive ? (
+        <FriendsMemberList
+          friends={friends}
+          friendRequests={friendRequests}
+          onlineUserIds={onlineUserIds}
+          activeConversationUserId={activeDmConversation?.otherUserId}
+          currentUserId={user?.id || user?.sub || ''}
+          loading={friendsLoading}
+          error={friendsError}
+          onOpenDm={handleOpenDm}
+          onRemoveFriend={handleRemoveFriend}
+          onRefresh={handleRefreshFriends}
+          onSendRequest={handleSendFriendRequest}
+          onAcceptRequest={handleAcceptFriendRequest}
+          onRejectRequest={handleRejectFriendRequest}
+          mutedUserIds={mutedUserIds}
+          onToggleUserMute={handleToggleUserMute}
+        />
+      ) : (
+        <MemberList
+          members={displayMemberships}
+          clanId={selectedClan?.clanId}
+          onlineUserIds={onlineUserIds}
+          currentUserId={user?.id || user?.sub || ''}
+          onMemberContextMenu={handleMemberContextMenu}
+          onMemberClick={handleMemberClick}
+          onRefresh={handleRefreshMembers}
+        />
+      )}
 
       {showClanSettings && selectedClan && (
         <ClanSettings
           clan={selectedClan}
-          members={memeberShips}
+          members={displayMemberships}
           userRole={userRole}
           user={user}
           onClose={() => setShowClanSettings(false)}
@@ -704,6 +1378,15 @@ function MainLayout() {
           onDeleteClan={handleDeleteClan}
           onUpdateMemberRole={handleUpdateMemberRole}
           onKickMember={handleKickMember}
+        />
+      )}
+
+      {showAccountSettings && (
+        <AccountSettings
+          user={user}
+          initialTab={accountSettingsTab}
+          onClose={() => setShowAccountSettings(false)}
+          onProfileUpdated={updateUser}
         />
       )}
 
@@ -724,13 +1407,24 @@ function MainLayout() {
         </div>
       )}
 
+      {pendingVoiceKick && (
+        <ConfirmDialog
+          title="Ses kanalından çıkar"
+          message={`${pendingVoiceKick.name || 'Kullanıcı'} ses kanalından çıkarılsın mı?`}
+          confirmLabel="Kanaldan Çıkar"
+          loading={kickingVoiceUserId === pendingVoiceKick.identity}
+          onConfirm={handleConfirmVoiceKick}
+          onCancel={() => setPendingVoiceKick(null)}
+        />
+      )}
+
       {/* Ekran Paylaşımı İzleme Penceresi */}
       {watchingScreenShare && (
         <ScreenShareViewer
           share={watchingScreenShare}
           onClose={() => setWatchingScreenShare(null)}
           isMicMuted={isMicMuted}
-          onToggleMic={() => setIsMicMuted(prev => !prev)}
+          onToggleMic={handleToggleMic}
         />
       )}
 
@@ -741,8 +1435,56 @@ function MainLayout() {
         y={volumeCtxMenu.y}
         participant={volumeCtxMenu.participant}
         currentVolume={volumeCtxMenu.participant ? (userVolumes[volumeCtxMenu.participant.identity] ?? 100) : 100}
+        canAdjustVolume={canAdjustParticipantVolume}
+        canKick={canKickVolumeParticipant}
+        isKicking={kickingVoiceUserId === volumeCtxMenu.participant?.identity}
+        onKick={handleKickVoiceParticipant}
         onVolumeChange={handleUserVolumeChange}
         onClose={handleCloseVolumeCtx}
+      />
+
+      {/* Klan Üyesi Bağlam Menüsü */}
+      <MemberContextMenu
+        visible={memberCtxMenu.visible}
+        x={memberCtxMenu.x}
+        y={memberCtxMenu.y}
+        member={memberCtxMenu.member}
+        isSelf={memberCtxMenu.isSelf}
+        isMuted={mutedUserIds.includes(getMemberId(memberCtxMenu.member || {}))}
+        onAddFriend={handleAddFriendFromMember}
+        onSendMessage={handleSendMessageFromMember}
+        onToggleMute={handleToggleUserMute}
+        onClose={handleCloseMemberCtx}
+      />
+
+      {/* Floating kullanıcı çubuğu — her sayfada sol altta aynı, tek örnek */}
+      <UserBar
+        user={user}
+        onLogout={handleLogout}
+        onOpenAccountSettings={handleOpenProfileSettings}
+        inputVolume={inputVolume}
+        setInputVolume={setInputVolume}
+        outputVolume={outputVolume}
+        setOutputVolume={setOutputVolume}
+        selectedInputDevice={selectedInputDevice}
+        setSelectedInputDevice={setSelectedInputDevice}
+        selectedOutputDevice={selectedOutputDevice}
+        setSelectedOutputDevice={setSelectedOutputDevice}
+        isMicMuted={isMicMuted}
+        onToggleMic={handleToggleMic}
+        isDeafened={isDeafened}
+        onToggleDeafen={handleToggleDeafen}
+        noiseSuppressionEnabled={noiseSuppressionEnabled}
+        setNoiseSuppressionEnabled={setNoiseSuppressionEnabled}
+      />
+
+      {/* Kullanıcı Profil Popup'ı */}
+      <UserProfilePopup
+        visible={profilePopup.visible}
+        anchorRect={profilePopup.anchorRect}
+        member={profilePopup.member}
+        isOnline={onlineUserIds.has(getMemberId(profilePopup.member))}
+        onClose={handleCloseProfilePopup}
       />
     </div>
   );
