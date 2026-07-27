@@ -32,6 +32,22 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Write .env
+        shell: bash
+        run: |
+          cat <<EOF > .env
+          VITE_BASE_URL=${{ secrets.VITE_BASE_URL }}
+          VITE_HUB_URL=${{ secrets.VITE_HUB_URL }}
+          VITE_PRESENCE_HUB_URL=${{ secrets.VITE_PRESENCE_HUB_URL }}
+          VITE_LIVEKIT_URL=${{ secrets.VITE_LIVEKIT_URL }}
+          VITE_VOICE_SERVER_URL=${{ secrets.VITE_VOICE_SERVER_URL }}
+          VITE_TENOR_API_KEY=${{ secrets.VITE_TENOR_API_KEY }}
+          VITE_TENOR_CLIENT_KEY=${{ secrets.VITE_TENOR_CLIENT_KEY }}
+          VITE_IMGBB_KEY=${{ secrets.VITE_IMGBB_KEY }}
+          VITE_VERSION_LINK=${{ secrets.VITE_VERSION_LINK }}
+          VITE_MOCKING=false
+          EOF
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
