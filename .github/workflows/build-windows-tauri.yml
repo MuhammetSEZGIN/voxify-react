@@ -63,4 +63,5 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sig
             src-tauri/target/release/bundle/msi/*.sig
+            src-tauri/target/release/bundle/nsis/*.zip
           if-no-files-found: warn
