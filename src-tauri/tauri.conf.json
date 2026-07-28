@@ -31,7 +31,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEzNzM2ODNFM0NBQzY1RUIKUldUclphdzhQbWh6RTdpRDZzSlFwRy83UkRjMllXcys0N3RVTk5sUE1ZUkN0UDdMdU9ZMzFlRTIK",
       "endpoints": [
-        "https://voxify.com.tr/update/{{target}}-{{arch}}/{{current_version}}"
+        "https://app.voxify.com.tr/update/{{target}}-{{arch}}/{{current_version}}"
       ]
     }
   },
