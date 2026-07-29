@@ -169,6 +169,16 @@ function MemberList({ members, clanId, onlineUserIds = new Set(), currentUserId,
                         {CLAN_ROLE_LABELS[role]}
                       </span>
                     )}
+                    {!isSelf && (
+                      <button
+                        type="button"
+                        className="member-list__mobile-actions-btn"
+                        aria-label={`${memberName} için işlemleri aç`}
+                        onClick={(event) => onMemberContextMenu?.(event, member, false)}
+                      >
+                        <span className="material-symbols-outlined">more_vert</span>
+                      </button>
+                    )}
                   </li>
                 );
               })}

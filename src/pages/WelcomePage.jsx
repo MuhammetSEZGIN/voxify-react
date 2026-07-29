@@ -101,7 +101,7 @@ function WelcomePage() {
         {/* Hint */}
         <div className="welcome-page__hint">
           <span className="material-symbols-outlined">arrow_back</span>
-          <span>Başlamak için soldaki listeden bir klan seç</span>
+          <span>Başlamak için Sunucular bölümünden bir klan seç</span>
         </div>
       </div>
     </main >

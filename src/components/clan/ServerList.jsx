@@ -39,18 +39,29 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
   };
 
   return (
-    <nav className="server-list">
+    <nav className="server-list" aria-label="Sunucular">
+      <header className="server-list__mobile-header">
+        <div>
+          <span className="server-list__mobile-eyebrow">Voxify</span>
+          <h1>Sunucularım</h1>
+        </div>
+        <span className="server-list__mobile-count">{clans.length}</span>
+      </header>
+
       {/* Home button */}
       <div className="server-list__home-wrapper">
         <div
           className={`server-list__indicator ${!selectedClanId && !isFriendsActive ? 'server-list__indicator--active' : ''}`}
         />
         <button
+          type="button"
           className={`server-list__item ${!selectedClanId && !isFriendsActive ? 'server-list__item--active' : 'server-list__item--default'}`}
           onClick={() => onSelectClan(null)}
           title="Home"
+          aria-current={!selectedClanId && !isFriendsActive ? 'page' : undefined}
         >
           <span className="material-symbols-outlined server-list__icon">shield</span>
+          <span className="server-list__mobile-label">Ana Sayfa</span>
         </button>
       </div>
 
@@ -60,11 +71,14 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
           className={`server-list__indicator ${isFriendsActive ? 'server-list__indicator--active' : ''}`}
         />
         <button
+          type="button"
           className={`server-list__item ${isFriendsActive ? 'server-list__item--active' : 'server-list__item--default'}`}
           onClick={onSelectFriends}
           title="Arkadaşlar"
+          aria-current={isFriendsActive ? 'page' : undefined}
         >
           <span className="material-symbols-outlined server-list__icon">group</span>
+          <span className="server-list__mobile-label">Arkadaşlar ve Mesajlar</span>
         </button>
       </div>
 
@@ -92,9 +106,11 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
             }}
           >
             <button
+              type="button"
               className="server-list__clan-btn group"
               onClick={() => onSelectClan(clan)}
               title={clan.name}
+              aria-current={isSelected ? 'page' : undefined}
             >
               <div
                 className={`server-list__indicator ${isSelected ? 'server-list__indicator--active' : 'server-list__indicator--hover'}`}
@@ -111,19 +127,33 @@ function ServerList({ clans, selectedClanId, onSelectClan, onCreateClan, onReord
                   {clan.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
               )}
+              <span className="server-list__mobile-label">{clan.name}</span>
+              <span className="material-symbols-outlined server-list__mobile-chevron">
+                chevron_right
+              </span>
             </button>
           </div>
         );
       })}
 
+      {clans.length === 0 && (
+        <div className="server-list__mobile-empty">
+          <span className="material-symbols-outlined">shield_with_heart</span>
+          <strong>Henüz bir sunucun yok</strong>
+          <p>Yeni bir sunucu oluşturabilir veya davet koduyla katılabilirsin.</p>
+        </div>
+      )}
+
       {/* Add clan button */}
       <button
+        type="button"
         className="server-list__add-btn group"
         onClick={onCreateClan}
         title="Create a Clan"
       >
         <div className="server-list__indicator server-list__indicator--hover" />
         <span className="material-symbols-outlined server-list__add-icon">add</span>
+        <span className="server-list__mobile-label">Sunucu Oluştur veya Katıl</span>
       </button>
     </nav>
   );

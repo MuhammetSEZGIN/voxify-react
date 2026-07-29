@@ -331,6 +331,23 @@ function ChannelSidebar({
                                 {p.isMuted && (
                                   <span className="material-symbols-outlined voice-participants__muted-icon">mic_off</span>
                                 )}
+                                {!p.isLocal && (
+                                  <button
+                                    type="button"
+                                    className="voice-participants__mobile-actions-btn"
+                                    aria-label={`${p.name} için ses ayarlarını aç`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      onParticipantContextMenu?.(event, {
+                                        ...p,
+                                        voiceChannelId: vc.voiceChannelId,
+                                        clanId: vc.clanId || clan?.clanId,
+                                      });
+                                    }}
+                                  >
+                                    <span className="material-symbols-outlined">more_vert</span>
+                                  </button>
+                                )}
                                 {p.isScreenSharing && !p.isLocal && (
                                   <button
                                     className="voice-participants__share-btn"
@@ -375,6 +392,27 @@ function ChannelSidebar({
                                   <span>{(p.userName || '?').charAt(0).toUpperCase()}</span>
                                 </div>
                                 <span className="voice-participants__name">{p.userName}</span>
+                                {canManage && String(p.userId || '').toLowerCase()
+                                  !== String(currentUserId || '').toLowerCase() && (
+                                  <button
+                                    type="button"
+                                    className="voice-participants__mobile-actions-btn"
+                                    aria-label={`${p.userName} için işlemleri aç`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      onParticipantContextMenu?.(event, {
+                                        identity: p.userId,
+                                        name: p.userName,
+                                        isLocal: false,
+                                        presenceOnly: true,
+                                        voiceChannelId: vc.voiceChannelId,
+                                        clanId: vc.clanId || clan?.clanId,
+                                      });
+                                    }}
+                                  >
+                                    <span className="material-symbols-outlined">more_vert</span>
+                                  </button>
+                                )}
                               </div>
                             ))
                           }

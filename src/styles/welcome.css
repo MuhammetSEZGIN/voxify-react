@@ -307,6 +307,25 @@
 
 /* ── Responsive ── */
 @media (max-width: 520px) {
+  .welcome-page {
+    justify-content: flex-start;
+    padding: 24px max(14px, env(safe-area-inset-right)) 28px max(14px, env(safe-area-inset-left));
+  }
+
+  .welcome-page__logo-wrapper,
+  .welcome-page__logo {
+    width: 68px;
+    height: 68px;
+  }
+
+  .welcome-page__title {
+    font-size: 24px;
+  }
+
+  .welcome-page__subtitle {
+    font-size: 14px;
+  }
+
   .welcome-page__features {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -317,5 +336,20 @@
 
   .welcome-page__download-card {
     padding: 20px 16px;
+  }
+
+  .welcome-page__platform-info {
+    gap: 10px 14px;
+  }
+
+  .welcome-page__download-btn {
+    min-height: 48px;
+    height: auto;
+    padding-block: 12px;
+  }
+
+  .welcome-page__hint {
+    align-items: flex-start;
+    text-align: center;
   }
 }

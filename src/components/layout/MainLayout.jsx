@@ -113,6 +113,7 @@ function MainLayout() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [accountSettingsTab, setAccountSettingsTab] = useState('profile');
   const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
+  const [mobilePane, setMobilePane] = useState('chat');
   const [activeDmConversation, setActiveDmConversation] = useState(null);
   const [dmError, setDmError] = useState(null);
   const [isFriendsActive, setIsFriendsActive] = useState(false);
@@ -355,6 +356,7 @@ function MainLayout() {
       setVoiceChannels([]);
       setIsFriendsActive(false);
       setActiveDmConversation(null);
+      setMobilePane('chat');
       navigate('/app');
       return;
     }
@@ -364,6 +366,7 @@ function MainLayout() {
     setVoiceChannels([]);
     setIsFriendsActive(false);
     setActiveDmConversation(null);
+    setMobilePane('channels');
     navigate(`/app/clans/${clan.clanId}`);
   }, [navigate]);
 
@@ -374,6 +377,7 @@ function MainLayout() {
     setVoiceChannels([]);
     setIsFriendsActive(true);
     setActiveDmConversation(null);
+    setMobilePane('members');
     navigate('/app');
   }, [navigate]);
 
@@ -384,6 +388,7 @@ function MainLayout() {
   const handleOpenNotification = useCallback((notification) => {
     if (['FriendRequestReceived', 'FriendRequestAccepted'].includes(notification?.type)) {
       handleSelectFriends();
+      setMobilePane('members');
       return;
     }
     if (['DirectMessageReceived', 'MissedCall'].includes(notification?.type) && notification.targetId) {
@@ -397,6 +402,7 @@ function MainLayout() {
         otherUserName: actor?.userName || notification.title || 'Doğrudan Mesaj',
         otherAvatarUrl: actor?.avatarUrl || null,
       });
+      setMobilePane('chat');
       navigate('/app');
     }
   }, [handleSelectFriends, navigate]);
@@ -413,12 +419,16 @@ function MainLayout() {
       // Sağ panelden bir arkadaşa tıklamak Arkadaşlar sekmesine geçirir —
       // klan görünümündeyken DM açılırsa sohbet alanı boş kalmasın.
       setIsFriendsActive(true);
+      setMobilePane('chat');
     } catch (err) {
       setDmError(err.message);
     }
   }, []);
 
-  const handleCloseDm = useCallback(() => setActiveDmConversation(null), []);
+  const handleCloseDm = useCallback(() => {
+    setActiveDmConversation(null);
+    setMobilePane('members');
+  }, []);
 
   const handleMemberContextMenu = useCallback((e, member, isSelf) => {
     e.preventDefault();
@@ -453,6 +463,7 @@ function MainLayout() {
 
   const handleSelectChannel = (channel) => {
     setSelectedChannel(channel);
+    setMobilePane('chat');
     navigate(`/app/clans/${selectedClan.clanId}/channels/${channel.channelId}`);
   };
 
@@ -1171,9 +1182,14 @@ function MainLayout() {
     />
   );
 
+  const showEmailBanner = user && user.emailConfirmed === false && !emailBannerDismissed;
+
   return (
-    <div className="discord-app">
-      {user && user.emailConfirmed === false && !emailBannerDismissed && (
+    <div
+      className={`discord-app ${showEmailBanner ? 'discord-app--with-email-banner' : ''}`}
+      data-mobile-pane={mobilePane}
+    >
+      {showEmailBanner && (
         <div className="email-verify-banner">
           <span className="material-symbols-outlined">mail</span>
           <p className="email-verify-banner__text">
@@ -1486,6 +1502,46 @@ function MainLayout() {
         isOnline={onlineUserIds.has(getMemberId(profilePopup.member))}
         onClose={handleCloseProfilePopup}
       />
+
+      <nav className="mobile-app-nav" aria-label="Mobil uygulama bölümleri">
+        <button
+          type="button"
+          className={`mobile-app-nav__item ${mobilePane === 'servers' ? 'mobile-app-nav__item--active' : ''}`}
+          onClick={() => setMobilePane('servers')}
+          aria-pressed={mobilePane === 'servers'}
+        >
+          <span className="material-symbols-outlined">shield</span>
+          <span>Sunucular</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-app-nav__item ${mobilePane === 'channels' ? 'mobile-app-nav__item--active' : ''}`}
+          onClick={() => setMobilePane('channels')}
+          aria-pressed={mobilePane === 'channels'}
+        >
+          <span className="material-symbols-outlined">{isFriendsActive ? 'notifications' : 'tag'}</span>
+          <span>{isFriendsActive ? 'Bildirimler' : 'Kanallar'}</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-app-nav__item ${mobilePane === 'chat' ? 'mobile-app-nav__item--active' : ''}`}
+          onClick={() => setMobilePane('chat')}
+          aria-pressed={mobilePane === 'chat'}
+        >
+          <span className="material-symbols-outlined">chat</span>
+          <span>Sohbet</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-app-nav__item ${mobilePane === 'members' ? 'mobile-app-nav__item--active' : ''}`}
+          onClick={() => setMobilePane('members')}
+          aria-pressed={mobilePane === 'members'}
+          disabled={!selectedClan && !isFriendsActive}
+        >
+          <span className="material-symbols-outlined">group</span>
+          <span>{isFriendsActive ? 'Arkadaşlar' : 'Üyeler'}</span>
+        </button>
+      </nav>
     </div>
   );
 }

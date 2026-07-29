@@ -4958,3 +4958,828 @@ body {
   flex-wrap: wrap;
   justify-content: flex-start;
 }
+
+/* ============================
+   Mobile application layout
+   ============================ */
+.mobile-app-nav {
+  display: none;
+}
+
+.server-list__mobile-header,
+.server-list__mobile-label,
+.server-list__mobile-chevron,
+.server-list__mobile-empty {
+  display: none;
+}
+
+.member-list__mobile-actions-btn,
+.voice-participants__mobile-actions-btn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .discord-app {
+    --mobile-banner-space: 0px;
+    --mobile-user-bar-space: calc(72px + env(safe-area-inset-top));
+    --mobile-nav-space: calc(66px + env(safe-area-inset-bottom));
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .discord-app--with-email-banner {
+    --mobile-banner-space: calc(56px + env(safe-area-inset-top));
+    --mobile-user-bar-space: 72px;
+  }
+
+  .discord-app > .server-list,
+  .discord-app > .channel-sidebar,
+  .discord-app > .chat-area,
+  .discord-app > .welcome-page,
+  .discord-app > .member-list,
+  .discord-app > .member-list--collapsed {
+    position: absolute;
+    inset: calc(var(--mobile-banner-space) + var(--mobile-user-bar-space)) 0 var(--mobile-nav-space);
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    display: none;
+  }
+
+  .discord-app[data-mobile-pane="servers"] > .server-list {
+    display: flex;
+  }
+
+  .discord-app[data-mobile-pane="channels"] > .channel-sidebar {
+    display: flex;
+  }
+
+  .discord-app[data-mobile-pane="chat"] > .chat-area,
+  .discord-app[data-mobile-pane="chat"] > .welcome-page {
+    display: flex;
+  }
+
+  .discord-app[data-mobile-pane="members"] > .member-list,
+  .discord-app[data-mobile-pane="members"] > .member-list--collapsed {
+    display: flex;
+  }
+
+  .server-list {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 20px max(14px, env(safe-area-inset-right)) 24px max(14px, env(safe-area-inset-left));
+    overflow-x: hidden;
+    overflow-y: auto;
+    background:
+      radial-gradient(circle at 85% 0%, rgba(43, 140, 238, 0.14), transparent 32%),
+      var(--bg-dark);
+  }
+
+  .server-list__mobile-header {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 6px;
+    padding: 4px 4px 10px;
+  }
+
+  .server-list__mobile-eyebrow {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .server-list__mobile-header h1 {
+    margin: 0;
+    color: var(--white);
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  .server-list__mobile-count {
+    min-width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(43, 140, 238, 0.25);
+    border-radius: 12px;
+    background: rgba(43, 140, 238, 0.12);
+    color: #8fc7ff;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .server-list__home-wrapper,
+  .server-list__clan-item,
+  .server-list__add-btn {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .server-list__separator {
+    width: 100%;
+    height: 1px;
+    flex: 0 0 1px;
+    margin: 5px 0;
+  }
+
+  .server-list__indicator {
+    left: -1px;
+    top: 50%;
+    bottom: auto;
+    width: 4px;
+    height: 24px;
+    transform: translateY(-50%);
+    border-radius: 0 4px 4px 0;
+  }
+
+  .server-list__indicator--active,
+  .server-list__clan-btn:hover .server-list__indicator--hover,
+  .server-list__add-btn:hover .server-list__indicator--hover {
+    width: 4px;
+    height: 34px;
+  }
+
+  .server-list__item,
+  .server-list__clan-btn,
+  .server-list__add-btn {
+    position: relative;
+    width: 100%;
+    height: 62px;
+    aspect-ratio: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 13px;
+    padding: 7px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    border-radius: 15px;
+    background: rgba(26, 31, 37, 0.86);
+    color: var(--text-light);
+    text-align: left;
+  }
+
+  .server-list__item--active,
+  .server-list__clan-btn[aria-current="page"] {
+    border-color: rgba(43, 140, 238, 0.34);
+    background: linear-gradient(90deg, rgba(43, 140, 238, 0.2), rgba(43, 140, 238, 0.07));
+  }
+
+  .server-list__item:hover,
+  .server-list__clan-btn:hover,
+  .server-list__add-btn:hover {
+    border-radius: 15px;
+    background: rgba(43, 140, 238, 0.14);
+  }
+
+  .server-list__item .server-list__icon,
+  .server-list__add-icon {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 25px;
+  }
+
+  .server-list__clan-avatar,
+  .server-list__clan-initials {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    aspect-ratio: auto;
+    border-radius: 13px;
+  }
+
+  .server-list__clan-btn:hover .server-list__clan-avatar,
+  .server-list__clan-avatar--selected,
+  .server-list__clan-btn:hover .server-list__clan-initials,
+  .server-list__clan-initials--selected {
+    border-radius: 13px;
+  }
+
+  .server-list__mobile-label {
+    min-width: 0;
+    flex: 1;
+    display: block;
+    overflow: hidden;
+    color: var(--text-light);
+    font-size: 14px;
+    font-weight: 680;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .server-list__mobile-chevron {
+    display: block;
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    font-size: 20px;
+  }
+
+  .server-list__add-btn {
+    margin-top: 5px;
+    color: var(--green);
+  }
+
+  .server-list__add-btn .server-list__mobile-label {
+    color: #65d991;
+  }
+
+  .server-list__mobile-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 24px 18px;
+    border: 1px dashed rgba(130, 136, 144, 0.24);
+    border-radius: 15px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .server-list__mobile-empty .material-symbols-outlined {
+    color: var(--primary);
+    font-size: 34px;
+  }
+
+  .server-list__mobile-empty strong {
+    color: var(--text-light);
+    font-size: 14px;
+  }
+
+  .server-list__mobile-empty p {
+    max-width: 280px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .channel-sidebar {
+    padding-bottom: 0;
+    border: 0;
+  }
+
+  .channel-sidebar__header,
+  .chat-area__header,
+  .member-list__header {
+    height: 54px;
+    min-height: 54px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
+  .channel-sidebar__channels {
+    padding: 8px max(8px, env(safe-area-inset-right)) 14px max(8px, env(safe-area-inset-left));
+  }
+
+  .channel-sidebar__channel,
+  .channel-sidebar__add-channel-btn,
+  .friends-notification-sidebar__item,
+  .member-list__item {
+    min-height: 46px;
+  }
+
+  .channel-sidebar__group-summary {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+
+  .channel-sidebar__channel-actions button,
+  .channel-sidebar__new-channel-confirm,
+  .channel-sidebar__new-channel-cancel,
+  .voice-participants__share-btn {
+    min-width: 36px;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .voice-participants {
+    padding-left: 20px;
+  }
+
+  .voice-participants__item {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+
+  .chat-area__header-info {
+    min-width: 0;
+  }
+
+  .chat-area__header-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-area__header-topic,
+  .chat-area__header-divider {
+    display: none;
+  }
+
+  .chat-area__body {
+    min-height: 0;
+    padding: 10px max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+
+  .chat-area__messages {
+    gap: 18px;
+  }
+
+  .chat-area__message,
+  .chat-area__message-group {
+    gap: 10px;
+  }
+
+  .chat-area__message-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .chat-area__message-text {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .chat-area__input-wrapper {
+    padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  }
+
+  .chat-area__input-bar {
+    gap: 2px;
+    padding: 5px;
+  }
+
+  .chat-area__input {
+    min-width: 0;
+    max-height: 112px;
+    padding: 10px 4px;
+    font-size: 16px;
+  }
+
+  .chat-area__input-action-btn {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .chat-area__compose-hint {
+    display: none;
+  }
+
+  .chat-area__gif-picker,
+  .chat-area__emoji-picker {
+    right: 0;
+    left: 0;
+    width: auto;
+    height: min(480px, calc(100dvh - 230px));
+    min-height: 260px;
+  }
+
+  .chat-area__emoji-picker-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .chat-area__gif-picker-grid {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .chat-area__welcome {
+    padding: 24px;
+    text-align: center;
+  }
+
+  .chat-area__welcome-title {
+    font-size: 21px;
+  }
+
+  .member-list,
+  .member-list--collapsed {
+    border-left: 0;
+  }
+
+  .member-list--collapsed {
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 20px;
+  }
+
+  .member-list__body {
+    padding-inline: max(10px, env(safe-area-inset-left));
+  }
+
+  .member-list__invite {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .member-list__item-actions,
+  .member-list__mobile-actions-btn,
+  .voice-participants__mobile-actions-btn {
+    display: flex;
+  }
+
+  .member-list__mobile-actions-btn,
+  .voice-participants__mobile-actions-btn {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .member-list__mobile-actions-btn .material-symbols-outlined,
+  .voice-participants__mobile-actions-btn .material-symbols-outlined {
+    font-size: 20px;
+  }
+
+  .member-list__role-badge {
+    max-width: 34%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .member-list__add-panel {
+    position: fixed;
+    top: calc(var(--mobile-banner-space) + var(--mobile-user-bar-space) + 62px);
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+    max-height: calc(100dvh - var(--mobile-banner-space) - var(--mobile-user-bar-space) - var(--mobile-nav-space) - 74px);
+    overflow-y: auto;
+  }
+
+  .user-bar {
+    top: calc(var(--mobile-banner-space) + max(6px, env(safe-area-inset-top)));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: auto;
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+  }
+
+  .discord-app--with-email-banner .user-bar {
+    top: calc(var(--mobile-banner-space) + 6px);
+  }
+
+  .user-bar__inner {
+    height: 58px;
+  }
+
+  .user-bar .channel-sidebar__user-dropdown {
+    top: calc(100% + 8px);
+    bottom: auto;
+    max-width: calc(100vw - 16px);
+  }
+
+  .user-bar .audio-settings-menu {
+    top: calc(100% + 10px);
+    right: 0;
+    bottom: auto;
+    left: auto;
+    width: min(280px, calc(100vw - 16px));
+    transform: none;
+  }
+
+  .mobile-app-nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 700;
+    min-height: var(--mobile-nav-space);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    padding: 5px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+    border-top: 1px solid var(--border-dark);
+    background: rgba(16, 25, 34, 0.97);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .mobile-app-nav__item {
+    min-width: 0;
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 650;
+  }
+
+  .mobile-app-nav__item .material-symbols-outlined {
+    font-size: 23px;
+  }
+
+  .mobile-app-nav__item--active {
+    background: rgba(43, 140, 238, 0.14);
+    color: var(--primary);
+  }
+
+  .mobile-app-nav__item:disabled {
+    opacity: 0.35;
+  }
+
+  .email-verify-banner {
+    top: 0;
+    min-height: var(--mobile-banner-space);
+    gap: 7px;
+    padding: max(7px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 7px max(8px, env(safe-area-inset-left));
+    font-size: 11px;
+  }
+
+  .email-verify-banner > .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  .email-verify-banner__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .email-verify-banner__action {
+    min-height: 36px;
+    padding-inline: 10px;
+  }
+
+  .notification-center__panel {
+    position: fixed;
+    top: calc(var(--mobile-banner-space) + var(--mobile-user-bar-space) + 8px);
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    max-height: calc(100dvh - var(--mobile-banner-space) - var(--mobile-user-bar-space) - var(--mobile-nav-space) - 16px);
+  }
+
+  .notification-center__delete {
+    width: 36px;
+    height: 36px;
+    opacity: 1;
+  }
+
+  .app-toast {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(var(--mobile-nav-space) + 10px);
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    transform: none;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .modal-overlay {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .modal {
+    align-self: center;
+    width: calc(100% - 24px);
+    max-width: 520px;
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .clan-settings {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    flex-direction: column;
+    border-radius: 0;
+  }
+
+  .clan-settings__sidebar {
+    width: 100%;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+
+  .clan-settings__sidebar-title {
+    margin: 0;
+  }
+
+  .clan-settings__nav {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .clan-settings__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clan-settings__nav-item {
+    min-height: 42px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .clan-settings__content {
+    min-height: 0;
+    padding: 18px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .clan-settings__header {
+    margin-bottom: 18px;
+  }
+
+  .clan-settings__close-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .clan-settings__member-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .clan-settings__member-info {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+
+  .clan-settings__member-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .clan-settings__role-select {
+    min-height: 42px;
+    max-width: 100%;
+  }
+
+  .account-settings__avatar-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .screenshare-viewer {
+    padding: 0;
+  }
+
+  .screenshare-viewer__window {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+  }
+
+  .screenshare-viewer__topbar {
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 24px max(10px, env(safe-area-inset-left));
+  }
+
+  .screenshare-viewer__topbar-title {
+    max-width: 45vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .screenshare-viewer__controls {
+    padding: 24px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .screenshare-viewer__volume-slider {
+    width: min(28vw, 100px);
+  }
+
+  .user-volume-ctx,
+  .member-ctx,
+  .chat-area__context-menu,
+  .user-profile-popup {
+    top: auto !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    bottom: calc(var(--mobile-nav-space) + 8px) !important;
+    left: max(8px, env(safe-area-inset-left)) !important;
+    width: auto;
+    max-width: none;
+  }
+
+  .user-volume-ctx__reset-btn,
+  .user-volume-ctx__kick-btn,
+  .member-ctx__action,
+  .chat-area__context-menu-item {
+    min-height: 44px;
+  }
+
+  .dm-call:not(.dm-call--sidebar) {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(var(--mobile-nav-space) + 10px);
+    left: max(10px, env(safe-area-inset-left));
+    width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .user-bar__inner {
+    padding-inline: 6px;
+  }
+
+  .channel-sidebar__user-info {
+    gap: 6px;
+  }
+
+  .channel-sidebar__user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .channel-sidebar__user-status {
+    display: none;
+  }
+
+  .channel-sidebar__user-action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chat-area__header {
+    padding-inline: 9px;
+  }
+
+  .chat-area__header-hash {
+    font-size: 20px;
+  }
+
+  .chat-area__header-name {
+    font-size: 14px;
+  }
+
+  .chat-area__input-action-btn {
+    width: 36px;
+    height: 40px;
+    flex-basis: 36px;
+  }
+
+  .chat-area__input-action-btn .material-symbols-outlined {
+    font-size: 21px;
+  }
+
+  .chat-area__emoji-picker-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .modal__actions,
+  .clan-settings__delete-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal__btn,
+  .clan-settings__delete-btn,
+  .clan-settings__cancel-btn,
+  .clan-settings__save-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (hover: none) {
+  .member-list__item-actions {
+    display: flex;
+  }
+
+  .member-list__item:hover .member-list__role-badge {
+    display: inline-flex;
+  }
+}

@@ -482,6 +482,7 @@
 
   .auth-card {
     gap: 1.1rem;
+    margin-block: 0;
     border-radius: 1rem;
     padding: 1.25rem;
   }
@@ -501,6 +502,44 @@
   .auth-form,
   .auth-form--register {
     gap: 0.9rem;
+  }
+
+  .auth-field__toggle-password {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  .auth-field__forgot {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+  }
+
+  .auth-submit {
+    min-height: 48px;
+  }
+}
+
+@media (max-height: 680px) and (max-width: 900px) {
+  .auth-card {
+    gap: 0.85rem;
+    padding-block: 1rem;
+  }
+
+  .auth-logo__image {
+    height: 54px;
+  }
+
+  .auth-header__title {
+    font-size: 1.4rem;
+  }
+
+  .auth-header__subtitle {
+    font-size: 0.82rem;
   }
 }
 
