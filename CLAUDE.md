@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Voxify** is a Discord-like desktop chat and voice communication app built with React + Tauri. Users form "clans" (server communities), join text and voice channels, and communicate via real-time messaging (SignalR) and WebRTC voice (LiveKit).
+**Voxify** is a Discord-like web chat and voice communication app built with React + Vite. This branch is browser-only. Users form "clans" (server communities), join text and voice channels, and communicate via real-time messaging (SignalR) and WebRTC voice (LiveKit).
 
 ## Development Commands
 
@@ -13,9 +13,7 @@ npm run dev          # Vite dev server at localhost:5173
 npm run build        # Production Vite build → dist/
 npm run lint         # ESLint
 npm run preview      # Preview built app
-
-npm run tauri:dev    # Launch Tauri desktop window (requires Rust toolchain)
-npm run tauri:build  # Build distributable desktop app
+npm run audit:prod   # Audit production dependencies
 ```
 
 ## Environment Variables
@@ -38,7 +36,7 @@ All are prefixed `VITE_` and defined in `.env`:
 
 [src/components/layout/MainLayout.jsx](src/components/layout/MainLayout.jsx) is the central hub — it holds selected clan/channel, voice presence maps, and online user IDs, and passes them down as props. It is the correct place to add any cross-cutting UI state.
 
-[src/contexts/AuthContext.jsx](src/contexts/AuthContext.jsx) provides JWT auth state globally (`user`, `token`, `isAuthenticated`). Access it via the `useAuth` hook. Tokens are stored in `localStorage`; refresh happens automatically on 401.
+[src/contexts/AuthContext.jsx](src/contexts/AuthContext.jsx) provides JWT auth state globally (`user`, `token`, `isAuthenticated`). Access it via the `useAuth` hook. Tokens are stored in tab-scoped `sessionStorage` through [src/utils/authStorage.js](src/utils/authStorage.js); refresh happens automatically on 401. Never move auth tokens back to `localStorage`.
 
 ### Service Layer
 
@@ -60,11 +58,11 @@ All API and real-time logic lives in [src/services/](src/services/):
 
 [src/App.jsx](src/App.jsx) defines routes. `/app/*` routes are wrapped by [ProtectedRoute.jsx](src/components/routes/ProtectedRoute.jsx), which redirects unauthenticated users to `/login`.
 
-### Tauri Desktop Integration
+### Browser Integration
 
-- Window decorations are disabled (`tauri.conf.json`); [TitleBar.jsx](src/components/layout/TitleBar.jsx) renders a custom drag handle with minimize/maximize/close.
-- Check `window.__TAURI__` before calling any Tauri API — the app also runs in a plain browser during `npm run dev`.
-- Autostart ([src/utils/autostart.js](src/utils/autostart.js)) only works inside Tauri builds.
+- Notifications use the Web Notifications API and require a user gesture for permission.
+- Voice and screen sharing require a secure context (`https://`) outside localhost.
+- Do not import Tauri APIs or packages in this branch. The dormant `src-tauri/` directory is not part of the web build.
 
 ### Permissions
 

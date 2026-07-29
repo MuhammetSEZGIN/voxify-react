@@ -1,4 +1,5 @@
 import api from './api';
+import { getAuthItem } from '../utils/authStorage';
 
 const VoiceService = {
   /**
@@ -18,8 +19,7 @@ const VoiceService = {
         ? `${normalizedBaseUrl}${roomPath}/clanId/${encodeURIComponent(clanId)}`
         : `${normalizedBaseUrl}${roomPath}`;
 
-      console.log(`[VoiceService] Joining room with URL: ${requestUrl}`);
-      const token = localStorage.getItem("token");
+      const token = getAuthItem("token");
 
       const response = await fetch(
         requestUrl,

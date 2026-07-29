@@ -8,41 +8,36 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "audit:prod": "npm audit --omit=dev"
+  },
+  "engines": {
+    "node": ">=22.22.0"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.20",
     "@livekit/components-styles": "^1.2.0",
     "@microsoft/signalr": "^10.0.0",
     "@sapphi-red/web-noise-suppressor": "^0.3.5",
-    "@tauri-apps/api": "2.11",
-    "@tauri-apps/cli": "2.11",
-    "@tauri-apps/plugin-autostart": "^2.5.1",
-    "@tauri-apps/plugin-notification": "^2.3.3",
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-shell": "^2.3.5",
-    "@tauri-apps/plugin-store": "^2.4.3",
-    "@tauri-apps/plugin-updater": "^2.10.1",
-    "axios": "^1.13.1",
+    "axios": "^1.18.1",
     "livekit-client": "^2.17.2",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.5"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/react": "^19.1.16",
-    "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-basic-ssl": "^2.2.0",
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^4.1.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
     "msw": "^2.12.10",
     "vite": "^7.1.7"
+  },
+  "overrides": {
+    "ws": "^7.5.13"
   },
   "msw": {
     "workerDirectory": [

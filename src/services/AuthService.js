@@ -12,7 +12,6 @@ async function login(userData) {
   try {
     const response = await api.post("/identity/login", userData);
     const result = response.data;
-    console.log("login data:", result);
 
     if (!result.isSuccessfull) {
       throw new Error(result.message || "Login failed");

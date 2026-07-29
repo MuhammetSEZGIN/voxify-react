@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useLayoutEffect, useState } from 'react';
+import { Link } from 'react-router';
 import AuthService from '../services/AuthService';
 import '../styles/auth.css';
 
 function ResetPasswordPage() {
-  const [searchParams] = useSearchParams();
-  const email = searchParams.get('email') || '';
-  const token = searchParams.get('token') || '';
+  const [{ email, token }] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return {
+      email: searchParams.get('email') || '',
+      token: searchParams.get('token') || '',
+    };
+  });
   const [newPassword, setNewPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +19,12 @@ function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
 
   const linkIsValid = Boolean(email && token);
+
+  useLayoutEffect(() => {
+    if (window.location.search || window.location.hash) {
+      window.history.replaceState(window.history.state, '', '/reset-password');
+    }
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -41,6 +51,8 @@ function ResetPasswordPage() {
         newPassword,
         newPasswordConfirmation: confirmation,
       });
+      setNewPassword('');
+      setConfirmation('');
       setSuccess(true);
     } catch (err) {
       setError(err.message);

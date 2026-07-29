@@ -1,13 +1,13 @@
 # Voxify - Real-Time Communication Platform (Frontend)
 
-This repository contains the frontend client for **Sesver**, a Discord-like real-time communication platform. It is a highly optimized, memory-friendly application built with **React** and **Vite**, designed to be fast, lightweight, and compatible with **Tauri**.
+This branch contains the web frontend for **Sesver**, a Discord-like real-time communication platform. It is built with React and Vite and is deployed as a browser-only SPA.
 
 > ⚙️ **Backend Repository:** You can find the microservices-based backend implementation here: [MuhammetSEZGIN/Voxify](https://github.com/MuhammetSEZGIN/Voxify)
 
 ## 🚀 Key Features
 
 - **Memory Friendly:** Architected specifically to minimize resource consumption and provide a smooth, lag-free user experience.
-- **Tauri Ready:** Built with future desktop application deployment in mind using Tauri.
+- **Browser Native:** Uses browser notifications, media devices, screen sharing, fullscreen and picture-in-picture APIs.
 - **Real-Time Integration:** Seamlessly connects with the backend via **SignalR** for real-time messaging and user presence tracking.
 - **Voice Communication:** Integrated with **LiveKit** client SDKs for high-quality audio streaming and voice channels.
 - **Fast Build Times:** Powered by **Vite** for lightning-fast HMR (Hot Module Replacement) and optimized production builds.
@@ -23,7 +23,7 @@ This repository contains the frontend client for **Sesver**, a Discord-like real
 ## ⚙️ Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v16 or higher recommended)
+- [Node.js](https://nodejs.org/) (v22.22 or higher)
 - `npm` or `yarn`
 
 ### Installation

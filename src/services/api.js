@@ -1,9 +1,16 @@
 import axios from "axios";
+import {
+  clearAuthSession,
+  getAuthItem,
+  setAuthItem,
+} from "../utils/authStorage";
 
 const API_URL = import.meta.env.VITE_BASE_URL || "http://localhost:5000";
+const API_TIMEOUT_MS = 15000;
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: API_TIMEOUT_MS,
   headers: {
     "Content-Type": "application/json",
   },
@@ -11,9 +18,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-
-    const token = localStorage.getItem("token");
+    const token = getAuthItem("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
@@ -26,33 +31,34 @@ api.interceptors.request.use(
 );
 
 function clearSessionAndRedirect() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("user");
-  window.location.href = "/login";
+  clearAuthSession();
+  window.location.replace("/login");
 }
 
 // Eşzamanlı 401'lerde tek bir refresh isteği paylaşılır.
 let refreshPromise = null;
 
 async function refreshAccessToken() {
-  const refreshToken = localStorage.getItem("refreshToken");
+  const refreshToken = getAuthItem("refreshToken");
   if (!refreshToken) {
     throw new Error("Refresh token yok");
   }
 
-  const rawUser = localStorage.getItem("user");
-  let userId = "";
-  try {
-    userId = rawUser ? JSON.parse(rawUser)?.id ?? "" : "";
-  } catch {
-    userId = "";
-  }
+  const rawUser = getAuthItem("user");
+  const userId = (() => {
+    try {
+      return rawUser ? JSON.parse(rawUser)?.id ?? "" : "";
+    } catch {
+      return "";
+    }
+  })();
 
   // Interceptor döngüsüne girmemek için ayrı, temiz bir axios örneği kullanılır.
   const response = await axios.post(`${API_URL}/identity/refresh-token`, {
     userId,
     refreshToken,
+  }, {
+    timeout: API_TIMEOUT_MS,
   });
 
   const result = response.data;
@@ -67,8 +73,8 @@ async function refreshAccessToken() {
     throw new Error("Refresh yanıtında token yok");
   }
 
-  localStorage.setItem("token", newToken);
-  if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
+  setAuthItem("token", newToken);
+  if (newRefreshToken) setAuthItem("refreshToken", newRefreshToken);
 
   return newToken;
 }
@@ -81,7 +87,7 @@ api.interceptors.response.use(
     if (response?.status === 401 && config && !config._retry) {
       // Refresh isteğinin kendisi 401 döndüyse tekrar denemeye çalışma.
       if (config.url?.includes("/identity/refresh-token")) {
-        console.error("Refresh token da geçersiz. Oturum kapatılıyor...");
+        console.warn("Refresh token geçersiz; oturum kapatılıyor.");
         clearSessionAndRedirect();
         return Promise.reject(error);
       }
@@ -98,8 +104,8 @@ api.interceptors.response.use(
 
         config.headers["Authorization"] = `Bearer ${newToken}`;
         return api(config);
-      } catch (refreshError) {
-        console.error("Token yenileme başarısız. Oturum kapatılıyor...", refreshError);
+      } catch {
+        console.warn("Token yenileme başarısız; oturum kapatılıyor.");
         clearSessionAndRedirect();
         return Promise.reject(error);
       }

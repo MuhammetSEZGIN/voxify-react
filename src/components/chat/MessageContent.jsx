@@ -1,9 +1,23 @@
 import { memo } from 'react';
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-const IMAGE_PATTERN = /\.(jpeg|jpg|gif|png|webp)$/;
-const VIDEO_PATTERN = /\.(mp4|webm|ogg)$/;
-const YOUTUBE_PATTERN = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n]+)/;
+const IMAGE_PATTERN = /\.(jpeg|jpg|gif|png|webp)(?:[?#].*)?$/;
+const VIDEO_PATTERN = /\.(mp4|webm|ogg)(?:[?#].*)?$/;
+
+function getYouTubeVideoId(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const candidate = host === 'youtu.be'
+      ? parsed.pathname.slice(1).split('/')[0]
+      : host === 'youtube.com' && parsed.pathname === '/watch'
+        ? parsed.searchParams.get('v')
+        : null;
+    return /^[A-Za-z0-9_-]{11}$/.test(candidate || '') ? candidate : null;
+  } catch {
+    return null;
+  }
+}
 
 function MessageContent({ content }) {
   if (!content) return null;
@@ -32,16 +46,19 @@ function MessageContent({ content }) {
       );
     }
 
-    const youtubeMatch = url.match(YOUTUBE_PATTERN);
-    if (youtubeMatch) {
+    const youtubeVideoId = getYouTubeVideoId(url);
+    if (youtubeVideoId) {
       return (
         <div key={index} className="chat-area__media-preview">
           <iframe
             className="chat-area__preview-youtube"
-            src={`https://www.youtube.com/embed/${youtubeMatch[1]}`}
+            src={`https://www.youtube-nocookie.com/embed/${youtubeVideoId}`}
             title="YouTube video player"
             frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="encrypted-media; picture-in-picture; fullscreen"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             allowFullScreen
           />
         </div>

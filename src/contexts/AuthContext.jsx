@@ -1,53 +1,25 @@
 import React, { createContext, useMemo, useState, useEffect, useCallback } from "react";
-import { LazyStore } from "@tauri-apps/plugin-store";
 import AuthService from "../services/AuthService";
 import UserService from "../services/UserService";
+import {
+  getAuthItem,
+  migrateLegacyAuthStorage,
+  removeAuthItem,
+  setAuthItem,
+} from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
-// AppData/Roaming/com.voxify.desktop/auth.json — installer tarafından silinmez
-const authStore = new LazyStore("auth.json", { autoSave: true });
-
-// Tauri store yalnızca gerçek Tauri runtime'ında çalışır; `npm run dev` gibi
-// düz tarayıcı ortamında window.__TAURI_INTERNALS__ yok, çağrı her zaman patlar.
-const isTauriRuntime = () =>
-  typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
-
-// Hem store hem localStorage'a yaz (servisler localStorage'dan okur)
 async function persistSet(key, value) {
-  const serialized = typeof value === "string" ? value : JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  if (!isTauriRuntime()) return;
-  try {
-    await authStore.set(key, value);
-  } catch (error) {
-    // localStorage yazımı başarılı oldu ama Tauri store diskte diverge etti —
-    // bir sonraki restart'ta persistGet localStorage'a düşer, ama en azından loglanmalı.
-    console.error(`[Auth] authStore.set("${key}") başarısız, localStorage ile senkron değil:`, error);
-  }
+  setAuthItem(key, value);
 }
 
 async function persistRemove(key) {
-  localStorage.removeItem(key);
-  if (!isTauriRuntime()) return;
-  try {
-    await authStore.delete(key);
-  } catch (error) {
-    console.error(`[Auth] authStore.delete("${key}") başarısız, localStorage ile senkron değil:`, error);
-  }
+  removeAuthItem(key);
 }
 
-// Store'dan oku; boşsa localStorage'a bak (update sonrası kurtarma)
 async function persistGet(key) {
-  if (isTauriRuntime()) {
-    try {
-      const storeVal = await authStore.get(key);
-      if (storeVal !== null && storeVal !== undefined) return storeVal;
-    } catch { /* ignore */ }
-  }
-  // Store boş/yok — localStorage'dan oku (ilk migration, kurtarma veya tarayıcı ortamı)
-  const lsVal = localStorage.getItem(key);
-  return lsVal ?? null;
+  return getAuthItem(key);
 }
 
 function decodeJwt(token) {
@@ -116,6 +88,7 @@ function AuthProvider({ children }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      migrateLegacyAuthStorage();
       const storedToken = await persistGet("token");
       const storedRefreshToken = await persistGet("refreshToken");
       const rawUser = await persistGet("user");
@@ -124,16 +97,7 @@ function AuthProvider({ children }) {
         : rawUser;
 
       if (!storedToken) {
-        setLoading(false);
         return;
-      }
-
-      // Store'da varsa localStorage'ı da güncelle (update sonrası kurtarma)
-      if (!localStorage.getItem("token")) {
-        localStorage.setItem("token", storedToken);
-        if (storedRefreshToken) localStorage.setItem("refreshToken", storedRefreshToken);
-        if (storedUser) localStorage.setItem("user", JSON.stringify(storedUser));
-        console.info("[Auth] Restored auth data from store to localStorage");
       }
 
       const decoded = decodeJwt(storedToken);
@@ -158,9 +122,8 @@ function AuthProvider({ children }) {
           refreshedUser = await hydrateUserProfile(refreshedUser);
           setUser(refreshedUser);
           await persistSet("user", refreshedUser);
-          console.info("[Auth] Token refreshed successfully");
-        } catch (error) {
-          console.error("[Auth] Token refresh failed, logging out:", error);
+        } catch {
+          console.warn("[Auth] Token yenilenemedi; oturum kapatılıyor.");
           await persistRemove("token");
           await persistRemove("refreshToken");
           await persistRemove("user");
@@ -168,7 +131,7 @@ function AuthProvider({ children }) {
           setUser(null);
         }
       } else if (isExpired) {
-        console.warn("[Auth] Token expired, no refresh token available");
+        console.warn("[Auth] Token süresi dolmuş; refresh token bulunamadı.");
         await persistRemove("token");
         await persistRemove("refreshToken");
         await persistRemove("user");
@@ -183,59 +146,56 @@ function AuthProvider({ children }) {
         if (hydratedUser) await persistSet("user", hydratedUser);
       }
 
-      setLoading(false);
     };
 
-    initAuth();
+    initAuth()
+      .catch((error) => {
+        console.warn('[Auth] Oturum başlangıç durumu yüklenemedi:', error.message);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (userName, password) => {
-    try {
-      const userData = { userName, password, deviceInfo: navigator.userAgent };
-      const data = await AuthService.login(userData);
-      const tkn = data.accessToken || data.token;
-      const rtkn = data.refreshToken;
+    const userData = { userName, password, deviceInfo: navigator.userAgent };
+    const data = await AuthService.login(userData);
+    const tkn = data.accessToken || data.token;
+    const rtkn = data.refreshToken;
 
-      if (!tkn || !decodeJwt(tkn)) {
-        throw new Error('Giriş yanıtında geçerli bir erişim tokenı bulunamadı.');
-      }
-
-      setToken(tkn);
-      await persistSet("token", tkn);
-      if (rtkn) await persistSet("refreshToken", rtkn);
-
-      const decoded = decodeJwt(tkn);
-      let nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
-      if (nextUser && data.userID) nextUser.id = data.userID;
-      if (nextUser && data.sessionId) nextUser.sessionId = data.sessionId;
-      nextUser = await hydrateUserProfile(nextUser);
-      setUser(nextUser);
-      if (nextUser) await persistSet("user", nextUser);
-    } catch (error) {
-      console.error("Login error", error);
-      throw error;
+    if (!tkn || !decodeJwt(tkn)) {
+      throw new Error('Giriş yanıtında geçerli bir erişim tokenı bulunamadı.');
     }
+
+    setToken(tkn);
+    await persistSet("token", tkn);
+    if (rtkn) await persistSet("refreshToken", rtkn);
+
+    const decoded = decodeJwt(tkn);
+    let nextUser = data.user ? mapClaimsToUser(data.user) : mapClaimsToUser(decoded);
+    if (nextUser && data.userID) nextUser.id = data.userID;
+    if (nextUser && data.sessionId) nextUser.sessionId = data.sessionId;
+    nextUser = await hydrateUserProfile(nextUser);
+    setUser(nextUser);
+    if (nextUser) await persistSet("user", nextUser);
   }, []);
 
   const register = useCallback(async (userData) => {
-    try {
-      const data = await AuthService.register(userData);
-      const tkn = data.accessToken || data.token;
-      const rtkn = data.refreshToken;
+    const data = await AuthService.register(userData);
+    const tkn = data.accessToken || data.token;
+    const rtkn = data.refreshToken;
 
-      setToken(tkn);
-      await persistSet("token", tkn);
-      if (rtkn) await persistSet("refreshToken", rtkn);
-
-      const decoded = decodeJwt(tkn);
-      const rawUser = data.user ?? decoded?.user ?? decoded;
-      const nextUser = await hydrateUserProfile(mapClaimsToUser(rawUser));
-      setUser(nextUser);
-      if (nextUser) await persistSet("user", nextUser);
-    } catch (error) {
-      console.error("Registration error", error);
-      throw error;
+    if (!tkn || !decodeJwt(tkn)) {
+      throw new Error('Kayıt yanıtında geçerli bir erişim tokenı bulunamadı.');
     }
+
+    setToken(tkn);
+    await persistSet("token", tkn);
+    if (rtkn) await persistSet("refreshToken", rtkn);
+
+    const decoded = decodeJwt(tkn);
+    const rawUser = data.user ?? decoded?.user ?? decoded;
+    const nextUser = await hydrateUserProfile(mapClaimsToUser(rawUser));
+    setUser(nextUser);
+    if (nextUser) await persistSet("user", nextUser);
   }, []);
 
   // Profil güncellemesi gibi backend'den dönen kısmi verilerle in-memory user'ı yeniler.
@@ -250,8 +210,8 @@ function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       if (user?.sessionId) await AuthService.logoutSession(user.sessionId);
-    } catch (error) {
-      console.error("Logout session error", error);
+    } catch {
+      console.warn("[Auth] Sunucu oturumu kapatılamadı; yerel oturum temizleniyor.");
     }
     await persistRemove("token");
     await persistRemove("refreshToken");
@@ -265,7 +225,7 @@ function AuthProvider({ children }) {
     [user, token, loading, login, register, logout, updateUser]
   );
 
-  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export { AuthProvider, AuthContext };

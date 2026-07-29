@@ -1,8 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
-
-const isTauriRuntime = () =>
-  typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__);
 
 /**
  * ScreenShareViewer
@@ -14,7 +10,6 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const containerRef = useRef(null);
-  const fullscreenRef = useRef(false);
   // Yayın sesi bağımsız — başlangıç 80% 
   const [screenVolume, setScreenVolume] = useState(80);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -22,15 +17,6 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   const [areControlsVisible, setAreControlsVisible] = useState(true);
 
   const setFullscreen = useCallback(async (fullscreen) => {
-    fullscreenRef.current = fullscreen;
-    if (isTauriRuntime()) {
-      // Şeffaf/çerçevesiz Tauri penceresini native fullscreen yapmak bazı
-      // WebView'larda çıkışta boş yüzey bırakıyor. Masaüstünde yalnızca viewer
-      // katmanını pencere boyutuna büyüt.
-      setIsFullscreen(fullscreen);
-      return;
-    }
-
     if (fullscreen) {
       await containerRef.current?.requestFullscreen();
     } else if (document.fullscreenElement) {
@@ -40,24 +26,13 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
 
   const toggleFullscreen = useCallback(async () => {
     try {
-      if (isTauriRuntime()) {
-        await setFullscreen(!fullscreenRef.current);
-      } else {
-        await setFullscreen(!document.fullscreenElement);
-      }
+      await setFullscreen(!document.fullscreenElement);
     } catch (err) {
       console.error(`Fullscreen hatası: ${err.message}`);
     }
   }, [setFullscreen]);
 
   const handleClose = useCallback(async () => {
-    if (isTauriRuntime()) {
-      fullscreenRef.current = false;
-      setIsFullscreen(false);
-      onClose?.();
-      return;
-    }
-
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
@@ -140,18 +115,13 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key !== 'Escape') return;
-      if (isTauriRuntime() && fullscreenRef.current) {
-        setFullscreen(false).catch((err) => {
-          console.warn('[ScreenShareViewer] Tam ekrandan çıkılamadı:', err);
-        });
-      } else if (!document.fullscreenElement) {
+      if (!document.fullscreenElement) {
         onClose?.();
       }
     };
 
     const handleFullscreenChange = () => {
       const fullscreen = !!document.fullscreenElement;
-      fullscreenRef.current = fullscreen;
       setIsFullscreen(fullscreen);
     };
 
@@ -177,32 +147,9 @@ function ScreenShareViewer({ share, onClose, isMicMuted, onToggleMic }) {
     };
   }, [onClose, setFullscreen]);
 
-  // Tauri penceresi kapatılıp tepsiye gönderilirken viewer state'ini temizle.
-  useEffect(() => {
-    if (!isTauriRuntime()) return undefined;
-
-    let disposed = false;
-    let unlistenWindowHide = null;
-    listen('voxify:window-hide', () => {
-      fullscreenRef.current = false;
-      setIsFullscreen(false);
-      onClose?.();
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlistenWindowHide = unlisten;
-    }).catch((error) => {
-      console.warn('[ScreenShareViewer] Pencere kapanış olayı dinlenemedi:', error);
-    });
-
-    return () => {
-      disposed = true;
-      unlistenWindowHide?.();
-    };
-  }, [onClose]);
-
   // Yayın tam ekrandayken sona ererse uygulama penceresini tam ekranda bırakma.
   useEffect(() => () => {
-    if (!isTauriRuntime() && document.fullscreenElement === containerRef.current) {
+    if (document.fullscreenElement === containerRef.current) {
       document.exitFullscreen().catch(() => {});
     }
   }, []);

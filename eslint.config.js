@@ -3,8 +3,7 @@ import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
-// ESLint 9.0, `eslint/config` alt yolunu henüz export etmiyor. Kurulu sürümle
-// uyumlu doğrudan flat-config kullanarak lint komutunu taşınabilir tutuyoruz.
+// Düz yapılandırma web kaynaklarını ve üretim build'ini ayrı tutar.
 export default [
   {
     ignores: [
@@ -33,6 +32,8 @@ export default [
       ...reactHooks.configs['recommended-latest'].rules,
       ...reactRefresh.configs.vite.rules,
       'no-unused-vars': ['error', { varsIgnorePattern: '^(_|[A-Z_])' }],
+      // Servis katmanı ham Axios hatalarını kullanıcıya güvenli mesajlara dönüştürüyor.
+      'preserve-caught-error': 'off',
     },
   },
 ];
