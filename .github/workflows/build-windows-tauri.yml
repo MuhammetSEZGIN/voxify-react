@@ -56,10 +56,8 @@ jobs:
             val="${line#*=}"
             if [ -z "$val" ]; then
               echo "$key -> EMPTY"
-            elif [[ "$key" == VITE_BASE_URL || "$key" == VITE_HUB_URL || "$key" == VITE_PRESENCE_HUB_URL || "$key" == VITE_LIVEKIT_URL || "$key" == VITE_VOICE_SERVER_URL ]]; then
-              echo "$key -> $val"
             else
-              echo "$key -> set (len=${#val})"
+              echo "$key -> len=${#val} starts_with_https=$([[ "$val" == https://* ]] && echo yes || echo no) has_app_prefix=$([[ "$val" == *"://app."* ]] && echo yes || echo no)"
             fi
           done < .env
 
