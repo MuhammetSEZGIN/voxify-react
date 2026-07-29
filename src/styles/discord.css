@@ -5783,3 +5783,628 @@ body {
     display: inline-flex;
   }
 }
+
+/* ============================
+   Account Settings — browser audio and permissions
+   ============================ */
+.account-settings {
+  width: min(94vw, 980px);
+  height: min(86vh, 760px);
+  border: 1px solid rgba(117, 161, 204, 0.16);
+  background:
+    radial-gradient(circle at 78% 0%, rgba(43, 140, 238, 0.09), transparent 34%),
+    var(--surface-dark);
+}
+
+.account-settings .clan-settings__sidebar {
+  width: 250px;
+  gap: 10px;
+  padding: 20px 14px;
+  border-right: 1px solid rgba(117, 161, 204, 0.12);
+  background: linear-gradient(180deg, #0d1722 0%, #101922 100%);
+}
+
+.account-settings__sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(117, 161, 204, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.account-settings__sidebar-avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--primary), #35e6d0);
+  color: #fff;
+  font-weight: 800;
+}
+
+.account-settings__sidebar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-settings__sidebar-profile > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.account-settings__sidebar-profile strong,
+.account-settings__sidebar-profile span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-settings__sidebar-profile strong {
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+.account-settings__sidebar-profile span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.account-settings .clan-settings__nav-item {
+  min-height: 42px;
+  padding-inline: 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+.account-settings .clan-settings__nav-item--active {
+  border-color: rgba(43, 140, 238, 0.26);
+  background: linear-gradient(90deg, rgba(43, 140, 238, 0.2), rgba(53, 230, 208, 0.07));
+  color: #f4f8fc;
+}
+
+.account-settings__nav-divider {
+  height: 1px;
+  margin: 8px 8px 3px;
+  background: rgba(117, 161, 204, 0.13);
+}
+
+.account-settings__nav-label {
+  padding: 0 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-settings .clan-settings__content {
+  padding: 28px 34px 34px;
+}
+
+.account-settings .clan-settings__header {
+  align-items: flex-start;
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(117, 161, 204, 0.12);
+}
+
+.account-settings__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #4da4ff;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.account-settings__header-description {
+  max-width: 560px;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.account-settings__audio-section {
+  gap: 18px;
+}
+
+.account-settings__permission-section,
+.account-settings__audio-card {
+  padding: 18px;
+  border: 1px solid rgba(117, 161, 204, 0.13);
+  border-radius: 14px;
+  background: rgba(8, 16, 25, 0.54);
+}
+
+.account-settings__section-heading,
+.account-settings__section-heading > div {
+  display: flex;
+  align-items: center;
+}
+
+.account-settings__section-heading {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.account-settings__section-heading > div {
+  min-width: 0;
+  gap: 10px;
+}
+
+.account-settings__section-heading > div > .material-symbols-outlined {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(43, 140, 238, 0.13);
+  color: #58adff;
+  font-size: 20px;
+}
+
+.account-settings__section-heading h3,
+.account-settings__section-heading p {
+  margin: 0;
+}
+
+.account-settings__section-heading h3 {
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.account-settings__section-heading p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.account-settings__refresh-button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid rgba(117, 161, 204, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-settings__refresh-button:hover {
+  border-color: rgba(43, 140, 238, 0.36);
+  color: var(--text-light);
+}
+
+.account-settings__refresh-button .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.account-settings__permission-grid,
+.account-settings__audio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-settings__permission-card {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid rgba(117, 161, 204, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.account-settings__permission-card-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(53, 230, 208, 0.1);
+  color: #45ddca;
+}
+
+.account-settings__permission-card-icon--notification {
+  background: rgba(125, 102, 255, 0.12);
+  color: #9d8cff;
+}
+
+.account-settings__permission-card-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-settings__permission-card-copy > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.account-settings__permission-card-copy strong {
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+.account-settings__permission-card-copy p {
+  margin: 7px 0 10px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.account-settings__permission-card-copy button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid rgba(43, 140, 238, 0.3);
+  border-radius: 8px;
+  background: rgba(43, 140, 238, 0.12);
+  color: #73baff;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.account-settings__permission-card-copy button:hover {
+  background: rgba(43, 140, 238, 0.2);
+}
+
+.account-settings__permission-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.account-settings__permission-status--granted {
+  background: rgba(52, 199, 128, 0.12);
+  color: #58d99b;
+}
+
+.account-settings__permission-status--denied {
+  background: rgba(240, 71, 71, 0.12);
+  color: #ff7b7b;
+}
+
+.account-settings__permission-status--pending,
+.account-settings__permission-status--unknown {
+  background: rgba(255, 181, 71, 0.1);
+  color: #ffc56e;
+}
+
+.account-settings__permission-feedback,
+.account-settings__privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  color: #aab9c8;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.account-settings__permission-feedback .material-symbols-outlined,
+.account-settings__privacy-note .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: #58adff;
+  font-size: 17px;
+}
+
+.account-settings__browser-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 181, 71, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 181, 71, 0.055);
+}
+
+.account-settings__browser-help > .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: #ffc56e;
+  font-size: 20px;
+}
+
+.account-settings__browser-help strong {
+  color: #f6d39d;
+  font-size: 11px;
+}
+
+.account-settings__browser-help p {
+  margin: 4px 0 0;
+  color: #aeb9c4;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.account-settings__audio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.account-settings__select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 34px 9px 11px;
+  border: 1px solid var(--border-dark);
+  border-radius: 9px;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.account-settings__select:focus {
+  border-color: var(--primary);
+}
+
+.account-settings__device-note {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.account-settings__volume-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-settings__volume-field > div {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.account-settings__volume-field strong {
+  color: #65b6ff;
+}
+
+.account-settings__setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(117, 161, 204, 0.1);
+  cursor: pointer;
+}
+
+.account-settings__setting-row > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.account-settings__setting-row strong {
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.account-settings__setting-row small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.account-settings__setting-row input {
+  position: relative;
+  width: 44px;
+  height: 25px;
+  flex: 0 0 44px;
+  appearance: none;
+  border-radius: 999px;
+  background: #263544;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.account-settings__setting-row input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #92a0ae;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.account-settings__setting-row input:checked {
+  background: rgba(43, 140, 238, 0.72);
+}
+
+.account-settings__setting-row input:checked::after {
+  transform: translateX(19px);
+  background: #fff;
+}
+
+.audio-settings-menu__permission {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 9px;
+  border: 1px solid rgba(117, 161, 204, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.audio-settings-menu__permission > div,
+.audio-settings-menu__permission > div > span:last-child {
+  display: flex;
+}
+
+.audio-settings-menu__permission > div {
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-settings-menu__permission > div > .material-symbols-outlined {
+  color: #53e1cf;
+  font-size: 20px;
+}
+
+.audio-settings-menu__permission > div > span:last-child {
+  min-width: 0;
+  flex-direction: column;
+}
+
+.audio-settings-menu__permission strong {
+  color: var(--text-light);
+  font-size: 11px;
+}
+
+.audio-settings-menu__permission small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.audio-settings-menu__permission button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid rgba(43, 140, 238, 0.3);
+  border-radius: 7px;
+  background: rgba(43, 140, 238, 0.12);
+  color: #72baff;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.audio-settings-menu__permission-error {
+  margin: -4px 0 10px;
+  color: #ff9090;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .account-settings {
+    height: 100%;
+  }
+
+  .account-settings .clan-settings__sidebar {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    gap: 4px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+    border-right: 0;
+    border-bottom: 1px solid rgba(117, 161, 204, 0.12);
+  }
+
+  .account-settings__sidebar-profile,
+  .account-settings .clan-settings__sidebar-title,
+  .account-settings__nav-divider,
+  .account-settings__nav-label {
+    display: none;
+  }
+
+  .account-settings .clan-settings__nav {
+    gap: 5px;
+  }
+
+  .account-settings .clan-settings__nav-item {
+    min-height: 44px;
+    padding: 8px 11px;
+    border-radius: 10px;
+  }
+
+  .account-settings .clan-settings__content {
+    padding: 16px max(14px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+
+  .account-settings .clan-settings__header {
+    position: sticky;
+    top: -16px;
+    z-index: 3;
+    margin-bottom: 18px;
+    padding: 14px 0 13px;
+    background: var(--surface-dark);
+  }
+
+  .account-settings__header-description {
+    max-width: calc(100vw - 94px);
+  }
+
+  .account-settings__permission-grid,
+  .account-settings__audio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-settings__permission-section,
+  .account-settings__audio-card {
+    padding: 15px;
+  }
+
+  .account-settings__permission-card-copy button,
+  .account-settings__refresh-button {
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 520px) {
+  .account-settings__section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-settings__refresh-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .account-settings .clan-settings__nav-item {
+    gap: 6px;
+    padding-inline: 9px;
+    font-size: 12px;
+  }
+
+  .account-settings .clan-settings__nav-item .material-symbols-outlined {
+    font-size: 19px;
+  }
+
+  .account-settings__permission-card {
+    flex-direction: column;
+  }
+
+  .account-settings__permission-card-copy > div {
+    align-items: flex-start;
+  }
+}

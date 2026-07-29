@@ -1,3 +1,8 @@
+export async function getDesktopNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
 export async function requestDesktopNotificationPermission() {
   try {
     if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';

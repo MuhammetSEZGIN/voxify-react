@@ -1,9 +1,86 @@
 import React, { useEffect, useState } from 'react';
 import UserService from '../../services/UserService';
 import ImgBBService from '../../services/ImgBBService';
+import useAudioDevices from '../../hooks/useAudioDevices';
+import VolumeSlider from '../layout/VolumeSlider';
+import {
+  getMessageNotificationsMuted,
+  setMessageNotificationsMuted,
+} from '../../utils/messageNotifications';
+import {
+  getDesktopNotificationPermission,
+  requestDesktopNotificationPermission,
+} from '../../utils/desktopNotifications';
 
-function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }) {
+const TAB_DETAILS = {
+  profile: {
+    icon: 'person',
+    label: 'Profil',
+    title: 'Profil',
+    description: 'Voxify’da diğer kullanıcıların seni nasıl gördüğünü düzenle.',
+  },
+  email: {
+    icon: 'mail',
+    label: 'E-posta',
+    title: 'E-posta ve Doğrulama',
+    description: 'Hesabının iletişim adresini ve doğrulama durumunu yönet.',
+  },
+  password: {
+    icon: 'shield_lock',
+    label: 'Güvenlik',
+    title: 'Güvenlik',
+    description: 'Hesabını korumak için güçlü ve benzersiz bir şifre kullan.',
+  },
+  audio: {
+    icon: 'tune',
+    label: 'Ses ve İzinler',
+    title: 'Ses ve İzinler',
+    description: 'Tarayıcı izinlerini, mikrofonu, hoparlörü ve ses tercihlerini yönet.',
+  },
+};
+
+const PERMISSION_DETAILS = {
+  granted: { label: 'İzin verildi', tone: 'granted' },
+  denied: { label: 'İzin kapalı', tone: 'denied' },
+  prompt: { label: 'İzin gerekli', tone: 'pending' },
+  default: { label: 'İzin gerekli', tone: 'pending' },
+  unknown: { label: 'Kontrol edilemedi', tone: 'unknown' },
+  unsupported: { label: 'Desteklenmiyor', tone: 'unknown' },
+};
+
+function AccountSettings({
+  user,
+  onClose,
+  onProfileUpdated,
+  initialTab = 'profile',
+  audioSettings = {},
+}) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const {
+    inputVolume = 100,
+    setInputVolume = () => {},
+    outputVolume = 100,
+    setOutputVolume = () => {},
+    selectedInputDevice = '',
+    setSelectedInputDevice = () => {},
+    selectedOutputDevice = '',
+    setSelectedOutputDevice = () => {},
+    noiseSuppressionEnabled = true,
+    setNoiseSuppressionEnabled = () => {},
+  } = audioSettings;
+  const {
+    inputDevices,
+    outputDevices,
+    microphonePermission,
+    permissionError: microphonePermissionError,
+    refreshPermission: refreshMicrophonePermission,
+    requestPermission: requestMicrophonePermission,
+  } = useAudioDevices();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    () => !getMessageNotificationsMuted()
+  );
+  const [notificationPermission, setNotificationPermission] = useState('unknown');
+  const [permissionFeedback, setPermissionFeedback] = useState(null);
 
   // Profil sekmesi
   const [userName, setUserName] = useState(user?.userName || '');
@@ -28,6 +105,20 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState(null);
   const [emailSent, setEmailSent] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const syncNotificationPermission = async () => {
+      const permission = await getDesktopNotificationPermission();
+      if (!cancelled) setNotificationPermission(permission);
+    };
+    syncNotificationPermission();
+    window.addEventListener('focus', syncNotificationPermission);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', syncNotificationPermission);
+    };
+  }, []);
 
   // JWT yalnızca temel claim'leri taşır; profil modalı açıldığında biyografi,
   // avatar ve e-posta gibi alanları gerçek `/me` kaynağından eşitle.
@@ -152,44 +243,103 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
     }
   };
 
+  const handleRequestMicrophone = async () => {
+    setPermissionFeedback(null);
+    await requestMicrophonePermission();
+  };
+
+  const handleRequestNotifications = async () => {
+    setPermissionFeedback(null);
+    const permission = await requestDesktopNotificationPermission();
+    setNotificationPermission(permission);
+    if (permission !== 'granted') {
+      setPermissionFeedback(
+        'Bildirim izni açılmadı. Adres çubuğundaki site ayarlarından Bildirimler iznini açabilirsin.'
+      );
+    }
+  };
+
+  const handleNotificationsChange = (enabled) => {
+    setMessageNotificationsMuted(!enabled);
+    setNotificationsEnabled(enabled);
+  };
+
+  const handleRefreshPermissions = async () => {
+    setPermissionFeedback(null);
+    await refreshMicrophonePermission();
+    setNotificationPermission(await getDesktopNotificationPermission());
+  };
+
+  const activeTabDetails = TAB_DETAILS[activeTab] || TAB_DETAILS.profile;
+  const microphoneStatus = PERMISSION_DETAILS[microphonePermission]
+    || PERMISSION_DETAILS.unknown;
+  const notificationStatus = PERMISSION_DETAILS[notificationPermission]
+    || PERMISSION_DETAILS.unknown;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="clan-settings" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="clan-settings account-settings"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-settings-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="clan-settings__sidebar">
-          <h3 className="clan-settings__sidebar-title">Hesabım</h3>
+          <div className="account-settings__sidebar-profile">
+            <div className="account-settings__sidebar-avatar">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" />
+              ) : (
+                user?.userName?.charAt(0)?.toUpperCase() || '?'
+              )}
+            </div>
+            <div>
+              <strong>{user?.userName || 'Voxify kullanıcısı'}</strong>
+              <span>Hesap ayarları</span>
+            </div>
+          </div>
+          <h3 className="clan-settings__sidebar-title">Hesap</h3>
           <nav className="clan-settings__nav">
+            {['profile', 'email', 'password'].map((tabId) => (
+              <button
+                key={tabId}
+                type="button"
+                className={`clan-settings__nav-item ${activeTab === tabId ? 'clan-settings__nav-item--active' : ''}`}
+                onClick={() => setActiveTab(tabId)}
+              >
+                <span className="material-symbols-outlined">{TAB_DETAILS[tabId].icon}</span>
+                {TAB_DETAILS[tabId].label}
+              </button>
+            ))}
+            <span className="account-settings__nav-divider" aria-hidden="true" />
+            <span className="account-settings__nav-label">Uygulama</span>
             <button
-              className={`clan-settings__nav-item ${activeTab === 'profile' ? 'clan-settings__nav-item--active' : ''}`}
-              onClick={() => setActiveTab('profile')}
+              type="button"
+              className={`clan-settings__nav-item ${activeTab === 'audio' ? 'clan-settings__nav-item--active' : ''}`}
+              onClick={() => setActiveTab('audio')}
             >
-              <span className="material-symbols-outlined">person</span>
-              Profil
-            </button>
-            <button
-              className={`clan-settings__nav-item ${activeTab === 'password' ? 'clan-settings__nav-item--active' : ''}`}
-              onClick={() => setActiveTab('password')}
-            >
-              <span className="material-symbols-outlined">lock</span>
-              Şifre
-            </button>
-            <button
-              className={`clan-settings__nav-item ${activeTab === 'email' ? 'clan-settings__nav-item--active' : ''}`}
-              onClick={() => setActiveTab('email')}
-            >
-              <span className="material-symbols-outlined">mail</span>
-              E-posta Doğrulama
+              <span className="material-symbols-outlined">{TAB_DETAILS.audio.icon}</span>
+              {TAB_DETAILS.audio.label}
             </button>
           </nav>
         </div>
 
         <div className="clan-settings__content">
           <div className="clan-settings__header">
-            <h2 className="clan-settings__title">
-              {activeTab === 'profile' && 'Profil'}
-              {activeTab === 'password' && 'Şifre Değiştir'}
-              {activeTab === 'email' && 'E-posta Doğrulama'}
-            </h2>
-            <button className="clan-settings__close-btn" onClick={onClose}>
+            <div>
+              <span className="account-settings__eyebrow">AYARLAR</span>
+              <h2 id="account-settings-title" className="clan-settings__title">
+                {activeTabDetails.title}
+              </h2>
+              <p className="account-settings__header-description">{activeTabDetails.description}</p>
+            </div>
+            <button
+              type="button"
+              className="clan-settings__close-btn"
+              onClick={onClose}
+              aria-label="Ayarları kapat"
+            >
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
@@ -380,6 +530,191 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
                       : 'Doğrulama E-postasını Yeniden Gönder'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {activeTab === 'audio' && (
+            <div className="clan-settings__section account-settings__audio-section">
+              <section className="account-settings__permission-section" aria-labelledby="browser-permissions-title">
+                <div className="account-settings__section-heading">
+                  <div>
+                    <span className="material-symbols-outlined" aria-hidden="true">verified_user</span>
+                    <div>
+                      <h3 id="browser-permissions-title">Tarayıcı izinleri</h3>
+                      <p>Voxify izinleri yalnızca ilgili düğmeye bastığında ister.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="account-settings__refresh-button"
+                    onClick={handleRefreshPermissions}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+                    Yeniden denetle
+                  </button>
+                </div>
+
+                <div className="account-settings__permission-grid">
+                  <article className="account-settings__permission-card">
+                    <div className="account-settings__permission-card-icon">
+                      <span className="material-symbols-outlined" aria-hidden="true">mic</span>
+                    </div>
+                    <div className="account-settings__permission-card-copy">
+                      <div>
+                        <strong>Mikrofon</strong>
+                        <span className={`account-settings__permission-status account-settings__permission-status--${microphoneStatus.tone}`}>
+                          {microphoneStatus.label}
+                        </span>
+                      </div>
+                      <p>Ses kanallarında konuşmak için kullanılır. Ses verisi tarayıcı izni olmadan alınamaz.</p>
+                      {!['granted', 'unsupported'].includes(microphonePermission) && (
+                        <button type="button" onClick={handleRequestMicrophone}>
+                          {microphonePermission === 'denied' ? 'İzni yeniden dene' : 'Mikrofon izni iste'}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+
+                  <article className="account-settings__permission-card">
+                    <div className="account-settings__permission-card-icon account-settings__permission-card-icon--notification">
+                      <span className="material-symbols-outlined" aria-hidden="true">notifications</span>
+                    </div>
+                    <div className="account-settings__permission-card-copy">
+                      <div>
+                        <strong>Masaüstü bildirimleri</strong>
+                        <span className={`account-settings__permission-status account-settings__permission-status--${notificationStatus.tone}`}>
+                          {notificationStatus.label}
+                        </span>
+                      </div>
+                      <p>Sekme arka plandayken yeni mesajları işletim sistemi bildirimi olarak gösterir.</p>
+                      {!['granted', 'unsupported'].includes(notificationPermission) && (
+                        <button type="button" onClick={handleRequestNotifications}>
+                          {notificationPermission === 'denied' ? 'İzni yeniden dene' : 'Bildirim izni iste'}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                </div>
+
+                {(microphonePermissionError || permissionFeedback) && (
+                  <p className="account-settings__permission-feedback" role="status">
+                    <span className="material-symbols-outlined" aria-hidden="true">info</span>
+                    {microphonePermissionError || permissionFeedback}
+                  </p>
+                )}
+
+                <div className="account-settings__browser-help">
+                  <span className="material-symbols-outlined" aria-hidden="true">page_info</span>
+                  <div>
+                    <strong>İzin penceresi görünmüyorsa</strong>
+                    <p>
+                      Adres çubuğundaki site bilgileri veya kilit simgesini aç; Mikrofon ve
+                      Bildirimler seçeneklerini “İzin ver” yap. Ardından bu sayfaya dönüp
+                      “Yeniden denetle” düğmesine bas.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <div className="account-settings__audio-grid">
+                <section className="account-settings__audio-card" aria-labelledby="input-settings-title">
+                  <div className="account-settings__section-heading">
+                    <div>
+                      <span className="material-symbols-outlined" aria-hidden="true">graphic_eq</span>
+                      <div>
+                        <h3 id="input-settings-title">Mikrofon</h3>
+                        <p>Giriş aygıtı ve ses işleme</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="clan-settings__field">
+                    <span className="clan-settings__label">Giriş aygıtı</span>
+                    <select
+                      className="account-settings__select"
+                      value={selectedInputDevice}
+                      onChange={(event) => setSelectedInputDevice(event.target.value)}
+                    >
+                      <option value="">Sistem varsayılanı</option>
+                      {inputDevices.map((device) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Mikrofon ${device.deviceId.slice(0, 5)}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="account-settings__volume-field">
+                    <div><span>Giriş sesi</span><strong>%{inputVolume}</strong></div>
+                    <VolumeSlider value={inputVolume} onChange={setInputVolume} />
+                  </div>
+
+                  <label className="account-settings__setting-row">
+                    <span>
+                      <strong>AI gürültü izolasyonu</strong>
+                      <small>Klavye, fan ve arka plan seslerini azaltır.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={noiseSuppressionEnabled}
+                      onChange={(event) => setNoiseSuppressionEnabled(event.target.checked)}
+                    />
+                  </label>
+                </section>
+
+                <section className="account-settings__audio-card" aria-labelledby="output-settings-title">
+                  <div className="account-settings__section-heading">
+                    <div>
+                      <span className="material-symbols-outlined" aria-hidden="true">headphones</span>
+                      <div>
+                        <h3 id="output-settings-title">Hoparlör</h3>
+                        <p>Çıkış aygıtı ve uygulama uyarıları</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="clan-settings__field">
+                    <span className="clan-settings__label">Çıkış aygıtı</span>
+                    <select
+                      className="account-settings__select"
+                      value={selectedOutputDevice}
+                      onChange={(event) => setSelectedOutputDevice(event.target.value)}
+                    >
+                      <option value="">Sistem varsayılanı</option>
+                      {outputDevices.map((device) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Hoparlör ${device.deviceId.slice(0, 5)}`}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="account-settings__device-note">
+                      Bazı tarayıcılar çıkış aygıtı seçimini desteklemez; bu durumda sistem varsayılanı kullanılır.
+                    </small>
+                  </label>
+
+                  <div className="account-settings__volume-field">
+                    <div><span>Çıkış sesi</span><strong>%{outputVolume}</strong></div>
+                    <VolumeSlider value={outputVolume} onChange={setOutputVolume} />
+                  </div>
+
+                  <label className="account-settings__setting-row">
+                    <span>
+                      <strong>Mesaj uyarıları</strong>
+                      <small>Uygulama içi sesi ve izin verildiyse masaüstü bildirimini açar.</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={notificationsEnabled}
+                      onChange={(event) => handleNotificationsChange(event.target.checked)}
+                    />
+                  </label>
+                </section>
+              </div>
+
+              <p className="account-settings__privacy-note">
+                <span className="material-symbols-outlined" aria-hidden="true">lock</span>
+                Voxify kamera, konum veya dosya izni istemez. Mikrofon yalnızca ses özelliğini kullandığında açılır.
+              </p>
             </div>
           )}
         </div>

@@ -1,11 +1,14 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import useAudioDevices from '../../hooks/useAudioDevices';
 import VolumeSlider from './VolumeSlider';
-import {
-  getMessageNotificationsMuted,
-  setMessageNotificationsMuted,
-} from '../../utils/messageNotifications';
-import { requestDesktopNotificationPermission } from '../../utils/desktopNotifications';
+
+const PERMISSION_LABELS = {
+  granted: 'İzin verildi',
+  denied: 'İzin kapalı',
+  prompt: 'İzin gerekli',
+  unknown: 'Durum bilinmiyor',
+  unsupported: 'Desteklenmiyor',
+};
 
 /**
  * UserBar — sol alt köşede floating duran, sayfadan bağımsız kullanıcı çubuğu.
@@ -32,10 +35,29 @@ const MicSettingsMenu = memo(function MicSettingsMenu({
   onInputVolumeChange,
   noiseSuppressionEnabled,
   onNoiseSuppressionChange,
+  microphonePermission,
+  permissionError,
+  onRequestPermission,
 }) {
+  const permissionLabel = PERMISSION_LABELS[microphonePermission] || PERMISSION_LABELS.unknown;
+
   return (
     <div className="audio-settings-menu audio-settings-menu--mic">
       <h4 className="audio-settings-menu__title">Giriş Ayarları</h4>
+
+      <div className="audio-settings-menu__permission">
+        <div>
+          <span className="material-symbols-outlined" aria-hidden="true">mic</span>
+          <span>
+            <strong>Mikrofon erişimi</strong>
+            <small>{permissionLabel}</small>
+          </span>
+        </div>
+        {!['granted', 'unsupported'].includes(microphonePermission) && (
+          <button type="button" onClick={onRequestPermission}>İzin iste</button>
+        )}
+      </div>
+      {permissionError && <p className="audio-settings-menu__permission-error">{permissionError}</p>}
 
       <label className="audio-settings-menu__label" htmlFor="user-bar-input-device">
         Giriş Aygıtı
@@ -78,8 +100,6 @@ const OutputSettingsMenu = memo(function OutputSettingsMenu({
   onSelectOutputDevice,
   outputVolume,
   onOutputVolumeChange,
-  notificationsEnabled,
-  onNotificationsChange,
 }) {
   return (
     <div className="audio-settings-menu audio-settings-menu--headphone">
@@ -104,15 +124,6 @@ const OutputSettingsMenu = memo(function OutputSettingsMenu({
 
       <label className="audio-settings-menu__label">Çıkış Sesi — {outputVolume}%</label>
       <VolumeSlider value={outputVolume} onChange={onOutputVolumeChange} />
-
-      <label className="audio-settings-menu__checkbox">
-        <input
-          type="checkbox"
-          checked={notificationsEnabled}
-          onChange={(e) => onNotificationsChange(e.target.checked)}
-        />
-        Mesaj bildirimleri
-      </label>
     </div>
   );
 });
@@ -123,10 +134,18 @@ const UserMenu = memo(function UserMenu({ onOpenAccountSettings, onLogout }) {
       <button
         type="button"
         className="channel-sidebar__user-dropdown-item channel-sidebar__user-dropdown-item--neutral"
-        onClick={onOpenAccountSettings}
+        onClick={() => onOpenAccountSettings('profile')}
       >
         <span className="material-symbols-outlined">person</span>
-        Profil ve Ayarlar
+        Profil ve Hesap
+      </button>
+      <button
+        type="button"
+        className="channel-sidebar__user-dropdown-item channel-sidebar__user-dropdown-item--neutral"
+        onClick={() => onOpenAccountSettings('audio')}
+      >
+        <span className="material-symbols-outlined">tune</span>
+        Ses ve İzinler
       </button>
       <button type="button" className="channel-sidebar__user-dropdown-item" onClick={onLogout}>
         <span className="material-symbols-outlined">logout</span>
@@ -157,10 +176,13 @@ function UserBar({
 }) {
   // Aynı anda en fazla bir menü açık: 'mic' | 'output' | 'user' | null
   const [openMenu, setOpenMenu] = useState(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(
-    () => !getMessageNotificationsMuted()
-  );
-  const { inputDevices, outputDevices, requestPermission } = useAudioDevices();
+  const {
+    inputDevices,
+    outputDevices,
+    microphonePermission,
+    permissionError,
+    requestPermission,
+  } = useAudioDevices();
   const rootRef = useRef(null);
 
   // Dinleyiciyi sadece bir menü açıkken bağla — kapalıyken her mousedown'da
@@ -187,30 +209,11 @@ function UserBar({
     setOpenMenu((prev) => (prev === menu ? null : menu));
   }, []);
 
-  const handleOpenMicSettings = useCallback(async () => {
-    const willOpen = openMenu !== 'mic';
-    toggleMenu('mic');
-    // Etiketler ancak izin verildikten sonra dolar; menüyü açarken bir kez iste.
-    if (willOpen && !inputDevices.some((d) => d.label)) {
-      await requestPermission();
-    }
-  }, [openMenu, toggleMenu, inputDevices, requestPermission]);
+  const handleOpenMicSettings = useCallback(() => toggleMenu('mic'), [toggleMenu]);
 
-  const handleNotificationsChange = useCallback(async (enabled) => {
-    setMessageNotificationsMuted(!enabled);
-    setNotificationsEnabled(enabled);
-    if (enabled) {
-      const permission = await requestDesktopNotificationPermission();
-      if (permission !== 'granted') {
-        setMessageNotificationsMuted(true);
-        setNotificationsEnabled(false);
-      }
-    }
-  }, []);
-
-  const handleOpenAccountSettings = useCallback(() => {
+  const handleOpenAccountSettings = useCallback((tab = 'profile') => {
     setOpenMenu(null);
-    onOpenAccountSettings?.();
+    onOpenAccountSettings?.(tab);
   }, [onOpenAccountSettings]);
 
   const handleLogout = useCallback(() => {
@@ -293,6 +296,9 @@ function UserBar({
                 onInputVolumeChange={setInputVolume}
                 noiseSuppressionEnabled={noiseSuppressionEnabled}
                 onNoiseSuppressionChange={setNoiseSuppressionEnabled}
+                microphonePermission={microphonePermission}
+                permissionError={permissionError}
+                onRequestPermission={requestPermission}
               />
             )}
           </div>
@@ -328,8 +334,6 @@ function UserBar({
                 onSelectOutputDevice={setSelectedOutputDevice}
                 outputVolume={outputVolume}
                 onOutputVolumeChange={setOutputVolume}
-                notificationsEnabled={notificationsEnabled}
-                onNotificationsChange={handleNotificationsChange}
               />
             )}
           </div>

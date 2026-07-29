@@ -1,4 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+const VOICE_PREFERENCES_KEY = 'voxify.voicePreferences';
+
+function getStoredPreference(key, fallback) {
+  try {
+    const preferences = JSON.parse(localStorage.getItem(VOICE_PREFERENCES_KEY) || '{}');
+    return preferences[key] ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 const EMPTY_VOLUME_MENU = {
   visible: false,
@@ -11,15 +22,41 @@ const EMPTY_VOLUME_MENU = {
  * Uygulama genelindeki ses tercihlerini ve kullanıcı ses menüsünü yönetir.
  */
 export default function useVoicePreferences(showToast) {
-  const [inputVolume, setInputVolume] = useState(100);
-  const [outputVolume, setOutputVolume] = useState(100);
+  const [inputVolume, setInputVolume] = useState(() => getStoredPreference('inputVolume', 100));
+  const [outputVolume, setOutputVolume] = useState(() => getStoredPreference('outputVolume', 100));
   const [isMicMuted, setIsMicMuted] = useState(false);
-  const [selectedInputDevice, setSelectedInputDevice] = useState('');
-  const [selectedOutputDevice, setSelectedOutputDevice] = useState('');
-  const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(true);
+  const [selectedInputDevice, setSelectedInputDevice] = useState(
+    () => getStoredPreference('selectedInputDevice', '')
+  );
+  const [selectedOutputDevice, setSelectedOutputDevice] = useState(
+    () => getStoredPreference('selectedOutputDevice', '')
+  );
+  const [noiseSuppressionEnabled, setNoiseSuppressionEnabled] = useState(
+    () => getStoredPreference('noiseSuppressionEnabled', true)
+  );
   const [isDeafened, setIsDeafened] = useState(false);
   const [userVolumes, setUserVolumes] = useState({});
   const [volumeMenu, setVolumeMenu] = useState(EMPTY_VOLUME_MENU);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VOICE_PREFERENCES_KEY, JSON.stringify({
+        inputVolume,
+        outputVolume,
+        selectedInputDevice,
+        selectedOutputDevice,
+        noiseSuppressionEnabled,
+      }));
+    } catch {
+      // Depolama kapalıysa tercihler geçerli oturum boyunca çalışmaya devam eder.
+    }
+  }, [
+    inputVolume,
+    outputVolume,
+    selectedInputDevice,
+    selectedOutputDevice,
+    noiseSuppressionEnabled,
+  ]);
 
   const toggleMic = useCallback(() => setIsMicMuted((current) => !current), []);
 

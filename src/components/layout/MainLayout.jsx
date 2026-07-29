@@ -542,8 +542,8 @@ function MainLayout() {
     }
   }, [kickingVoiceUserId, pendingVoiceKick, showToast]);
 
-  const handleOpenProfileSettings = useCallback(() => {
-    setAccountSettingsTab('profile');
+  const handleOpenProfileSettings = useCallback((tab = 'profile') => {
+    setAccountSettingsTab(tab);
     setShowAccountSettings(true);
   }, []);
 
@@ -1403,6 +1403,18 @@ function MainLayout() {
           initialTab={accountSettingsTab}
           onClose={() => setShowAccountSettings(false)}
           onProfileUpdated={updateUser}
+          audioSettings={{
+            inputVolume,
+            setInputVolume,
+            outputVolume,
+            setOutputVolume,
+            selectedInputDevice,
+            setSelectedInputDevice,
+            selectedOutputDevice,
+            setSelectedOutputDevice,
+            noiseSuppressionEnabled,
+            setNoiseSuppressionEnabled,
+          }}
         />
       )}
 
