@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, Link } from "react-router";
 import "../styles/auth.css";
@@ -28,22 +28,26 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-container">
+    <main className="auth-container">
       <div className="auth-card">
-        {/* Logo */}
-        <div className="auth-logo">
-          <img src="/logo.png" alt="Voxify Logo" className="auth-logo__image" />
+        <Link className="auth-logo" to="/" aria-label="Voxify ana sayfa">
+          <img src="/logo.png" alt="" className="auth-logo__image" />
+        </Link>
+
+        <div className="auth-header">
+          <h1 id="login-title" className="auth-header__title">Tekrar hoş geldin</h1>
+          <p className="auth-header__subtitle">Topluluğuna kaldığın yerden devam et.</p>
         </div>
 
-        {/* Form */}
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {/* Username */}
+        <form className="auth-form" onSubmit={handleSubmit} aria-labelledby="login-title">
           <label className="auth-field">
-            <p className="auth-field__label">Username</p>
+            <p className="auth-field__label">Kullanıcı adı</p>
             <input
               className="auth-field__input"
               type="text"
-              placeholder="Enter your username"
+              name="username"
+              autoComplete="username"
+              placeholder="Kullanıcı adını gir"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               required
@@ -53,13 +57,15 @@ function LoginPage() {
           {/* Password */}
           <div className="auth-field">
             <div className="auth-field__label-row">
-              <p className="auth-field__label auth-field__label--inline">Password</p>
+              <p className="auth-field__label auth-field__label--inline">Parola</p>
             </div>
             <div className="auth-field__password-wrapper">
               <input
                 className="auth-field__input"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                name="password"
+                autoComplete="current-password"
+                placeholder="Parolanı gir"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -68,11 +74,12 @@ function LoginPage() {
               <button
                 type="button"
                 className="auth-field__toggle-password"
-                aria-label="Toggle password visibility"
-                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Parolayı gizle" : "Parolayı göster"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((visible) => !visible)}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                  {showPassword ? "visibility" : "visibility_off"}
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }} aria-hidden="true">
+                  {showPassword ? "visibility_off" : "visibility"}
                 </span>
               </button>
 
@@ -80,26 +87,23 @@ function LoginPage() {
             <Link to="/forgot-password" className="auth-field__forgot">Parolanı mı unuttun?</Link>
           </div>
 
-          {/* Error */}
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
 
-          {/* Submit */}
           <div style={{ paddingTop: '0.5rem' }}>
             <button type="submit" className="auth-submit" disabled={loading}>
-              <span>{loading ? "Logging in..." : "Log In"}</span>
+              <span>{loading ? "Giriş yapılıyor..." : "Giriş yap"}</span>
             </button>
           </div>
         </form>
 
-        {/* Footer */}
         <div className="auth-footer">
           <p className="auth-footer__text">
-            Don&apos;t have an account?{" "}
-            <Link to="/register" className="auth-footer__link">Sign Up</Link>
+            Hesabın yok mu?{" "}
+            <Link to="/register" className="auth-footer__link">Ücretsiz kayıt ol</Link>
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -1265,14 +1265,18 @@
   transform: translateY(-5px);
 }
 
-.landing-feature--voice,
-.landing-feature--messages {
+.landing-feature--voice {
   grid-column: span 7;
 }
 
-.landing-feature--screen,
-.landing-feature--control {
+.landing-feature--screen {
   grid-column: span 5;
+}
+
+.landing-feature--messages,
+.landing-feature--direct,
+.landing-feature--control {
+  grid-column: span 4;
 }
 
 .landing-feature--voice {
@@ -1292,6 +1296,13 @@
   background:
     radial-gradient(circle at 82% 80%, rgba(76, 141, 255, 0.13), transparent 40%),
     #0b1929;
+}
+
+.landing-feature--direct {
+  background:
+    radial-gradient(circle at 78% 78%, rgba(53, 230, 208, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(79, 116, 255, 0.04), transparent 36%),
+    #0b1a2a;
 }
 
 .landing-feature--control {
@@ -1337,6 +1348,12 @@
   color: #8298ab;
   font-size: 0.87rem;
   line-height: 1.65;
+}
+
+.landing-feature--messages h3,
+.landing-feature--direct h3,
+.landing-feature--control h3 {
+  font-size: clamp(1.55rem, 2.05vw, 2rem);
 }
 
 .landing-feature-voice {
@@ -1627,6 +1644,137 @@
 
 .landing-typing i:nth-child(2) { animation-delay: 150ms; }
 .landing-typing i:nth-child(3) { animation-delay: 300ms; }
+
+.landing-feature-direct {
+  position: absolute;
+  right: 26px;
+  bottom: 24px;
+  left: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(128, 194, 229, 0.13);
+  border-radius: 16px;
+  background: rgba(7, 20, 34, 0.82);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.2);
+}
+
+.landing-feature-direct__person {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(137, 191, 228, 0.1);
+  background: rgba(17, 38, 58, 0.78);
+}
+
+.landing-feature-direct__person > span {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1aa395, #4673d8);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.landing-feature-direct__person > span i {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #10263a;
+  border-radius: 50%;
+  background: var(--landing-green);
+}
+
+.landing-feature-direct__person p,
+.landing-feature-direct__person strong,
+.landing-feature-direct__person small {
+  display: block;
+  margin: 0;
+}
+
+.landing-feature-direct__person strong {
+  color: #e0ebf3;
+  font-size: 0.64rem;
+}
+
+.landing-feature-direct__person small {
+  margin-top: 2px;
+  color: #66869b;
+  font-size: 0.48rem;
+}
+
+.landing-feature-direct__person > div {
+  display: flex;
+  gap: 5px;
+}
+
+.landing-feature-direct__person > div i {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(70, 113, 147, 0.18);
+  color: #7e9db3;
+  font-size: 14px;
+  font-style: normal;
+}
+
+.landing-feature-direct__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px 6px;
+}
+
+.landing-feature-direct__thread p {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0;
+  border-radius: 9px 9px 9px 3px;
+  padding: 6px 9px;
+  background: rgba(47, 76, 101, 0.48);
+  color: #9eb1c1;
+  font-size: 0.52rem;
+  line-height: 1.35;
+  animation: landing-message-in 4.8s ease-in-out infinite;
+}
+
+.landing-feature-direct__thread p:last-child {
+  align-self: flex-end;
+  border-radius: 9px 9px 3px;
+  background: linear-gradient(120deg, rgba(55, 118, 218, 0.68), rgba(38, 151, 155, 0.58));
+  color: #edf8fa;
+  animation-delay: 900ms;
+}
+
+.landing-feature-direct__composer {
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 8px 8px;
+  border: 1px solid rgba(139, 191, 226, 0.1);
+  border-radius: 9px;
+  padding: 0 8px 0 10px;
+  background: rgba(22, 43, 62, 0.72);
+  color: #587287;
+  font-size: 0.5rem;
+}
+
+.landing-feature-direct__composer i {
+  color: #54cfc0;
+  font-size: 14px;
+  font-style: normal;
+  transform: rotate(-8deg);
+}
 
 .landing-feature-control {
   position: absolute;
@@ -2600,6 +2748,7 @@
 
   .landing-feature--voice,
   .landing-feature--messages,
+  .landing-feature--direct,
   .landing-feature--screen,
   .landing-feature--control {
     grid-column: span 12;
@@ -2810,7 +2959,8 @@
   }
 
   .landing-feature-voice,
-  .landing-feature-messages {
+  .landing-feature-messages,
+  .landing-feature-direct {
     right: 20px;
     left: 20px;
   }

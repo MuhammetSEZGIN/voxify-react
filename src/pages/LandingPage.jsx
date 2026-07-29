@@ -8,6 +8,7 @@ const tickerItems = [
   ['graphic_eq', 'Canlı ses kanalları'],
   ['screen_share', 'Ekran paylaşımı'],
   ['forum', 'Anlık mesajlaşma'],
+  ['person_chat', 'Arkadaşlarla özel sohbet'],
   ['groups', 'Klan toplulukları'],
   ['notifications_active', 'Akıllı bildirimler'],
 ];
@@ -34,8 +35,16 @@ const featureCards = [
     eyebrow: 'ANLIK MESAJLAR',
     icon: 'chat_bubble',
     title: 'Sohbet kaldığı yerden akar.',
-    description: 'Kanallar, direkt mesajlar, GIF’ler ve bildirimler. Her şey kendi ritminde.',
+    description: 'Metin kanalları, GIF’ler ve bildirimler. Her konu kendi akışında, her mesaj yerli yerinde.',
     visual: 'messages',
+  },
+  {
+    className: 'landing-feature landing-feature--direct',
+    eyebrow: 'ÖZEL SOHBET',
+    icon: 'lock_person',
+    title: 'Arkadaşınla aranızda kalsın.',
+    description: 'Doğrudan mesajlaş, birebir görüşmeye geç ve sohbetinizi kalabalıktan uzak tut.',
+    visual: 'direct',
   },
   {
     className: 'landing-feature landing-feature--control',
@@ -270,6 +279,29 @@ function FeatureVisual({ type }) {
         <div><span>A</span><p><strong>Asya</strong> Bu gece bizde misin?</p></div>
         <div><span>M</span><p><strong>Mert</strong> Ben hazırım ✨</p></div>
         <div className="landing-typing"><i /><i /><i /></div>
+      </div>
+    );
+  }
+
+  if (type === 'direct') {
+    return (
+      <div className="landing-feature-direct" aria-hidden="true">
+        <div className="landing-feature-direct__person">
+          <span>A<i /></span>
+          <p><strong>Asya</strong><small>Çevrimiçi</small></p>
+          <div>
+            <i className="material-symbols-outlined">call</i>
+            <i className="material-symbols-outlined">videocam</i>
+          </div>
+        </div>
+        <div className="landing-feature-direct__thread">
+          <p>Bu akşam beraber miyiz?</p>
+          <p>Kesinlikle, birazdan seste 🎧</p>
+        </div>
+        <div className="landing-feature-direct__composer">
+          <span>Özel mesaj gönder...</span>
+          <i className="material-symbols-outlined">send</i>
+        </div>
       </div>
     );
   }
