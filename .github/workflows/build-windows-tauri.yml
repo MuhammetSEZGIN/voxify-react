@@ -48,6 +48,21 @@ jobs:
           VITE_MOCKING=false
           EOF
 
+      - name: Debug .env (no secret values)
+        shell: bash
+        run: |
+          while IFS= read -r line; do
+            key="${line%%=*}"
+            val="${line#*=}"
+            if [ -z "$val" ]; then
+              echo "$key -> EMPTY"
+            elif [[ "$key" == VITE_BASE_URL || "$key" == VITE_HUB_URL || "$key" == VITE_PRESENCE_HUB_URL || "$key" == VITE_LIVEKIT_URL || "$key" == VITE_VOICE_SERVER_URL ]]; then
+              echo "$key -> $val"
+            else
+              echo "$key -> set (len=${#val})"
+            fi
+          done < .env
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
