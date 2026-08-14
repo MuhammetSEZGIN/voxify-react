@@ -1,4 +1,11 @@
 import api from "./api";
+import {
+  getMemberAvatarUrl,
+  getMemberBio,
+  getMemberId,
+  getMemberName,
+  getMemberProfileBackgroundUrl,
+} from '../utils/member';
 
 /**
  * Şifre değiştirme, e-posta doğrulama, profil ve kullanıcı arama işlemleri.
@@ -34,6 +41,44 @@ function describeError(error, fallbackMessage) {
   }
 
   return data?.message || data?.detail || data?.title || error.message || fallbackMessage;
+}
+
+function isUnsupportedProfileBackgroundField(error) {
+  if (![400, 422].includes(error.response?.status)) return false;
+  const details = `${error.message || ''} ${JSON.stringify(error.response?.data || {})}`.toLowerCase();
+  return details.includes('profilebackgroundurl')
+    && ['unknown', 'unmapped', 'not recognized', 'not supported', 'could not be mapped']
+      .some((phrase) => details.includes(phrase));
+}
+
+function normalizeProfile(profile) {
+  if (!profile) return profile;
+
+  const normalized = {
+    ...profile,
+    id: getMemberId(profile),
+    userName: getMemberName(profile),
+    avatarUrl: getMemberAvatarUrl(profile),
+    bio: getMemberBio(profile),
+  };
+
+  const hasProfileBackground = [
+    'profileBackgroundUrl',
+    'ProfileBackgroundUrl',
+    'backgroundUrl',
+    'BackgroundUrl',
+    'bannerUrl',
+    'BannerUrl',
+  ].some((key) => Object.prototype.hasOwnProperty.call(profile, key))
+    || ['profileBackgroundUrl', 'backgroundUrl', 'bannerUrl'].some(
+      (key) => Object.prototype.hasOwnProperty.call(profile.user || {}, key)
+    );
+
+  if (hasProfileBackground) {
+    normalized.profileBackgroundUrl = getMemberProfileBackgroundUrl(profile);
+  }
+
+  return normalized;
 }
 
 /**
@@ -93,12 +138,12 @@ async function confirmEmail(userId, token) {
 /**
  * Oturum açık kullanıcının profil bilgilerini getirir.
  * GET /identity/user/me
- * @returns {Promise<{userName, email, bio, avatarUrl, emailConfirmed}>}
+ * @returns {Promise<{userName, email, bio, avatarUrl, profileBackgroundUrl, emailConfirmed}>}
  */
 async function getMe() {
   try {
     const response = await api.get("/identity/user/me");
-    return unwrap(response.data, "Profil bilgileri alınamadı");
+    return normalizeProfile(unwrap(response.data, "Profil bilgileri alınamadı"));
   } catch (error) {
     throw new Error(describeError(error, 'Profil bilgileri alınırken bir hata oluştu'));
   }
@@ -107,7 +152,7 @@ async function getMe() {
 /**
  * Profil bilgilerini günceller (görünen ad, biyografi, avatar URL'si vb).
  * PUT /identity/user/update — userId JWT'den okunur.
- * @param {{userName?: string, bio?: string, avatarUrl?: string}} updates
+ * @param {{userName?: string, bio?: string, avatarUrl?: string, profileBackgroundUrl?: string}} updates
  * @returns {Promise<Object>}
  */
 async function updateProfile(updates) {
@@ -118,7 +163,48 @@ async function updateProfile(updates) {
     // güncel profil alanları isteğin kendisidir.
     return updates;
   } catch (error) {
+    // Yeni profil arka planı alanı henüz canlı backend DTO'suna eklenmediyse,
+    // kullanıcı adı/biyografi/avatar kaydını bozmamak için eski kontratla bir
+    // kez daha dene. Arka plan bu sırada AuthContext'te yerel olarak korunur.
+    if (
+      Object.prototype.hasOwnProperty.call(updates, 'profileBackgroundUrl')
+      && isUnsupportedProfileBackgroundField(error)
+    ) {
+      const { profileBackgroundUrl: _unsupportedProfileBackgroundUrl, ...legacyUpdates } = updates;
+      try {
+        const legacyResponse = await api.put('/identity/user/update', legacyUpdates);
+        unwrap(legacyResponse.data, 'Profil güncellenemedi');
+        return updates;
+      } catch (legacyError) {
+        throw new Error(describeError(legacyError, 'Profil güncellenirken bir hata oluştu'));
+      }
+    }
     throw new Error(describeError(error, 'Profil güncellenirken bir hata oluştu'));
+  }
+}
+
+/**
+ * Başka bir kullanıcının profil kartında gösterilebilen herkese açık alanlarını
+ * getirir. Endpoint henüz backend'de yoksa çağıran bileşen üyelik/arkadaşlık
+ * verisine sessizce geri düşer. `skipAuthRefresh`, gateway'in olmayan route'u
+ * 401 olarak raporladığı kurulumlarda oturumun yanlışlıkla kapanmasını önler.
+ *
+ * GET /identity/user/{userId}/profile
+ * @param {string} userId
+ * @param {AbortSignal} signal
+ */
+async function getPublicProfile(userId, signal) {
+  if (!userId) return null;
+
+  try {
+    const response = await api.get(`/identity/user/${encodeURIComponent(userId)}/profile`, {
+      signal,
+      skipAuthRefresh: true,
+    });
+    return normalizeProfile(unwrap(response.data, 'Kullanıcı profili alınamadı'));
+  } catch (error) {
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') throw error;
+    throw new Error(describeError(error, 'Kullanıcı profili alınamadı'));
   }
 }
 
@@ -174,10 +260,20 @@ const UserService = {
   resendConfirmationEmail,
   confirmEmail,
   getMe,
+  getPublicProfile,
   updateProfile,
   updateEmail,
   searchUsers,
 };
 
 export default UserService;
-export { changePassword, resendConfirmationEmail, confirmEmail, getMe, updateProfile, updateEmail, searchUsers };
+export {
+  changePassword,
+  resendConfirmationEmail,
+  confirmEmail,
+  getMe,
+  getPublicProfile,
+  updateProfile,
+  updateEmail,
+  searchUsers,
+};

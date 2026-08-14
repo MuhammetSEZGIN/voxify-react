@@ -9,7 +9,11 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
   const [userName, setUserName] = useState(user?.userName || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [profileBackgroundUrl, setProfileBackgroundUrl] = useState(
+    user?.profileBackgroundUrl || ''
+  );
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState(null);
   const [profileSuccess, setProfileSuccess] = useState(null);
@@ -39,6 +43,9 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
         setUserName(profile.userName || '');
         setBio(profile.bio || '');
         setAvatarUrl(profile.avatarUrl || '');
+        if (Object.prototype.hasOwnProperty.call(profile, 'profileBackgroundUrl')) {
+          setProfileBackgroundUrl(profile.profileBackgroundUrl || '');
+        }
         setEmail(profile.email || '');
         onProfileUpdated?.(profile);
       })
@@ -65,11 +72,39 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
     }
   };
 
+  const handleBackgroundChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setProfileError('Arka plan için bir görsel veya GIF seçmelisin.');
+      e.target.value = '';
+      return;
+    }
+
+    setBackgroundUploading(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+    try {
+      const url = await ImgBBService.uploadImage(file);
+      setProfileBackgroundUrl(url);
+    } catch (err) {
+      setProfileError(err.message || 'Arka plan görseli yüklenemedi');
+    } finally {
+      setBackgroundUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!userName.trim()) return;
     const normalizedAvatarUrl = avatarUrl.trim();
+    const normalizedBackgroundUrl = profileBackgroundUrl.trim();
     if (normalizedAvatarUrl && !/^https:\/\//i.test(normalizedAvatarUrl)) {
       setProfileError('Profil fotoğrafı URL’si https:// ile başlamalıdır.');
+      return;
+    }
+    if (normalizedBackgroundUrl && !/^https:\/\//i.test(normalizedBackgroundUrl)) {
+      setProfileError('Profil arka planı URL’si https:// ile başlamalıdır.');
       return;
     }
     setProfileSaving(true);
@@ -80,6 +115,7 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
         userName: userName.trim(),
         bio: bio.trim(),
         avatarUrl: normalizedAvatarUrl || null,
+        profileBackgroundUrl: normalizedBackgroundUrl || null,
       });
       setProfileSuccess('Profil güncellendi');
       onProfileUpdated?.(updated);
@@ -238,6 +274,70 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
                 </p>
               </div>
 
+              <div className="clan-settings__field account-settings__background-field">
+                <label className="clan-settings__label" htmlFor="account-background-url">
+                  Profil Arka Planı
+                </label>
+                <div className="account-settings__background-preview">
+                  {profileBackgroundUrl ? (
+                    <img src={profileBackgroundUrl} alt="Profil arka planı önizlemesi" />
+                  ) : (
+                    <div className="account-settings__background-placeholder">
+                      <span className="material-symbols-outlined">panorama</span>
+                      <span>Profil kartında görünecek arka plan</span>
+                    </div>
+                  )}
+                  <div className="account-settings__background-preview-avatar">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="" />
+                    ) : (
+                      <span>{userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="account-settings__background-actions">
+                  <label className="clan-settings__save-btn account-settings__avatar-upload-btn">
+                    {backgroundUploading ? 'Yükleniyor...' : 'Görsel veya GIF Yükle'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={handleBackgroundChange}
+                      disabled={backgroundUploading}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  {profileBackgroundUrl && (
+                    <button
+                      type="button"
+                      className="account-settings__background-remove"
+                      onClick={() => {
+                        setProfileBackgroundUrl('');
+                        setProfileError(null);
+                        setProfileSuccess(null);
+                      }}
+                    >
+                      Kaldır
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="account-background-url"
+                  className="clan-settings__input"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://ornek.com/arka-plan.gif"
+                  value={profileBackgroundUrl}
+                  onChange={(e) => {
+                    setProfileBackgroundUrl(e.target.value);
+                    setProfileError(null);
+                    setProfileSuccess(null);
+                  }}
+                />
+                <p className="account-settings__field-hint">
+                  PNG, JPG, WebP ve hareketli GIF kullanabilirsin. Görsel profil kartında kırpılarak gösterilir.
+                </p>
+              </div>
+
               <div className="clan-settings__field">
                 <label className="clan-settings__label">Kullanıcı Adı</label>
                 <input
@@ -265,7 +365,7 @@ function AccountSettings({ user, onClose, onProfileUpdated, initialTab = 'profil
               <button
                 className="clan-settings__save-btn"
                 onClick={handleSaveProfile}
-                disabled={profileSaving || avatarUploading || !userName.trim()}
+                disabled={profileSaving || avatarUploading || backgroundUploading || !userName.trim()}
               >
                 {profileSaving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
               </button>

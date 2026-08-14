@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import MessageContent from './MessageContent';
+import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
 
 function MessageAvatar({ group }) {
   return (
@@ -32,6 +33,7 @@ function ChatMessageList({
   onCancelEdit,
   onSubmitEdit,
   onContextMenu,
+  participantProfiles = [],
 }) {
   const currentUserId = user?.id || user?.sub || '';
   const currentUserName = user?.userName || user?.name;
@@ -66,13 +68,23 @@ function ChatMessageList({
       ) : (
         groupedMessages.map((group, groupIndex) => {
           const isOwn = group.senderId === currentUserId || group.userName === currentUserName;
+          const knownProfile = participantProfiles.find((profile) => (
+            (group.senderId && getMemberId(profile) === group.senderId)
+            || getMemberName(profile) === group.userName
+          ));
+          const resolvedGroup = {
+            ...group,
+            avatarUrl: group.avatarUrl
+              || getMemberAvatarUrl(knownProfile)
+              || (isOwn ? user?.avatarUrl : null),
+          };
 
           return (
             <div
               key={`${groupIndex}-${group.messages[0].messageId}`}
               className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}
             >
-              {!isOwn && <MessageAvatar group={group} />}
+              {!isOwn && <MessageAvatar group={resolvedGroup} />}
               <div className="chat-area__message-content">
                 <div className="chat-area__message-header">
                   <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
@@ -134,7 +146,7 @@ function ChatMessageList({
                   </div>
                 ))}
               </div>
-              {isOwn && <MessageAvatar group={group} />}
+              {isOwn && <MessageAvatar group={resolvedGroup} />}
             </div>
           );
         })

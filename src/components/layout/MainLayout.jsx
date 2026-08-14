@@ -40,7 +40,13 @@ import {
   setClanMuted as persistClanMuted,
   setUserMuted as persistUserMuted,
 } from '../../utils/messageNotifications';
-import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
+import {
+  getMemberAvatarUrl,
+  getMemberBio,
+  getMemberId,
+  getMemberName,
+  getMemberProfileBackgroundUrl,
+} from '../../utils/member';
 import { playScreenShareFeedback } from '../../utils/screenShareFeedback';
 import ConfirmDialog from '../common/ConfirmDialog';
 
@@ -178,9 +184,27 @@ function MainLayout() {
           ? getMemberName(member)
           : knownProfile?.userName || knownProfile?.username || 'Unknown',
         avatarUrl: getMemberAvatarUrl(member) || knownProfile?.avatarUrl || null,
+        bio: getMemberBio(member) || knownProfile?.bio || '',
+        profileBackgroundUrl: getMemberProfileBackgroundUrl(member)
+          || knownProfile?.profileBackgroundUrl
+          || null,
       };
     });
   }, [friends, memeberShips, user]);
+
+  // Mesaj DTO'sunda avatar bulunmadığında backend'e yeni bir alan ekletmeden,
+  // zaten yüklenmiş oturum kullanıcısı/arkadaş profillerinden tamamlanır.
+  const dmParticipantProfiles = useMemo(() => {
+    if (!activeDmConversation) return user ? [user] : [];
+    return [
+      ...(user ? [user] : []),
+      {
+        userId: activeDmConversation.otherUserId,
+        userName: activeDmConversation.otherUserName,
+        avatarUrl: activeDmConversation.otherAvatarUrl,
+      },
+    ];
+  }, [activeDmConversation, user]);
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type });
@@ -409,6 +433,7 @@ function MainLayout() {
         conversationId: conversation.conversationId,
         otherUserId: friend.id,
         otherUserName: friend.userName,
+        otherAvatarUrl: friend.avatarUrl || conversation.otherAvatarUrl || null,
       });
       // Sağ panelden bir arkadaşa tıklamak Arkadaşlar sekmesine geçirir —
       // klan görünümündeyken DM açılırsa sohbet alanı boş kalmasın.
@@ -1289,12 +1314,14 @@ function MainLayout() {
               : null
           }
           notificationVolume={outputVolume}
+          participantProfiles={dmParticipantProfiles}
         />
       ) : (
         <ChatArea
           clan={selectedClan}
           channel={selectedChannel}
           notificationVolume={outputVolume}
+          participantProfiles={displayMemberships}
         />
       )}
       {dmError && (
@@ -1483,6 +1510,7 @@ function MainLayout() {
         visible={profilePopup.visible}
         anchorRect={profilePopup.anchorRect}
         member={profilePopup.member}
+        currentUserId={user?.id || user?.sub || user?.userId || ''}
         isOnline={onlineUserIds.has(getMemberId(profilePopup.member))}
         onClose={handleCloseProfilePopup}
       />

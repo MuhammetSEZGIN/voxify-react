@@ -78,7 +78,7 @@ api.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
 
-    if (response?.status === 401 && config && !config._retry) {
+    if (response?.status === 401 && config && !config._retry && !config.skipAuthRefresh) {
       // Refresh isteğinin kendisi 401 döndüyse tekrar denemeye çalışma.
       if (config.url?.includes("/identity/refresh-token")) {
         console.error("Refresh token da geçersiz. Oturum kapatılıyor...");
