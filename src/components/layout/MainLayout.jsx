@@ -193,6 +193,8 @@ function MainLayout() {
     });
   }, [friends, memeberShips, user]);
 
+  // Mesaj DTO'sunda avatar bulunmadığında backend'e yeni bir alan ekletmeden,
+  // zaten yüklenmiş oturum kullanıcısı/arkadaş profillerinden tamamlanır.
   const dmParticipantProfiles = useMemo(() => {
     if (!activeDmConversation) return user ? [user] : [];
     return [
@@ -201,8 +203,6 @@ function MainLayout() {
         userId: activeDmConversation.otherUserId,
         userName: activeDmConversation.otherUserName,
         avatarUrl: activeDmConversation.otherAvatarUrl,
-        bio: activeDmConversation.otherBio || '',
-        profileBackgroundUrl: activeDmConversation.otherProfileBackgroundUrl || null,
       },
     ];
   }, [activeDmConversation, user]);
@@ -424,9 +424,7 @@ function MainLayout() {
         conversationId: notification.targetId,
         otherUserId: notification.actorUserId || actor?.id || '',
         otherUserName: actor?.userName || notification.title || 'Doğrudan Mesaj',
-        otherAvatarUrl: notification.actorAvatarUrl || actor?.avatarUrl || null,
-        otherBio: actor?.bio || '',
-        otherProfileBackgroundUrl: actor?.profileBackgroundUrl || null,
+        otherAvatarUrl: actor?.avatarUrl || null,
       });
       setMobilePane('chat');
       navigate('/app');
@@ -442,10 +440,6 @@ function MainLayout() {
         otherUserId: friend.id,
         otherUserName: friend.userName,
         otherAvatarUrl: friend.avatarUrl || conversation.otherAvatarUrl || null,
-        otherBio: friend.bio || conversation.otherBio || '',
-        otherProfileBackgroundUrl: friend.profileBackgroundUrl
-          || conversation.otherProfileBackgroundUrl
-          || null,
       });
       // Sağ panelden bir arkadaşa tıklamak Arkadaşlar sekmesine geçirir —
       // klan görünümündeyken DM açılırsa sohbet alanı boş kalmasın.
@@ -489,13 +483,7 @@ function MainLayout() {
   };
 
   const handleSendMessageFromMember = (member) => {
-    handleOpenDm({
-      id: getMemberId(member),
-      userName: getMemberName(member),
-      avatarUrl: getMemberAvatarUrl(member),
-      bio: getMemberBio(member),
-      profileBackgroundUrl: getMemberProfileBackgroundUrl(member),
-    });
+    handleOpenDm({ id: getMemberId(member), userName: member.userName || member.username });
   };
 
   const handleSelectChannel = (channel) => {
@@ -1269,7 +1257,6 @@ function MainLayout() {
           onDisconnectVoice={handleDisconnectVoice}
           onWatchScreenShare={handleWatchScreenShare}
           callPanel={dmCallPanel}
-          friends={friends}
           headerAccessory={(
             <NotificationCenter
               notifications={notifications}
@@ -1344,7 +1331,6 @@ function MainLayout() {
           }
           notificationVolume={outputVolume}
           participantProfiles={dmParticipantProfiles}
-          onUserClick={handleMemberClick}
         />
       ) : (
         <ChatArea
@@ -1352,7 +1338,6 @@ function MainLayout() {
           channel={selectedChannel}
           notificationVolume={outputVolume}
           participantProfiles={displayMemberships}
-          onUserClick={handleMemberClick}
         />
       )}
       {dmError && (

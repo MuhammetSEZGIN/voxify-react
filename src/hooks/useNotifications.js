@@ -21,13 +21,6 @@ function normalizeNotification(notification) {
 
   return {
     ...notification,
-    actorUserId: notification.actorUserId || notification.ActorUserId
-      || notification.actor?.id || '',
-    actorUserName: notification.actorUserName || notification.ActorUserName
-      || notification.actor?.userName || notification.senderName || '',
-    actorAvatarUrl: notification.actorAvatarUrl || notification.ActorAvatarUrl
-      || notification.avatarUrl || notification.AvatarUrl
-      || notification.actor?.avatarUrl || notification.senderAvatarUrl || null,
     type: numericType === null
       ? notification.type
       : (NOTIFICATION_TYPES[numericType] || notification.type),

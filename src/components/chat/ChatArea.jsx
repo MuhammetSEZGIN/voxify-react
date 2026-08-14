@@ -36,7 +36,6 @@ function ChatArea({
   voiceCallPhase = null,
   notificationVolume = 100,
   participantProfiles = [],
-  onUserClick,
 }) {
   const isDm = variant === 'dm';
 
@@ -393,7 +392,6 @@ function ChatArea({
           onSubmitEdit={handleSubmitEdit}
           onContextMenu={handleContextMenu}
           participantProfiles={participantProfiles}
-          onUserClick={onUserClick}
         />
 
         {/* Sağ tık Context Menu */}

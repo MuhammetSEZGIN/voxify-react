@@ -9,13 +9,7 @@ function normalizeConversation(raw, fallbackOtherUserId = '') {
     conversationId: raw.conversationId,
     otherUserId: raw.otherUserId || fallbackOtherUserId,
     otherUserName: raw.otherUserName || '',
-    otherAvatarUrl: raw.otherAvatarUrl || raw.avatarUrl || null,
-    otherBio: raw.otherBio || raw.bio || '',
-    otherProfileBackgroundUrl: raw.otherProfileBackgroundUrl
-      || raw.profileBackgroundUrl
-      || raw.backgroundUrl
-      || raw.bannerUrl
-      || null,
+    otherAvatarUrl: raw.otherAvatarUrl || null,
     lastMessage: raw.lastMessage ?? null,
     lastMessageAt: raw.lastMessageAt ?? null,
     createdAt: raw.createdAt ?? null,

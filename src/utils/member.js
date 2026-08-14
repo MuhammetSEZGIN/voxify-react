@@ -21,12 +21,9 @@ export function getMemberAvatarUrl(member) {
   return member?.avatarUrl
     || member?.AvatarUrl
     || member?.avatarURL
-    || member?.profileImageUrl
-    || member?.ProfileImageUrl
     || member?.picture
     || member?.user?.avatarUrl
     || member?.user?.AvatarUrl
-    || member?.user?.profileImageUrl
     || member?.user?.picture
     || null;
 }

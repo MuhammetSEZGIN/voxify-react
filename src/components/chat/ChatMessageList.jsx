@@ -1,24 +1,16 @@
 import { memo } from 'react';
 import MessageContent from './MessageContent';
-import AvatarContent from '../common/AvatarContent';
 import { getMemberAvatarUrl, getMemberId, getMemberName } from '../../utils/member';
 
-function MessageAvatar({ member, onClick }) {
-  const name = getMemberName(member);
+function MessageAvatar({ group }) {
   return (
-    <button
-      type="button"
-      className="chat-area__message-avatar"
-      aria-label={`${name} profilini aç`}
-      title={`${name} profilini görüntüle`}
-      onClick={onClick}
-    >
-      <AvatarContent
-        src={getMemberAvatarUrl(member)}
-        name={name}
-        imgClassName="chat-area__message-avatar-img"
-      />
-    </button>
+    <div className="chat-area__message-avatar">
+      {group.avatarUrl ? (
+        <img src={group.avatarUrl} alt="" className="chat-area__message-avatar-img" />
+      ) : (
+        <span>{group.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+      )}
+    </div>
   );
 }
 
@@ -42,7 +34,6 @@ function ChatMessageList({
   onSubmitEdit,
   onContextMenu,
   participantProfiles = [],
-  onUserClick,
 }) {
   const currentUserId = user?.id || user?.sub || '';
   const currentUserName = user?.userName || user?.name;
@@ -79,18 +70,13 @@ function ChatMessageList({
           const isOwn = group.senderId === currentUserId || group.userName === currentUserName;
           const knownProfile = participantProfiles.find((profile) => (
             (group.senderId && getMemberId(profile) === group.senderId)
-            || (!group.senderId && getMemberName(profile) === group.userName)
+            || getMemberName(profile) === group.userName
           ));
-          const messageMember = {
-            ...(knownProfile || {}),
-            userId: group.senderId || getMemberId(knownProfile),
-            userName: group.userName || getMemberName(knownProfile),
+          const resolvedGroup = {
+            ...group,
             avatarUrl: group.avatarUrl
               || getMemberAvatarUrl(knownProfile)
               || (isOwn ? user?.avatarUrl : null),
-          };
-          const handleOpenProfile = (event) => {
-            onUserClick?.(messageMember, event.currentTarget.getBoundingClientRect());
           };
 
           return (
@@ -98,16 +84,10 @@ function ChatMessageList({
               key={`${groupIndex}-${group.messages[0].messageId}`}
               className={`chat-area__message-group ${isOwn ? 'chat-area__message-group--own' : ''}`}
             >
-              {!isOwn && <MessageAvatar member={messageMember} onClick={handleOpenProfile} />}
+              {!isOwn && <MessageAvatar group={resolvedGroup} />}
               <div className="chat-area__message-content">
                 <div className="chat-area__message-header">
-                  <button
-                    type="button"
-                    className="chat-area__message-author"
-                    onClick={handleOpenProfile}
-                  >
-                    {group.userName || 'Unknown'}
-                  </button>
+                  <p className="chat-area__message-author">{group.userName || 'Unknown'}</p>
                   <p className="chat-area__message-time">
                     {group.createdAt
                       ? new Date(group.createdAt).toLocaleTimeString([], {
@@ -166,7 +146,7 @@ function ChatMessageList({
                   </div>
                 ))}
               </div>
-              {isOwn && <MessageAvatar member={messageMember} onClick={handleOpenProfile} />}
+              {isOwn && <MessageAvatar group={resolvedGroup} />}
             </div>
           );
         })

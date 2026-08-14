@@ -12,7 +12,6 @@ export function groupMessagesBySender(messages) {
       && Math.abs(new Date(message.createdAt) - new Date(lastMessage.createdAt)) < 60000
     ) {
       lastGroup.messages.push(message);
-      if (!lastGroup.avatarUrl && message.avatarUrl) lastGroup.avatarUrl = message.avatarUrl;
     } else {
       groups.push({
         userName: message.userName,
@@ -48,13 +47,7 @@ export function normalizeMessage(message) {
       || message.senderName || message.SenderName || 'Unknown',
     senderId: message.senderId || message.SenderId || message.userId || message.UserId
       || message.user?.id || '',
-    avatarUrl: message.avatarUrl || message.AvatarUrl
-      || message.senderAvatarUrl || message.SenderAvatarUrl
-      || message.profileImageUrl || message.ProfileImageUrl
-      || message.user?.avatarUrl || message.user?.AvatarUrl
-      || message.user?.profileImageUrl
-      || message.sender?.avatarUrl || message.author?.avatarUrl
-      || null,
+    avatarUrl: message.avatarUrl || message.AvatarUrl || message.user?.avatarUrl || null,
     createdAt: message.createdAt || message.CreatedAt || message.sentAt || message.SentAt
       || new Date().toISOString(),
     channelId: message.channelId || message.ChannelId || '',
