@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import VoiceSessionPanel from '../voicechannel/VoiceSessionPanel';
+import AvatarContent from '../common/AvatarContent';
 
 const CONVERSATION_NOTIFICATION_TYPES = new Set([
   'DirectMessageReceived',
@@ -32,6 +33,7 @@ function FriendsNotificationSidebar({
   onDisconnectVoice,
   onWatchScreenShare,
   callPanel,
+  friends = [],
 }) {
   const [actionError, setActionError] = useState(null);
   const {
@@ -47,6 +49,10 @@ function FriendsNotificationSidebar({
         CONVERSATION_NOTIFICATION_TYPES.has(notification.type) && notification.targetId
     ),
     [items]
+  );
+  const friendsById = useMemo(
+    () => new Map(friends.map((friend) => [friend.id, friend])),
+    [friends]
   );
 
   const handleOpen = useCallback(async (notification) => {
@@ -92,36 +98,48 @@ function FriendsNotificationSidebar({
           </div>
         ) : (
           <div className="friends-notification-sidebar__list">
-            {conversationNotifications.map((notification) => (
-              <button
-                key={notification.id}
-                type="button"
-                className={`friends-notification-sidebar__item ${
-                  notification.isRead ? '' : 'friends-notification-sidebar__item--unread'
-                } ${
-                  activeConversationId === notification.targetId
-                    ? 'friends-notification-sidebar__item--active'
-                    : ''
-                }`}
-                onClick={() => handleOpen(notification)}
-              >
-                <span className="friends-notification-sidebar__item-icon material-symbols-outlined">
-                  {TYPE_ICONS[notification.type] || 'notifications'}
-                </span>
-                <span className="friends-notification-sidebar__item-content">
-                  <span className="friends-notification-sidebar__item-title">
-                    {notification.title || 'Doğrudan Mesaj'}
+            {conversationNotifications.map((notification) => {
+              const actor = friendsById.get(notification.actorUserId);
+              const actorName = notification.actorUserName
+                || actor?.userName
+                || notification.title
+                || 'Kullanıcı';
+              const actorAvatarUrl = notification.actorAvatarUrl || actor?.avatarUrl || null;
+
+              return (
+                <button
+                  key={notification.id}
+                  type="button"
+                  className={`friends-notification-sidebar__item ${
+                    notification.isRead ? '' : 'friends-notification-sidebar__item--unread'
+                  } ${
+                    activeConversationId === notification.targetId
+                      ? 'friends-notification-sidebar__item--active'
+                      : ''
+                  }`}
+                  onClick={() => handleOpen(notification)}
+                >
+                  <span className="friends-notification-sidebar__item-avatar">
+                    <AvatarContent src={actorAvatarUrl} name={actorName} />
+                    <span className="friends-notification-sidebar__item-type material-symbols-outlined">
+                      {TYPE_ICONS[notification.type] || 'notifications'}
+                    </span>
                   </span>
-                  <span className="friends-notification-sidebar__item-body">{notification.body}</span>
-                </span>
-                <time className="friends-notification-sidebar__item-time">
-                  {formatRelativeTime(notification.createdAt)}
-                </time>
-                {!notification.isRead && (
-                  <span className="friends-notification-sidebar__unread-dot" aria-label="Okunmamış" />
-                )}
-              </button>
-            ))}
+                  <span className="friends-notification-sidebar__item-content">
+                    <span className="friends-notification-sidebar__item-title">
+                      {notification.title || actorName || 'Doğrudan Mesaj'}
+                    </span>
+                    <span className="friends-notification-sidebar__item-body">{notification.body}</span>
+                  </span>
+                  <time className="friends-notification-sidebar__item-time">
+                    {formatRelativeTime(notification.createdAt)}
+                  </time>
+                  {!notification.isRead && (
+                    <span className="friends-notification-sidebar__unread-dot" aria-label="Okunmamış" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

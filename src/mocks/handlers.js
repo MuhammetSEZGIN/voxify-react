@@ -6,7 +6,15 @@ const IDENTITY_URL = import.meta.env.VITE_IDENTITY_URL || 'http://localhost:5158
 // Mock data
 
 const mockFriends = [
-  { id: 'friendship-002', userId: 'user-002', userName: 'user2', avatarUrl: null, status: 'Accepted' },
+  {
+    id: 'friendship-002',
+    userId: 'user-002',
+    userName: 'user2',
+    avatarUrl: null,
+    bio: 'Oyun ve teknoloji meraklısı.',
+    profileBackgroundUrl: null,
+    status: 'Accepted',
+  },
 ];
 
 const mockFriendRequests = [
@@ -41,6 +49,16 @@ const mockNotifications = [
     readAt: null,
   },
 ];
+
+const mockCurrentUserProfile = {
+  id: 'user-001',
+  userName: 'testuser',
+  email: 'test@example.com',
+  emailConfirmed: false,
+  avatarUrl: null,
+  bio: '',
+  profileBackgroundUrl: null,
+};
 
 function getOrCreateMockConversation(otherUserId) {
   const existing = mockConversations.find((c) => c.otherUserId === otherUserId);
@@ -339,30 +357,51 @@ export const handlers = [
 
     return HttpResponse.json({
       isSuccessfull: true,
-      data: {
-        id: 'user-001',
-        userName: 'testuser',
-        email: 'test@example.com',
-        emailConfirmed: false,
-        avatarUrl: null,
-        bio: '',
-      },
+      data: { ...mockCurrentUserProfile },
     });
+  }),
+
+  http.get(`${API_URL}/identity/user/:userId/profile`, ({ params }) => {
+    const profile = [
+      mockCurrentUserProfile,
+      {
+        id: 'user-002',
+        userName: 'user2',
+        avatarUrl: null,
+        bio: 'Oyun ve teknoloji meraklısı.',
+        profileBackgroundUrl: null,
+      },
+      {
+        id: 'user-003',
+        userName: 'gamer_ali',
+        avatarUrl: null,
+        bio: 'Birlikte oynayacak takım arkadaşları arıyorum.',
+        profileBackgroundUrl: null,
+      },
+    ].find((item) => item.id === params.userId);
+
+    if (!profile) {
+      return HttpResponse.json(
+        { isSuccessfull: false, message: 'Kullanıcı bulunamadı' },
+        { status: 404 }
+      );
+    }
+
+    return HttpResponse.json({ isSuccessfull: true, data: profile });
   }),
 
   http.put(`${API_URL}/identity/user/update`, async ({ request }) => {
     const updates = await request.json();
+    Object.assign(mockCurrentUserProfile, {
+      userName: updates.userName ?? mockCurrentUserProfile.userName,
+      avatarUrl: updates.avatarUrl ?? null,
+      bio: updates.bio ?? '',
+      profileBackgroundUrl: updates.profileBackgroundUrl ?? null,
+    });
 
     return HttpResponse.json({
       isSuccessfull: true,
-      data: {
-        id: 'user-001',
-        userName: updates.userName ?? 'testuser',
-        email: 'test@example.com',
-        emailConfirmed: false,
-        avatarUrl: updates.avatarUrl ?? null,
-        bio: updates.bio ?? '',
-      },
+      data: { ...mockCurrentUserProfile },
     });
   }),
 
